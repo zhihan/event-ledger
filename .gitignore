@@ -6,3 +6,6 @@ build/
 .venv/
 .pytest_cache/
 site/
+
+# Environment variables
+.env
