@@ -38,7 +38,7 @@ def _render_event(mem: Memory) -> str:
     """Render a single memory as an HTML list item."""
     title_html = _md_inline(mem.title or mem.content)
     parts = [f"<li><strong>{title_html}</strong>"]
-    details = []
+    details = [str(mem.target)]
     if mem.time:
         details.append(escape(mem.time))
     if mem.place:
