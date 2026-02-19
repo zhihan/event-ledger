@@ -199,3 +199,56 @@ def test_main_create_ongoing(mock_call_ai, mock_git, tmp_path: Path):
     assert mem.title == "Sunday Worship"
     assert files[0].name == "ongoing-sunday-worship.md"
     mock_git.assert_called_once()
+
+
+def test_build_ai_request_with_attachments():
+    prompt = build_ai_request(
+        "Meeting with flyer", [], date(2026, 2, 18),
+        attachment_urls=["https://storage.googleapis.com/bucket/flyer.pdf"],
+    )
+    assert "https://storage.googleapis.com/bucket/flyer.pdf" in prompt
+    assert "Attached file URLs" in prompt
+
+
+def test_build_ai_request_no_attachments():
+    prompt = build_ai_request("Meeting", [], date(2026, 2, 18))
+    assert "Attached file URLs" not in prompt
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+@patch("committer.upload_to_gcs")
+def test_main_with_attachments(mock_upload, mock_call_ai, mock_git, tmp_path: Path):
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    # Create a fake attachment file
+    attachment = tmp_path / "flyer.pdf"
+    attachment.write_bytes(b"fake-pdf")
+
+    mock_upload.return_value = "https://storage.googleapis.com/bucket/flyer.pdf"
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "Conference",
+        "time": None,
+        "place": None,
+        "content": "See attached flyer",
+        "attachments": ["https://storage.googleapis.com/bucket/flyer.pdf"],
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Conference with flyer",
+        "--attach", str(attachment),
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    mock_upload.assert_called_once_with(attachment)
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.attachments == ["https://storage.googleapis.com/bucket/flyer.pdf"]
+    mock_git.assert_called_once()

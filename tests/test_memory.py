@@ -101,6 +101,67 @@ def test_is_expired_ongoing():
     assert mem.is_expired(today=date(2026, 2, 23))
 
 
+def test_roundtrip_with_attachments(tmp_path: Path):
+    """A memory with attachments roundtrips correctly."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="See attached flyer.",
+        title="Conference",
+        attachments=["https://storage.googleapis.com/bucket/a.pdf",
+                     "https://storage.googleapis.com/bucket/b.png"],
+    )
+    path = tmp_path / "conference.md"
+    mem.dump(path)
+    loaded = Memory.load(path)
+    assert loaded == mem
+    assert loaded.attachments == [
+        "https://storage.googleapis.com/bucket/a.pdf",
+        "https://storage.googleapis.com/bucket/b.png",
+    ]
+
+
+def test_roundtrip_no_attachments(tmp_path: Path):
+    """A memory without attachments has attachments=None after roundtrip."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="No files.",
+    )
+    path = tmp_path / "nofiles.md"
+    mem.dump(path)
+    loaded = Memory.load(path)
+    assert loaded.attachments is None
+
+
+def test_attachments_file_format(tmp_path: Path):
+    """Attachments appear in the YAML frontmatter."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="Flyer attached.",
+        attachments=["https://example.com/flyer.pdf"],
+    )
+    path = tmp_path / "att.md"
+    mem.dump(path)
+    raw = path.read_text()
+    assert "attachments" in raw
+    assert "https://example.com/flyer.pdf" in raw
+
+
+def test_no_attachments_not_in_file(tmp_path: Path):
+    """When there are no attachments the key should not appear in the file."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="Nothing attached.",
+    )
+    path = tmp_path / "none.md"
+    mem.dump(path)
+    raw = path.read_text()
+    assert "attachments" not in raw
+
+
 def test_next_sunday():
     # Wednesday 2026-02-18 → Sunday 2026-02-22
     assert _next_sunday(date(2026, 2, 18)) == date(2026, 2, 22)

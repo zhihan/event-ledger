@@ -27,6 +27,14 @@ def load_memories(directory: Path, today: date) -> list[Memory]:
     return memories
 
 
+def _attachment_label(url: str) -> str:
+    """Derive a human-readable label from an attachment URL."""
+    from urllib.parse import urlparse, unquote
+    path = unquote(urlparse(url).path)
+    name = path.rsplit("/", 1)[-1] if "/" in path else path
+    return name or "attachment"
+
+
 def _md_inline(text: str) -> str:
     """Render markdown but strip the wrapping <p> tag for inline use."""
     html = markdown.markdown(text)
@@ -49,6 +57,12 @@ def _render_event(mem: Memory) -> str:
     if mem.title and mem.content:
         content_html = markdown.markdown(mem.content)
         parts.append(f"<div>{content_html}</div>")
+    if mem.attachments:
+        links = " ".join(
+            f'<a href="{escape(url)}">{escape(_attachment_label(url))}</a>'
+            for url in mem.attachments
+        )
+        parts.append(f'<div class="attachments">Attachments: {links}</div>')
     parts.append("</li>")
     return "\n".join(parts)
 
