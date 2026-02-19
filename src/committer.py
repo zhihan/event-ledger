@@ -13,6 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from memory import Memory, _next_sunday
+from storage import upload_to_gcs
 
 load_dotenv()
 
@@ -41,7 +42,7 @@ def load_memories(memories_dir: Path) -> list[Memory]:
     return memories
 
 
-def build_ai_request(message: str, existing_memories: list[Memory], today: date) -> str:
+def build_ai_request(message: str, existing_memories: list[Memory], today: date, attachment_urls: list[str] | None = None) -> str:
     """Build a prompt for the AI from the user message, existing memories, and today's date."""
     memory_summaries = []
     for mem in existing_memories:
@@ -61,6 +62,14 @@ def build_ai_request(message: str, existing_memories: list[Memory], today: date)
 
     memories_block = "\n".join(f"- {s}" for s in memory_summaries) if memory_summaries else "(none)"
 
+    attachments_block = ""
+    if attachment_urls:
+        urls = "\n".join(f"- {url}" for url in attachment_urls)
+        attachments_block = f"""
+Attached file URLs (already uploaded):
+{urls}
+"""
+
     return f"""\
 Today's date: {today.isoformat()}
 
@@ -68,7 +77,7 @@ Existing memories:
 {memories_block}
 
 User message: {message}
-
+{attachments_block}
 Respond in the same language as the user's message.
 When matching events, treat semantically equivalent events across languages as the same event (e.g. "work lunch" and "工作午餐" refer to the same event).
 
@@ -82,6 +91,7 @@ Respond with a single JSON object (no markdown fences) containing:
 - "time": time of day as a string (e.g. "10:00") or null
 - "place": location string or null
 - "content": event description in markdown format (use [text](url) for any links)
+- "attachments": list of attachment URLs to store with this memory (include any uploaded file URLs that are relevant), or null if none
 
 Use "update" when the user's message refers to an event that clearly matches an existing memory. Otherwise use "create"."""
 
@@ -116,19 +126,29 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--message", required=True, help="Free-form text describing the event")
     parser.add_argument("--today", type=date.fromisoformat, default=None,
                         help="Override today's date for testing")
+    parser.add_argument("--attach", type=Path, action="append", default=[],
+                        help="File(s) to upload as attachments (repeatable)")
     parser.add_argument("--no-push", action="store_true", help="Skip git push")
     args = parser.parse_args(argv)
 
     today = args.today or date.today()
     memories_dir: Path = args.memories_dir
 
+    # Upload attachments to GCS
+    attachment_urls: list[str] = []
+    for attach_path in args.attach:
+        url = upload_to_gcs(attach_path)
+        attachment_urls.append(url)
+
     existing_memories = load_memories(memories_dir)
-    prompt = build_ai_request(args.message, existing_memories, today)
+    prompt = build_ai_request(args.message, existing_memories, today,
+                              attachment_urls=attachment_urls or None)
     result = call_ai(prompt)
 
     raw_target = result.get("target")
     target = date.fromisoformat(raw_target) if raw_target else None
     expires = date.fromisoformat(result["expires"]) if result.get("expires") else _next_sunday(today)
+    raw_attachments = result.get("attachments")
     mem = Memory(
         target=target,
         expires=expires,
@@ -136,6 +156,7 @@ def main(argv: list[str] | None = None) -> None:
         title=result.get("title"),
         time=result.get("time"),
         place=result.get("place"),
+        attachments=raw_attachments if raw_attachments else None,
     )
 
     slug = result.get("slug")

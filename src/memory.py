@@ -30,12 +30,14 @@ class Memory:
     title: str | None = None
     time: str | None = None
     place: str | None = None
+    attachments: list[str] | None = None
 
     @classmethod
     def load(cls, path: Path) -> Memory:
         """Load a memory from a markdown file with YAML frontmatter."""
         post = frontmatter.load(path)
         raw_target = post.metadata.get("target")
+        raw_attachments = post.metadata.get("attachments")
         return cls(
             target=_parse_date(raw_target) if raw_target is not None else None,
             expires=_parse_date(post.metadata["expires"]),
@@ -43,6 +45,7 @@ class Memory:
             title=post.metadata.get("title"),
             time=post.metadata.get("time"),
             place=post.metadata.get("place"),
+            attachments=list(raw_attachments) if raw_attachments else None,
         )
 
     def dump(self, path: Path) -> None:
@@ -57,6 +60,8 @@ class Memory:
             metadata["time"] = self.time
         if self.place is not None:
             metadata["place"] = self.place
+        if self.attachments:
+            metadata["attachments"] = self.attachments
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 

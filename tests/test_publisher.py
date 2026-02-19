@@ -161,3 +161,28 @@ def test_generate_page_ongoing_in_this_week():
     conference_pos = html.index("Conference")
     assert this_week_pos < worship_pos < upcoming_pos
     assert upcoming_pos < conference_pos
+
+
+def test_generate_page_renders_attachments():
+    """Attachments are rendered as links."""
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="See flyer", title="Event",
+               attachments=["https://storage.googleapis.com/bucket/flyer.pdf"]),
+    ]
+    html = generate_page(memories, today)
+    assert "Attachments:" in html
+    assert 'href="https://storage.googleapis.com/bucket/flyer.pdf"' in html
+    assert "flyer.pdf" in html
+
+
+def test_generate_page_no_attachments_no_section():
+    """No attachments div when memory has no attachments."""
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="No files", title="Event"),
+    ]
+    html = generate_page(memories, today)
+    assert "Attachments:" not in html
