@@ -9,6 +9,7 @@ dependencies = [
 
 [project.scripts]
 publisher = "publisher:main"
+committer = "committer:main"
 
 [project.optional-dependencies]
 dev = [

@@ -47,6 +47,24 @@ Run a single test:
 .venv/bin/pytest tests/test_memory.py::test_name
 ```
 
+## Committer
+
+Add or update a memory:
+```bash
+.venv/bin/python -m committer \
+  --memories-dir memories/ \
+  --target 2026-03-01 \
+  --expires 2026-04-01 \
+  --title "Team Meeting" \
+  --time "10:00" \
+  --place "Room A" \
+  --content "Weekly planning session"
+```
+
+Use `--no-push` to skip `git push` (useful for local testing).
+
+If a memory with the same `target` and `title` already exists, it is overwritten (deduplication).
+
 ## Publisher
 
 Generate a static site locally:
@@ -60,6 +78,7 @@ In CI, the publisher runs automatically via `.github/workflows/publish.yml` on p
 
 - `src/` - Python source code
   - `memory.py` — core Memory dataclass with load/dump/expiry
+  - `committer.py` — CLI to add/update memories and push to git
   - `publisher.py` — static site generator (load memories → HTML with this-week/upcoming sections)
 - `memories/` - Memory markdown files (the "database")
 - `templates/` - Markdown template definitions for site layout (blog, portfolio, wiki)
