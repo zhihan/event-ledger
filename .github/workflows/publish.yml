@@ -3,7 +3,7 @@ name: Publish Site
 on:
   push:
     branches: [main]
-    paths: ['memories/**', 'templates/**']
+    paths: ['memories/**']
 
 permissions:
   pages: write
@@ -30,9 +30,7 @@ jobs:
         run: pip install -e .
 
       - name: Generate site
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python -m publisher --memories-dir memories/ --template templates/blog.md --output-dir site/
+        run: python -m publisher --memories-dir memories/ --output-dir site/
 
       - uses: actions/upload-pages-artifact@v3
         with:

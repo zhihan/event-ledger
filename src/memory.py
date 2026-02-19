@@ -20,6 +20,8 @@ class Memory:
     expires: date
     content: str
     title: str | None = None
+    time: str | None = None
+    place: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> Memory:
@@ -30,6 +32,8 @@ class Memory:
             expires=_parse_date(post.metadata["expires"]),
             content=post.content,
             title=post.metadata.get("title"),
+            time=post.metadata.get("time"),
+            place=post.metadata.get("place"),
         )
 
     def dump(self, path: Path) -> None:
@@ -40,6 +44,10 @@ class Memory:
         }
         if self.title is not None:
             metadata["title"] = self.title
+        if self.time is not None:
+            metadata["time"] = self.time
+        if self.place is not None:
+            metadata["place"] = self.place
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 

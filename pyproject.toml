@@ -5,7 +5,6 @@ description = "A static website generator managed by AI agent memory"
 requires-python = ">=3.11"
 dependencies = [
     "python-frontmatter>=1.1.0",
-    "google-genai>=1.0.0",
 ]
 
 [project.scripts]

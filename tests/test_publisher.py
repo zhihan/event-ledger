@@ -2,18 +2,27 @@
 
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from memory import Memory
-from publisher import build_prompt, generate_site, load_memories, main
+from publisher import generate_page, load_memories, main
 
 
-def _write_memory(path: Path, target: str, expires: str, content: str, title: str | None = None) -> None:
+def _write_memory(
+    path: Path,
+    target: str,
+    expires: str,
+    content: str,
+    title: str | None = None,
+    time: str | None = None,
+    place: str | None = None,
+) -> None:
     mem = Memory(
         target=date.fromisoformat(target),
         expires=date.fromisoformat(expires),
         content=content,
         title=title,
+        time=time,
+        place=place,
     )
     mem.dump(path)
 
@@ -39,48 +48,60 @@ def test_load_memories_sorted_by_target(tmp_path: Path):
     assert [m.content for m in memories] == ["March", "June"]
 
 
-def test_build_prompt():
+def test_generate_page_splits_this_week_and_future():
+    # 2026-02-18 is a Wednesday; week ends Sunday 2026-02-22
+    today = date(2026, 2, 18)
     memories = [
-        Memory(target=date(2026, 3, 1), expires=date(2026, 6, 1), content="Event A", title="Title A"),
-        Memory(target=date(2026, 4, 1), expires=date(2026, 7, 1), content="Event B"),
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="Thursday standup", title="Standup", time="10:00", place="Room A"),
+        Memory(target=date(2026, 2, 22), expires=date(2026, 3, 1),
+               content="Weekend brunch", title="Brunch", place="Cafe"),
+        Memory(target=date(2026, 3, 5), expires=date(2026, 4, 1),
+               content="March conference", title="Conference", time="09:00", place="Convention Center"),
     ]
-    prompt = build_prompt(memories, "Blog template instructions")
 
-    assert "Blog template instructions" in prompt
-    assert "Event A" in prompt
-    assert "Title A" in prompt
-    assert "Event B" in prompt
+    html = generate_page(memories, today)
 
-
-@patch("publisher.genai")
-def test_generate_site(mock_genai):
-    mock_response = MagicMock()
-    mock_response.text = "<html><body>Hello</body></html>"
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_response
-    mock_genai.Client.return_value = mock_client
-
-    with patch.dict("os.environ", {"GEMINI_API_KEY": "fake-key"}):
-        html = generate_site("test prompt")
-
-    assert "<html>" in html
-    mock_client.models.generate_content.assert_called_once()
+    assert "This Week" in html
+    assert "Upcoming" in html
+    assert "Standup" in html
+    assert "Room A" in html
+    assert "10:00" in html
+    assert "Brunch" in html
+    assert "Conference" in html
+    assert "Convention Center" in html
 
 
-@patch("publisher.generate_site", return_value="<html><body>Generated</body></html>")
-def test_main_end_to_end(mock_gen, tmp_path: Path):
+def test_generate_page_no_events():
+    html = generate_page([], date(2026, 2, 18))
+    assert "No events." in html
+
+
+def test_generate_page_event_without_title():
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="Quick sync"),
+    ]
+    html = generate_page(memories, today)
+    assert "Quick sync" in html
+
+
+def test_main_end_to_end(tmp_path: Path):
     mem_dir = tmp_path / "memories"
     mem_dir.mkdir()
-    _write_memory(mem_dir / "event.md", "2026-03-01", "2026-06-01", "Spring event", "Spring")
-
-    tpl = tmp_path / "template.md"
-    tpl.write_text("Blog template")
+    _write_memory(
+        mem_dir / "event.md", "2026-03-01", "2026-06-01",
+        "Spring meetup", "Spring", time="14:00", place="Park",
+    )
 
     out_dir = tmp_path / "site"
 
-    main(["--memories-dir", str(mem_dir), "--template", str(tpl), "--output-dir", str(out_dir)])
+    main(["--memories-dir", str(mem_dir), "--output-dir", str(out_dir)])
 
     index = out_dir / "index.html"
     assert index.exists()
-    assert index.read_text() == "<html><body>Generated</body></html>"
-    mock_gen.assert_called_once()
+    content = index.read_text()
+    assert "Spring" in content
+    assert "Park" in content
+    assert "14:00" in content

@@ -11,15 +11,22 @@ Living Memory is a static website generator similar to a CMS, but with no databa
 The system has two independent components that do not necessarily run on the same machine:
 
 - **Committer** — A conversational agent that chats with the user. When the user asks it to memorize something, it examines the existing memory, deduplicates, updates the memory with the new information, commits the change, and pushes to GitHub.
-- **Publisher** — Responds to GitHub pushes. It reads the latest memory, generates a static website from it using a template, and deploys to a hosting service.
+- **Publisher** — Responds to GitHub pushes. It reads the latest memory, generates a static HTML page with two sections (this week's events and upcoming events), and deploys to GitHub Pages.
 
 The flow: User → Committer → git push → Publisher → static site deployment.
+
+**Future:** The memory files (`memories/`) will be separated into their own repository. For now they live alongside the publisher code.
 
 ## Memory Format
 
 Each memory is a markdown file with YAML frontmatter. Required fields:
 - `target` — date the event occurs (ISO 8601)
 - `expires` — date when the memory can safely be removed
+
+Optional fields:
+- `title` — short event name
+- `time` — time of day (free-form string, e.g. "10:00")
+- `place` — location of the event
 
 The core data structure is `Memory` in `src/memory.py`.
 
@@ -44,19 +51,16 @@ Run a single test:
 
 Generate a static site locally:
 ```bash
-GEMINI_API_KEY=your-key .venv/bin/python -m publisher \
-  --memories-dir memories/ \
-  --template templates/blog.md \
-  --output-dir site/
+.venv/bin/python -m publisher --memories-dir memories/ --output-dir site/
 ```
 
-In CI, the publisher runs automatically via `.github/workflows/publish.yml` on pushes that change `memories/` or `templates/`.
+In CI, the publisher runs automatically via `.github/workflows/publish.yml` on pushes that change `memories/`.
 
 ## Repository Structure
 
 - `src/` - Python source code
   - `memory.py` — core Memory dataclass with load/dump/expiry
-  - `publisher.py` — static site generator (load memories → AI prompt → HTML)
+  - `publisher.py` — static site generator (load memories → HTML with this-week/upcoming sections)
 - `memories/` - Memory markdown files (the "database")
 - `templates/` - Markdown template definitions for site layout (blog, portfolio, wiki)
 - `tests/` - Pytest test suite
