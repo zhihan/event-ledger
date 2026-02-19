@@ -9,6 +9,9 @@ from pathlib import Path
 
 from memory import Memory
 
+_DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
+_DEFAULT_TITLE = "Church in Cambridge Events"
+
 
 def load_memories(directory: Path, today: date) -> list[Memory]:
     """Load non-expired memories from *directory*, sorted by target date."""
@@ -25,20 +28,27 @@ def _render_event(mem: Memory) -> str:
     """Render a single memory as an HTML list item."""
     parts = [f"<li><strong>{escape(mem.title or mem.content)}</strong>"]
     details = []
-    details.append(str(mem.target))
     if mem.time:
         details.append(escape(mem.time))
     if mem.place:
         details.append(escape(mem.place))
-    parts.append(f"<br>{' · '.join(details)}")
-    if mem.title:
-        parts.append(f"<br>{escape(mem.content)}")
+    if details:
+        parts.append(f"<br>{' · '.join(details)}")
     parts.append("</li>")
     return "\n".join(parts)
 
 
-def generate_page(memories: list[Memory], today: date) -> str:
+def generate_page(
+    memories: list[Memory],
+    today: date,
+    *,
+    template: str | None = None,
+    site_title: str = _DEFAULT_TITLE,
+) -> str:
     """Generate a complete HTML page with this-week and future sections."""
+    if template is None:
+        template = _DEFAULT_TEMPLATE.read_text()
+
     week_end = today + timedelta(days=(6 - today.weekday()))
 
     this_week = [m for m in memories if m.target <= week_end]
@@ -53,38 +63,27 @@ def generate_page(memories: list[Memory], today: date) -> str:
     this_week_html = render_section("This Week", this_week)
     future_html = render_section("Upcoming", future)
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Living Memory</title>
-<style>
-  body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }}
-  h1 {{ border-bottom: 2px solid #333; padding-bottom: 0.5rem; }}
-  h2 {{ color: #555; }}
-  ul {{ list-style: none; padding: 0; }}
-  li {{ margin-bottom: 1rem; padding: 0.75rem; background: #f8f8f8; border-radius: 6px; }}
-</style>
-</head>
-<body>
-<h1>Living Memory</h1>
-{this_week_html}
-{future_html}
-</body>
-</html>
-"""
+    return (
+        template
+        .replace("{{ site_title }}", escape(site_title))
+        .replace("{{ this_week }}", this_week_html)
+        .replace("{{ upcoming }}", future_html)
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Generate a static site from memories")
     parser.add_argument("--memories-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--template", type=Path, default=None)
+    parser.add_argument("--title", type=str, default=_DEFAULT_TITLE)
     args = parser.parse_args(argv)
+
+    template_text = args.template.read_text() if args.template else None
 
     today = date.today()
     memories = load_memories(args.memories_dir, today)
-    html = generate_page(memories, today)
+    html = generate_page(memories, today, template=template_text, site_title=args.title)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "index.html").write_text(html)

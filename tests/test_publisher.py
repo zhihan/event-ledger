@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from memory import Memory
-from publisher import generate_page, load_memories, main
+from publisher import generate_page, load_memories, main, _DEFAULT_TITLE
 
 
 def _write_memory(
@@ -62,6 +62,7 @@ def test_generate_page_splits_this_week_and_future():
 
     html = generate_page(memories, today)
 
+    assert _DEFAULT_TITLE in html
     assert "This Week" in html
     assert "Upcoming" in html
     assert "Standup" in html
@@ -70,6 +71,9 @@ def test_generate_page_splits_this_week_and_future():
     assert "Brunch" in html
     assert "Conference" in html
     assert "Convention Center" in html
+    # Content/description should NOT appear in the output
+    assert "Thursday standup" not in html
+    assert "March conference" not in html
 
 
 def test_generate_page_no_events():
