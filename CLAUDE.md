@@ -49,21 +49,17 @@ Run a single test:
 
 ## Committer
 
-Add or update a memory:
+Add or update a memory using natural language (requires `GEMINI_API_KEY` env var):
 ```bash
-.venv/bin/python -m committer \
+GEMINI_API_KEY=... .venv/bin/python -m committer \
   --memories-dir memories/ \
-  --target 2026-03-01 \
-  --expires 2026-04-01 \
-  --title "Team Meeting" \
-  --time "10:00" \
-  --place "Room A" \
-  --content "Weekly planning session"
+  --message "Team meeting next Thursday at 10am in Room A"
 ```
 
 Use `--no-push` to skip `git push` (useful for local testing).
+Use `--today 2026-02-18` to override today's date (useful for testing).
 
-If a memory with the same `target` and `title` already exists, it is overwritten (deduplication).
+The AI reads existing memories and decides whether to create a new one or update an existing one.
 
 ## Publisher
 

@@ -20,18 +20,17 @@ python3 -m venv .venv
 
 ### Add a memory
 
+Requires `GEMINI_API_KEY` environment variable.
+
 ```bash
-python -m committer \
+GEMINI_API_KEY=... python -m committer \
   --memories-dir memories/ \
-  --target 2026-03-01 \
-  --expires 2026-04-01 \
-  --title "Team Meeting" \
-  --time "10:00" \
-  --place "Room A" \
-  --content "Weekly planning session"
+  --message "Team meeting next Thursday at 10am in Room A"
 ```
 
-Use `--no-push` to skip the git push.
+Use `--no-push` to skip the git push. Use `--today 2026-02-18` to override today's date for testing.
+
+The AI extracts event details from your message and decides whether to create a new memory or update an existing one.
 
 ### Generate the site locally
 
