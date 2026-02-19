@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import frontmatter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -30,6 +30,7 @@ class Memory:
     title: str | None = None
     time: str | None = None
     place: str | None = None
+    attachments: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: Path) -> Memory:
@@ -43,6 +44,7 @@ class Memory:
             title=post.metadata.get("title"),
             time=post.metadata.get("time"),
             place=post.metadata.get("place"),
+            attachments=post.metadata.get("attachments", []),
         )
 
     def dump(self, path: Path) -> None:
@@ -57,6 +59,8 @@ class Memory:
             metadata["time"] = self.time
         if self.place is not None:
             metadata["place"] = self.place
+        if self.attachments:
+            metadata["attachments"] = self.attachments
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 

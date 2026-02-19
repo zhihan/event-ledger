@@ -99,6 +99,17 @@ def call_ai(prompt: str) -> dict:
     return json.loads(response.text)
 
 
+def upload_attachments(files: list[Path]) -> list[str]:
+    """Upload local files to GCS and return their public URLs."""
+    bucket = os.environ["LIVING_MEMORY_BUCKET"]
+    urls: list[str] = []
+    for file_path in files:
+        dest = f"gs://{bucket}/{file_path.name}"
+        subprocess.run(["gsutil", "cp", str(file_path), dest], check=True)
+        urls.append(f"https://storage.googleapis.com/{bucket}/{file_path.name}")
+    return urls
+
+
 def git_commit_and_push(path: Path, push: bool = True) -> None:
     """Stage, commit, and optionally push the memory file."""
     subprocess.run(["git", "add", str(path)], check=True)
@@ -117,6 +128,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--today", type=date.fromisoformat, default=None,
                         help="Override today's date for testing")
     parser.add_argument("--no-push", action="store_true", help="Skip git push")
+    parser.add_argument("--attach", nargs="+", type=Path, default=[],
+                        help="Local file paths to upload as attachments")
     args = parser.parse_args(argv)
 
     today = args.today or date.today()
@@ -129,6 +142,8 @@ def main(argv: list[str] | None = None) -> None:
     raw_target = result.get("target")
     target = date.fromisoformat(raw_target) if raw_target else None
     expires = date.fromisoformat(result["expires"]) if result.get("expires") else _next_sunday(today)
+    attachment_urls = upload_attachments(args.attach) if args.attach else []
+
     mem = Memory(
         target=target,
         expires=expires,
@@ -136,6 +151,7 @@ def main(argv: list[str] | None = None) -> None:
         title=result.get("title"),
         time=result.get("time"),
         place=result.get("place"),
+        attachments=attachment_urls,
     )
 
     slug = result.get("slug")

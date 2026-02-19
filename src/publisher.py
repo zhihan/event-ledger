@@ -49,6 +49,12 @@ def _render_event(mem: Memory) -> str:
     if mem.title and mem.content:
         content_html = markdown.markdown(mem.content)
         parts.append(f"<div>{content_html}</div>")
+    if mem.attachments:
+        attachment_items = "\n".join(
+            f'<li><a href="{escape(url)}">{escape(url.rsplit("/", 1)[-1])}</a></li>'
+            for url in mem.attachments
+        )
+        parts.append(f'<ul class="attachments">\n{attachment_items}\n</ul>')
     parts.append("</li>")
     return "\n".join(parts)
 
