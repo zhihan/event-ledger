@@ -12,7 +12,7 @@ import markdown
 from memory import Memory
 
 _DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
-_DEFAULT_TITLE = "Church in Cambridge Events"
+_DEFAULT_TITLE = "Our Church Events"
 
 
 def load_memories(directory: Path, today: date) -> list[Memory]:
