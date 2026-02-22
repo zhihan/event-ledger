@@ -17,6 +17,45 @@ from storage import upload_to_gcs
 
 load_dotenv()
 
+# Regex to find URLs in plain text (not inside markdown link syntax)
+_URL_RE = re.compile(r'https?://[^\s)\]>]+')
+# Regex to detect a markdown link: [text](url)
+_MD_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+
+
+def extract_urls(text: str) -> list[str]:
+    """Extract all http/https URLs from plain text, preserving order."""
+    return _URL_RE.findall(text)
+
+
+def apply_user_urls(title: str | None, content: str, user_urls: list[str]) -> tuple[str, str]:
+    """Post-process AI result to prefer user-provided URLs.
+
+    - Title: ensure it links to the first user URL.
+    - Content: ensure all user URLs appear (append Links section if needed).
+    """
+    if not user_urls:
+        return title or "", content
+
+    first_url = user_urls[0]
+
+    # --- title ---
+    if title:
+        md_match = _MD_LINK_RE.search(title)
+        if md_match:
+            # Title already has a markdown link — replace its URL with the first user URL
+            title = title[:md_match.start(2)] + first_url + title[md_match.end(2):]
+        else:
+            # Wrap the whole title text as a link
+            title = f"[{title}]({first_url})"
+
+    # --- content: ensure every user URL is present ---
+    missing = [u for u in user_urls if u not in content]
+    if missing:
+        links_section = "\n\nLinks:\n" + "\n".join(f"- {u}" for u in missing)
+        content = content + links_section
+
+    return title, content
 
 
 def slugify(title: str | None, target: date, slug: str | None = None) -> str:
@@ -178,11 +217,19 @@ def main(argv: list[str] | None = None) -> None:
         raw_expires = None
     expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
     raw_attachments = result.get("attachments")
+
+    # Prefer user-provided URLs over AI-generated ones
+    user_urls = extract_urls(args.message)
+    ai_title = result.get("title") or ""
+    ai_content = result["content"]
+    if user_urls:
+        ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
+
     mem = Memory(
         target=target,
         expires=expires,
-        content=result["content"],
-        title=result.get("title"),
+        content=ai_content,
+        title=ai_title or result.get("title"),
         time=result.get("time"),
         place=result.get("place"),
         attachments=raw_attachments if raw_attachments else None,

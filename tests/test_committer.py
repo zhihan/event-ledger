@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from memory import Memory
-from committer import build_ai_request, main, slugify
+from committer import apply_user_urls, build_ai_request, extract_urls, main, slugify
 
 
 def test_slugify():
@@ -384,3 +384,147 @@ def test_main_with_attachments(mock_upload, mock_call_ai, mock_git, tmp_path: Pa
     mem = Memory.load(files[0])
     assert mem.attachments == ["https://storage.googleapis.com/bucket/flyer.pdf"]
     mock_git.assert_called_once()
+
+
+# --- URL preference tests ---
+
+
+def test_extract_urls():
+    text = "Check https://example.com/a and http://example.org/b please"
+    assert extract_urls(text) == ["https://example.com/a", "http://example.org/b"]
+
+
+def test_extract_urls_none():
+    assert extract_urls("No links here") == []
+
+
+def test_apply_user_urls_replaces_ai_link_in_title():
+    title = "[Meeting](https://ai-generated.com/link)"
+    content = "Some description"
+    user_urls = ["https://user-provided.com/real"]
+    new_title, new_content = apply_user_urls(title, content, user_urls)
+    assert new_title == "[Meeting](https://user-provided.com/real)"
+    assert "https://user-provided.com/real" in new_content
+
+
+def test_apply_user_urls_wraps_plain_title():
+    title = "Meeting"
+    content = "Some description"
+    user_urls = ["https://user-provided.com/real"]
+    new_title, new_content = apply_user_urls(title, content, user_urls)
+    assert new_title == "[Meeting](https://user-provided.com/real)"
+
+
+def test_apply_user_urls_appends_missing_to_content():
+    title = "Meeting"
+    content = "Already has https://a.com here"
+    user_urls = ["https://a.com", "https://b.com"]
+    new_title, new_content = apply_user_urls(title, content, user_urls)
+    # a.com already present, b.com should be appended
+    assert "https://b.com" in new_content
+    assert "Links:" in new_content
+    # a.com should NOT be in the appended section (it was already present)
+    links_section = new_content.split("Links:")[1]
+    assert "https://a.com" not in links_section
+
+
+def test_apply_user_urls_no_urls_is_noop():
+    title, content = apply_user_urls("Title", "Content", [])
+    assert title == "Title"
+    assert content == "Content"
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_single_url_overrides_ai_url(mock_call_ai, mock_git, tmp_path: Path):
+    """Single URL in user message should override a different URL the AI put in the title."""
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "[Event](https://ai-hallucinated.com/wrong)",
+        "time": None,
+        "place": None,
+        "content": "Check out this event",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Event at https://user-real.com/event",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert "https://user-real.com/event" in mem.title
+    assert "https://ai-hallucinated.com/wrong" not in mem.title
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_multiple_urls_title_first_content_all(mock_call_ai, mock_git, tmp_path: Path):
+    """Multiple URLs: title links to first, content contains both."""
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "Conference",
+        "time": None,
+        "place": None,
+        "content": "A great conference",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Conference https://conf.io/main and https://conf.io/schedule",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    # Title should link to the first URL
+    assert "[Conference](https://conf.io/main)" in mem.title
+    # Content should contain both URLs
+    assert "https://conf.io/main" in mem.content
+    assert "https://conf.io/schedule" in mem.content
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_no_url_message_unchanged(mock_call_ai, mock_git, tmp_path: Path):
+    """Messages without URLs should not be modified."""
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "Team Meeting",
+        "time": "10:00",
+        "place": None,
+        "content": "Weekly sync",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Team meeting next Thursday at 10am",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.title == "Team Meeting"
+    assert mem.content == "Weekly sync"
