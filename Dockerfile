@@ -9,4 +9,4 @@ RUN pip install --no-cache-dir . fastapi uvicorn[standard]
 
 EXPOSE 8080
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8080"]
