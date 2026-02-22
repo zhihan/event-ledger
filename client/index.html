@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our Church Events</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+  h2 { color: #555; }
+  ul { list-style: none; padding: 0; }
+  li { margin-bottom: 1rem; padding: 0.75rem; background: #f8f8f8; border-radius: 6px; }
+  details summary { cursor: pointer; }
+  details summary strong { display: inline; }
+  .attachments { margin-top: 0.5rem; }
+  .loading { color: #888; font-style: italic; }
+  .error { color: #c00; }
+</style>
+</head>
+<body>
+<h1>Our Church Events</h1>
+<div id="app"><p class="loading">Loading events from Firestore&hellip;</p></div>
+
+<script type="module">
+// --- Firebase config ---
+// These values are safe to embed in a public page; Firestore security rules
+// enforce read-only access.  Override user_id via ?user_id=... query param.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCbx3sME8MqAqn35tweXfpLfjnpirBjFZY",
+  authDomain: "living-memories-488001.firebaseapp.com",
+  projectId: "living-memories-488001",
+};
+const DATABASE_ID = "living-memories-db";
+const COLLECTION  = "memories";
+const DEFAULT_USER_ID = "cambridge-lexington";
+
+// --- Firebase SDK (CDN, modular) ---
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs }
+  from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+// --- Init ---
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app, DATABASE_ID);
+
+// --- Helpers ---
+function getUserId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("user_id") || DEFAULT_USER_ID;
+}
+
+function parseDate(s) {
+  if (!s) return null;
+  // "YYYY-MM-DD" → local date (avoid timezone shift)
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function today() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function weekEnd(todayDate) {
+  // Match publisher: week ends on Sunday (weekday 0 in JS = Sunday = 6 in Python ISO)
+  // Python: week_end = today + timedelta(days=(6 - today.weekday()))  where Monday=0
+  // JS: getDay() Sunday=0 Mon=1 ... Sat=6
+  const jsDay = todayDate.getDay(); // 0=Sun
+  const pyDay = jsDay === 0 ? 6 : jsDay - 1; // convert to Mon=0 .. Sun=6
+  const daysUntilSunday = 6 - pyDay;
+  const end = new Date(todayDate);
+  end.setDate(end.getDate() + daysUntilSunday);
+  return end;
+}
+
+function isExpired(expiresStr, todayDate) {
+  // Matches Memory.is_expired: expired when today > expires
+  const exp = parseDate(expiresStr);
+  if (!exp) return false;
+  return todayDate > exp;
+}
+
+// --- Markdown-lite: render [text](url) links and bare URLs ---
+function renderInlineMarkdown(text) {
+  if (!text) return "";
+  let html = escapeHtml(text);
+  // markdown links [text](url)
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // bare URLs not already in an href
+  html = html.replace(/(?<!href="|">)(https?:\/\/\S+?)(?=[)<\s]|$)/g,
+    '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  return html;
+}
+
+function escapeHtml(s) {
+  const el = document.createElement("span");
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+function attachmentLabel(url) {
+  try {
+    const path = decodeURIComponent(new URL(url).pathname);
+    const name = path.split("/").pop();
+    return name || "attachment";
+  } catch { return "attachment"; }
+}
+
+// --- Rendering ---
+function renderEvent(mem) {
+  const titleHtml = renderInlineMarkdown(mem.title || mem.content);
+  const parts = [];
+
+  const meta = [];
+  if (mem.target) meta.push(formatDate(parseDate(mem.target)));
+  if (mem.time)   meta.push(escapeHtml(mem.time));
+  if (mem.place)  meta.push(escapeHtml(mem.place));
+  if (meta.length) parts.push(`<p>${meta.join(" &middot; ")}</p>`);
+
+  if (mem.title && mem.content) {
+    parts.push(`<div>${renderInlineMarkdown(mem.content)}</div>`);
+  }
+
+  if (mem.attachments && mem.attachments.length) {
+    const links = mem.attachments.map(url =>
+      `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(attachmentLabel(url))}</a>`
+    ).join(" ");
+    parts.push(`<div class="attachments">Attachments: ${links}</div>`);
+  }
+
+  if (parts.length) {
+    return `<li><details>
+<summary><strong>${titleHtml}</strong></summary>
+${parts.join("\n")}
+</details></li>`;
+  }
+  return `<li><strong>${titleHtml}</strong></li>`;
+}
+
+function renderSection(title, events) {
+  if (!events.length) return `<h2>${title}</h2>\n<p>No events.</p>`;
+  const items = events.map(renderEvent).join("\n");
+  return `<h2>${title}</h2>\n<ul>\n${items}\n</ul>`;
+}
+
+// --- Main ---
+async function main() {
+  const appEl = document.getElementById("app");
+  const userId = getUserId();
+  const t = today();
+  const wEnd = weekEnd(t);
+
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where("user_id", "==", userId)
+    );
+    const snapshot = await getDocs(q);
+
+    const memories = [];
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      if (!isExpired(d.expires, t)) {
+        memories.push(d);
+      }
+    });
+
+    // Sort: ongoing (no target) first, then by target ascending
+    memories.sort((a, b) => {
+      const aHas = a.target != null ? 1 : 0;
+      const bHas = b.target != null ? 1 : 0;
+      if (aHas !== bHas) return aHas - bHas;
+      if (!a.target && !b.target) return 0;
+      return a.target < b.target ? -1 : a.target > b.target ? 1 : 0;
+    });
+
+    // Split into sections (matches publisher logic)
+    const thisWeek = memories.filter(m => m.target == null || parseDate(m.target) <= wEnd);
+    const upcoming = memories.filter(m => m.target != null && parseDate(m.target) > wEnd);
+
+    appEl.innerHTML = renderSection("This Week", thisWeek)
+                    + renderSection("Upcoming", upcoming);
+  } catch (err) {
+    console.error("Firestore error:", err);
+    appEl.innerHTML = `<p class="error">Failed to load events: ${escapeHtml(err.message)}</p>
+<p>Check that Firestore security rules allow public reads and the Firebase config is correct.</p>`;
+  }
+}
+
+main();
+</script>
+</body>
+</html>

@@ -101,8 +101,13 @@ python scripts/migrate_to_firestore.py --memories-dir memories/
 
 Use `--dry-run` to preview without writing to Firestore.
 
+## Client-Side Page
+
+A static HTML page (`client/index.html`) that reads Firestore directly in the browser using the Firebase Web SDK. No server required — deploy to GitHub Pages or open locally. Supports `?user_id=...` query parameter (default: `cambridge-lexington`).
+
 ## Repository Structure
 
+- `client/` - Client-side Firestore reader (static HTML/JS)
 - `src/` - Python source code
   - `memory.py` — core Memory dataclass with load/dump/to_dict/from_dict/expiry
   - `firestore_storage.py` — Firestore CRUD: save, load, delete, find_by_title, delete_expired
