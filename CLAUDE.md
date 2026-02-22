@@ -10,10 +10,11 @@ Event Ledger is a static website generator similar to a CMS. It supports two sto
 
 The system has two independent components that do not necessarily run on the same machine:
 
-- **Committer** — A conversational agent that chats with the user. When the user asks it to memorize something, it examines the existing memory, deduplicates, updates the memory with the new information, commits the change, and pushes to GitHub.
+- **Committer** — A conversational agent that chats with the user. When the user asks it to memorize something, it examines the existing memory, deduplicates, updates the memory with the new information, commits the change, and pushes to GitHub. The core logic is exposed as `commit_memory_firestore()` for programmatic use by the API.
+- **HTTP API** — A FastAPI app (`src/api.py`) deployed to Cloud Run. Provides REST endpoints for creating, listing, and deleting memories via Firestore. Uses static API key auth (`EVENT_LEDGER_API_KEY`).
 - **Publisher** — Responds to GitHub pushes. It reads the latest memory, generates a static HTML page with two sections (this week's events and upcoming events), and deploys to GitHub Pages.
 
-The flow: User → Committer → git push → Publisher → static site deployment.
+The flow: User → Committer/API → Firestore ← client/index.html (GitHub Pages).
 
 **Future:** The memory files (`memories/`) will be separated into their own repository. For now they live alongside the publisher code.
 
@@ -101,6 +102,16 @@ python scripts/migrate_to_firestore.py --memories-dir memories/
 
 Use `--dry-run` to preview without writing to Firestore.
 
+## HTTP API
+
+Run locally:
+```bash
+EVENT_LEDGER_API_KEY=dev-key GEMINI_API_KEY=... \
+  .venv/bin/uvicorn api:app --app-dir src --reload
+```
+
+Endpoints: `GET /healthz`, `POST /memories`, `GET /memories`, `DELETE /memories/{id}`. All except `/healthz` require `Authorization: Bearer <key>`. Deployed to Cloud Run via `.github/workflows/deploy-api.yml`.
+
 ## Client-Side Page
 
 A static HTML page (`client/index.html`) that reads Firestore directly in the browser using the Firebase Web SDK. No server required — deploy to GitHub Pages or open locally. Supports `?user_id=...` query parameter (default: `cambridge-lexington`).
@@ -111,7 +122,8 @@ A static HTML page (`client/index.html`) that reads Firestore directly in the br
 - `src/` - Python source code
   - `memory.py` — core Memory dataclass with load/dump/to_dict/from_dict/expiry
   - `firestore_storage.py` — Firestore CRUD: save, load, delete, find_by_title, delete_expired
-  - `committer.py` — CLI to add/update memories (file-based or Firestore)
+  - `committer.py` — CLI + core `commit_memory_firestore()` function for adding/updating memories
+  - `api.py` — FastAPI HTTP API for Cloud Run (REST endpoints for memories)
   - `cleanup.py` — delete expired memories and purge GCS attachments (file-based or Firestore)
   - `publisher.py` — static site generator (load memories → HTML with this-week/upcoming sections)
   - `storage.py` — GCS upload/delete helpers for file attachments
@@ -119,4 +131,5 @@ A static HTML page (`client/index.html`) that reads Firestore directly in the br
 - `scripts/` - One-time scripts (e.g. `migrate_to_firestore.py`)
 - `templates/` - HTML template for site layout
 - `tests/` - Pytest test suite (Firestore mocked in tests)
-- `.github/workflows/` - CI/CD (publish on push)
+- `Dockerfile` - Container image for Cloud Run API deployment
+- `.github/workflows/` - CI/CD (publish on push, deploy API to Cloud Run)
