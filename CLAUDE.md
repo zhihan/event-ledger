@@ -80,13 +80,38 @@ Generate a static site locally:
 
 In CI, the publisher runs automatically via `.github/workflows/publish.yml` on pushes that change `memories/`.
 
+## Cleanup
+
+Remove expired memories (file-based):
+```bash
+.venv/bin/python -m cleanup --memories-dir memories/
+```
+
+Remove expired memories (Firestore):
+```bash
+.venv/bin/python -m cleanup --firestore
+```
+
+## Migration (files → Firestore)
+
+One-time migration of existing `memories/*.md` files into Firestore:
+```bash
+python scripts/migrate_to_firestore.py --memories-dir memories/
+```
+
+Use `--dry-run` to preview without writing to Firestore.
+
 ## Repository Structure
 
 - `src/` - Python source code
-  - `memory.py` — core Memory dataclass with load/dump/expiry
-  - `committer.py` — CLI to add/update memories and push to git
+  - `memory.py` — core Memory dataclass with load/dump/to_dict/from_dict/expiry
+  - `firestore_storage.py` — Firestore CRUD: save, load, delete, find_by_title, delete_expired
+  - `committer.py` — CLI to add/update memories (file-based or Firestore)
+  - `cleanup.py` — delete expired memories and purge GCS attachments (file-based or Firestore)
   - `publisher.py` — static site generator (load memories → HTML with this-week/upcoming sections)
-- `memories/` - Memory markdown files (the "database")
-- `templates/` - Markdown template definitions for site layout (blog, portfolio, wiki)
-- `tests/` - Pytest test suite
+  - `storage.py` — GCS upload/delete helpers for file attachments
+- `memories/` - Memory markdown files (file-based backend)
+- `scripts/` - One-time scripts (e.g. `migrate_to_firestore.py`)
+- `templates/` - HTML template for site layout
+- `tests/` - Pytest test suite (Firestore mocked in tests)
 - `.github/workflows/` - CI/CD (publish on push)
