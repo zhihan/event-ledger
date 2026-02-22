@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Living Memory is a static website generator similar to a CMS. It supports two storage backends: **file-based** (markdown files in a git repo) and **Firestore** (Google Cloud Firestore documents). The file-based backend is the default; Firestore can be enabled via the `--firestore` CLI flag or by setting `LIVING_MEMORY_STORAGE=firestore`.
+Event Ledger is a static website generator similar to a CMS. It supports two storage backends: **file-based** (markdown files in a git repo) and **Firestore** (Google Cloud Firestore documents). The file-based backend is the default; Firestore can be enabled via the `--firestore` CLI flag or by setting `LIVING_MEMORY_STORAGE=firestore`.
 
 ## Architecture
 

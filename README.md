@@ -1,4 +1,4 @@
-# Living Memory
+# Event Ledger
 
 A family events page backed by Firestore. The **GitHub Pages homepage** is a client-rendered page (`client/index.html`) that reads memories directly from Firestore in the browser — no server-side build required.
 
