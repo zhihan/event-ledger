@@ -68,6 +68,36 @@ class Memory:
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 
+    def to_dict(self) -> dict:
+        """Serialize to a plain dict suitable for Firestore storage."""
+        d: dict = {
+            "target": self.target.isoformat() if self.target is not None else None,
+            "expires": self.expires.isoformat(),
+            "content": self.content,
+            "title": self.title,
+            "time": self.time,
+            "place": self.place,
+            "attachments": self.attachments,
+            "user_id": self.user_id,
+        }
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Memory:
+        """Deserialize from a Firestore document dict."""
+        raw_target = data.get("target")
+        raw_attachments = data.get("attachments")
+        return cls(
+            target=_parse_date(raw_target) if raw_target is not None else None,
+            expires=_parse_date(data["expires"]),
+            content=data.get("content", ""),
+            title=data.get("title"),
+            time=data.get("time"),
+            place=data.get("place"),
+            attachments=list(raw_attachments) if raw_attachments else None,
+            user_id=data.get("user_id", "cambridge-lexington"),
+        )
+
     def is_expired(self, today: date | None = None) -> bool:
         """Check whether this memory has passed its expiration date."""
         if today is None:

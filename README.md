@@ -59,6 +59,101 @@ Weekly planning session.
 
 Required fields: `target`, `expires`. Optional: `title`, `time`, `place`.
 
+## Firestore Storage (optional)
+
+Instead of git/markdown files, memories can be stored in Google Cloud Firestore. Enable it with `--firestore` or by setting `LIVING_MEMORY_STORAGE=firestore`.
+
+### Setup
+
+1. **GCP project** — create a Firestore database in Native mode.
+2. **Authentication** — set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON key, or run on GCE/Cloud Run where default credentials are available.
+3. **Database ID** — if your Firestore database is not `(default)`, set the database name:
+   ```bash
+   export LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db
+   ```
+   You can also set `GOOGLE_CLOUD_PROJECT` if the project cannot be inferred from credentials.
+4. **Emulator (local dev)** — use the [Firestore Emulator](https://cloud.google.com/firestore/docs/emulator):
+   ```bash
+   gcloud emulators firestore start
+   export FIRESTORE_EMULATOR_HOST="localhost:8080"
+   ```
+
+### Usage with Firestore
+
+```bash
+# Add a memory via Firestore
+.venv/bin/python -m committer --message "Team meeting Thursday 10am" --firestore
+
+# Generate site from Firestore
+.venv/bin/python -m publisher --output-dir site/ --firestore
+
+# Clean up expired memories
+.venv/bin/python -m cleanup --firestore
+
+# Or set the env var globally
+export LIVING_MEMORY_STORAGE=firestore
+```
+
+### Migration
+
+Import existing markdown files into Firestore:
+
+```bash
+python scripts/migrate_to_firestore.py --memories-dir memories/
+# Use --dry-run to preview without writing
+```
+
+## Client-Side Page (Step 1.5)
+
+A fully static HTML page that reads memories directly from Firestore in the browser. No server needed — suitable for GitHub Pages or any static host.
+
+### How it works
+
+`client/index.html` uses the Firebase Web SDK to query the `memories` collection in Firestore, filters out expired memories client-side, and renders **This Week** / **Upcoming** sections matching the server-side publisher output.
+
+### Usage
+
+1. Open `client/index.html` in a browser (or deploy to GitHub Pages).
+2. By default it shows events for `user_id=cambridge-lexington`.
+3. Override via query parameter: `?user_id=other-group`.
+
+### Firebase config
+
+The following values are embedded in `client/index.html`:
+
+| Key | Value |
+|-----|-------|
+| `projectId` | `living-memories-488001` |
+| `databaseId` | `living-memories-db` |
+| `collection` | `memories` |
+| `apiKey` | `AIzaSyCbx3sME8MqAqn35tweXfpLfjnpirBjFZY` |
+
+The API key is safe to embed publicly — it only identifies the project. Access control is enforced by Firestore security rules.
+
+### Firestore security rules (public read-only)
+
+Deploy these rules to allow unauthenticated reads while blocking all writes:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /memories/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
+```
+
+> **Note:** Since this page runs entirely in the browser on GitHub Pages, there is no way to keep Firebase credentials secret. The security rules above ensure that even with the API key, clients can only read — never write or delete.
+
+### Named database support
+
+The Firebase Web SDK (v10.4+) supports non-default database IDs via `getFirestore(app, "database-id")`. The client page targets the `living-memories-db` database directly. If you encounter issues with named database access, you can either:
+- Migrate data to the `(default)` database, or
+- Update `DATABASE_ID` in `client/index.html` to `"(default)"`.
+
 ## Running Tests
 
 ```bash

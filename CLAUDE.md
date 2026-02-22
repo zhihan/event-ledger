@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Living Memory is a static website generator similar to a CMS, but with no database. The "database" is an organized structure of markdown files and other raw files stored in a git repo (the "memory").
+Living Memory is a static website generator similar to a CMS. It supports two storage backends: **file-based** (markdown files in a git repo) and **Firestore** (Google Cloud Firestore documents). The file-based backend is the default; Firestore can be enabled via the `--firestore` CLI flag or by setting `LIVING_MEMORY_STORAGE=firestore`.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Optional fields:
 - `time` — time of day (free-form string, e.g. "10:00")
 - `place` — location of the event
 
-The core data structure is `Memory` in `src/memory.py`.
+The core data structure is `Memory` in `src/memory.py`. It supports `to_dict()`/`from_dict()` for Firestore serialization and `load()`/`dump()` for file-based storage.
 
 ## Development
 
@@ -61,6 +61,16 @@ Use `--today 2026-02-18` to override today's date (useful for testing).
 
 The AI reads existing memories and decides whether to create a new one or update an existing one.
 
+### Firestore mode
+
+```bash
+GEMINI_API_KEY=... .venv/bin/python -m committer \
+  --firestore \
+  --message "Team meeting next Thursday at 10am in Room A"
+```
+
+Or set the environment variable `LIVING_MEMORY_STORAGE=firestore` to use Firestore by default (applies to committer, publisher, and cleanup).
+
 ## Publisher
 
 Generate a static site locally:
@@ -70,13 +80,43 @@ Generate a static site locally:
 
 In CI, the publisher runs automatically via `.github/workflows/publish.yml` on pushes that change `memories/`.
 
+## Cleanup
+
+Remove expired memories (file-based):
+```bash
+.venv/bin/python -m cleanup --memories-dir memories/
+```
+
+Remove expired memories (Firestore):
+```bash
+.venv/bin/python -m cleanup --firestore
+```
+
+## Migration (files → Firestore)
+
+One-time migration of existing `memories/*.md` files into Firestore:
+```bash
+python scripts/migrate_to_firestore.py --memories-dir memories/
+```
+
+Use `--dry-run` to preview without writing to Firestore.
+
+## Client-Side Page
+
+A static HTML page (`client/index.html`) that reads Firestore directly in the browser using the Firebase Web SDK. No server required — deploy to GitHub Pages or open locally. Supports `?user_id=...` query parameter (default: `cambridge-lexington`).
+
 ## Repository Structure
 
+- `client/` - Client-side Firestore reader (static HTML/JS)
 - `src/` - Python source code
-  - `memory.py` — core Memory dataclass with load/dump/expiry
-  - `committer.py` — CLI to add/update memories and push to git
+  - `memory.py` — core Memory dataclass with load/dump/to_dict/from_dict/expiry
+  - `firestore_storage.py` — Firestore CRUD: save, load, delete, find_by_title, delete_expired
+  - `committer.py` — CLI to add/update memories (file-based or Firestore)
+  - `cleanup.py` — delete expired memories and purge GCS attachments (file-based or Firestore)
   - `publisher.py` — static site generator (load memories → HTML with this-week/upcoming sections)
-- `memories/` - Memory markdown files (the "database")
-- `templates/` - Markdown template definitions for site layout (blog, portfolio, wiki)
-- `tests/` - Pytest test suite
+  - `storage.py` — GCS upload/delete helpers for file attachments
+- `memories/` - Memory markdown files (file-based backend)
+- `scripts/` - One-time scripts (e.g. `migrate_to_firestore.py`)
+- `templates/` - HTML template for site layout
+- `tests/` - Pytest test suite (Firestore mocked in tests)
 - `.github/workflows/` - CI/CD (publish on push)

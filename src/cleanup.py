@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -71,6 +72,22 @@ def cleanup(
     return deleted
 
 
+def cleanup_firestore(today: date | None = None) -> list[str]:
+    """Delete expired memories from Firestore and purge their GCS attachments.
+
+    Returns a list of deleted Firestore document IDs.
+    """
+    import firestore_storage
+
+    if today is None:
+        today = date.today()
+
+    deleted_pairs = firestore_storage.delete_expired(today)
+    for _, mem in deleted_pairs:
+        purge_attachments(mem)
+    return [doc_id for doc_id, _ in deleted_pairs]
+
+
 def main(argv: list[str] | None = None) -> None:
     """CLI entry point for the cleanup module."""
     parser = argparse.ArgumentParser(
@@ -87,12 +104,23 @@ def main(argv: list[str] | None = None) -> None:
         "--no-push", action="store_true",
         help="Skip git push",
     )
+    parser.add_argument(
+        "--firestore", action="store_true",
+        help="Use Firestore storage (or set LIVING_MEMORY_STORAGE=firestore)",
+    )
     args = parser.parse_args(argv)
 
     today = args.today or date.today()
-    deleted = cleanup(args.memories_dir, today, push=not args.no_push)
-    for path in deleted:
-        print(f"Deleted: {path}")
+    use_fs = args.firestore or os.environ.get("LIVING_MEMORY_STORAGE", "").lower() == "firestore"
+
+    if use_fs:
+        deleted_ids = cleanup_firestore(today)
+        for doc_id in deleted_ids:
+            print(f"Deleted Firestore doc: {doc_id}")
+    else:
+        deleted = cleanup(args.memories_dir, today, push=not args.no_push)
+        for path in deleted:
+            print(f"Deleted: {path}")
 
 
 if __name__ == "__main__":
