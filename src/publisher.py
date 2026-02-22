@@ -106,6 +106,19 @@ def _render_event(mem: Memory) -> str:
     return f"<li><strong>{title_html}</strong></li>"
 
 
+def week_bounds(today: date) -> tuple[date, date]:
+    """Return (week_start, week_end) for a Sunday-to-Saturday week.
+
+    *week_start* is the most recent Sunday (<= today) and *week_end* is the
+    following Saturday.  On Sunday itself, week_start == today.
+    """
+    # date.isoweekday(): Mon=1 … Sun=7
+    days_since_sunday = today.isoweekday() % 7  # Sun→0, Mon→1, …, Sat→6
+    week_start = today - timedelta(days=days_since_sunday)
+    week_end = week_start + timedelta(days=6)  # Saturday
+    return week_start, week_end
+
+
 def generate_page(
     memories: list[Memory],
     today: date,
@@ -117,9 +130,9 @@ def generate_page(
     if template is None:
         template = _DEFAULT_TEMPLATE.read_text()
 
-    week_end = today + timedelta(days=(6 - today.weekday()))
+    week_start, week_end = week_bounds(today)
 
-    this_week = [m for m in memories if m.target is None or m.target <= week_end]
+    this_week = [m for m in memories if m.target is None or (week_start <= m.target <= week_end)]
     future = [m for m in memories if m.target is not None and m.target > week_end]
 
     def render_section(title: str, events: list[Memory]) -> str:
