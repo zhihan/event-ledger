@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 from memory import Memory
 import firestore_storage
@@ -156,3 +156,35 @@ class TestFindMemoryByTitle:
 
         result = firestore_storage.find_memory_by_title("alice", "Nonexistent", today=date(2026, 3, 1))
         assert result is None
+
+
+class TestGetClient:
+    @patch("google.cloud.firestore.Client")
+    def test_default_database(self, mock_client_cls, monkeypatch):
+        monkeypatch.delenv("LIVING_MEMORY_FIRESTORE_DATABASE", raising=False)
+        monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+        firestore_storage._get_client()
+        mock_client_cls.assert_called_once_with()
+
+    @patch("google.cloud.firestore.Client")
+    def test_custom_database(self, mock_client_cls, monkeypatch):
+        monkeypatch.setenv("LIVING_MEMORY_FIRESTORE_DATABASE", "living-memories-db")
+        monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+        firestore_storage._get_client()
+        mock_client_cls.assert_called_once_with(database="living-memories-db")
+
+    @patch("google.cloud.firestore.Client")
+    def test_custom_database_and_project(self, mock_client_cls, monkeypatch):
+        monkeypatch.setenv("LIVING_MEMORY_FIRESTORE_DATABASE", "living-memories-db")
+        monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "my-project")
+        firestore_storage._get_client()
+        mock_client_cls.assert_called_once_with(
+            database="living-memories-db", project="my-project",
+        )
+
+    @patch("google.cloud.firestore.Client")
+    def test_project_only(self, mock_client_cls, monkeypatch):
+        monkeypatch.delenv("LIVING_MEMORY_FIRESTORE_DATABASE", raising=False)
+        monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "my-project")
+        firestore_storage._get_client()
+        mock_client_cls.assert_called_once_with(project="my-project")

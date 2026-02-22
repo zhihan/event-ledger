@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import date
 
 from memory import Memory
@@ -10,9 +11,21 @@ COLLECTION = "memories"
 
 
 def _get_client():
-    """Return a Firestore client (lazy import to avoid import-time errors)."""
+    """Return a Firestore client (lazy import to avoid import-time errors).
+
+    Respects ``LIVING_MEMORY_FIRESTORE_DATABASE`` to select a non-default
+    database and ``GOOGLE_CLOUD_PROJECT`` for the project ID.
+    """
     from google.cloud import firestore
-    return firestore.Client()
+
+    kwargs: dict[str, str] = {}
+    database = os.environ.get("LIVING_MEMORY_FIRESTORE_DATABASE")
+    if database:
+        kwargs["database"] = database
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    if project:
+        kwargs["project"] = project
+    return firestore.Client(**kwargs)
 
 
 def save_memory(memory: Memory, doc_id: str | None = None) -> str:

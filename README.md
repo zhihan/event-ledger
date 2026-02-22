@@ -67,7 +67,12 @@ Instead of git/markdown files, memories can be stored in Google Cloud Firestore.
 
 1. **GCP project** — create a Firestore database in Native mode.
 2. **Authentication** — set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON key, or run on GCE/Cloud Run where default credentials are available.
-3. **Emulator (local dev)** — use the [Firestore Emulator](https://cloud.google.com/firestore/docs/emulator):
+3. **Database ID** — if your Firestore database is not `(default)`, set the database name:
+   ```bash
+   export LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db
+   ```
+   You can also set `GOOGLE_CLOUD_PROJECT` if the project cannot be inferred from credentials.
+4. **Emulator (local dev)** — use the [Firestore Emulator](https://cloud.google.com/firestore/docs/emulator):
    ```bash
    gcloud emulators firestore start
    export FIRESTORE_EMULATOR_HOST="localhost:8080"
