@@ -3,9 +3,7 @@ name: Publish Site
 on:
   push:
     branches: [main]
-    # Re-deploy when memories change (server-side path) OR when the client homepage changes.
     paths:
-      - 'memories/**'
       - 'client/**'
       - '.github/workflows/publish.yml'
 
@@ -26,18 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: pip install -e .
-
-      - name: Generate site (server-side)
-        run: python -m publisher --memories-dir memories/ --output-dir site/
-
-      - name: Replace homepage with client-side Firestore app
-        run: cp client/index.html site/index.html
+      - name: Prepare site directory
+        run: |
+          mkdir -p site
+          cp client/index.html site/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,14 +1,15 @@
 # Living Memory
 
-A static website generator with no database. The "database" is an organized collection of markdown files stored in a git repo.
+A family events page backed by Firestore. The **GitHub Pages homepage** is a client-rendered page (`client/index.html`) that reads memories directly from Firestore in the browser — no server-side build required.
 
 ## How It Works
 
-1. **Committer** — CLI tool that adds event memories to the repo and pushes to GitHub.
-2. **Publisher** — GitHub Actions workflow that generates a static HTML page and deploys to GitHub Pages.
+1. **Committer** — CLI tool that adds event memories (to Firestore or local markdown files) and pushes to GitHub.
+2. **GitHub Pages** — On push to `client/**`, the workflow copies `client/index.html` to Pages. The page reads Firestore at runtime.
+3. **Publisher** (optional) — Can generate a static HTML snapshot locally for offline use or debugging, but is **not** part of the Pages deploy pipeline.
 
 ```
-User → committer → git push → GitHub Actions → publisher → static site
+User → committer → Firestore ← client/index.html (GitHub Pages)
 ```
 
 ## Quick Start
@@ -34,7 +35,9 @@ Options:
 
 The AI extracts event details from your message and decides whether to create a new memory or update an existing one.
 
-### Generate the site locally
+### Generate a static snapshot locally (optional)
+
+The publisher is not used in the Pages deploy but can still generate a local HTML snapshot:
 
 ```bash
 python -m publisher --memories-dir memories/ --output-dir site/
