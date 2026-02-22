@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Living Memory is a static website generator similar to a CMS, but with no database. The "database" is an organized structure of markdown files and other raw files stored in a git repo (the "memory").
+Living Memory is a static website generator similar to a CMS. It supports two storage backends: **file-based** (markdown files in a git repo) and **Firestore** (Google Cloud Firestore documents). The file-based backend is the default; Firestore can be enabled via the `--firestore` CLI flag or by setting `LIVING_MEMORY_STORAGE=firestore`.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Optional fields:
 - `time` — time of day (free-form string, e.g. "10:00")
 - `place` — location of the event
 
-The core data structure is `Memory` in `src/memory.py`.
+The core data structure is `Memory` in `src/memory.py`. It supports `to_dict()`/`from_dict()` for Firestore serialization and `load()`/`dump()` for file-based storage.
 
 ## Development
 
@@ -60,6 +60,16 @@ Use `--no-push` to skip `git push` (useful for local testing).
 Use `--today 2026-02-18` to override today's date (useful for testing).
 
 The AI reads existing memories and decides whether to create a new one or update an existing one.
+
+### Firestore mode
+
+```bash
+GEMINI_API_KEY=... .venv/bin/python -m committer \
+  --firestore \
+  --message "Team meeting next Thursday at 10am in Room A"
+```
+
+Or set the environment variable `LIVING_MEMORY_STORAGE=firestore` to use Firestore by default (applies to committer, publisher, and cleanup).
 
 ## Publisher
 

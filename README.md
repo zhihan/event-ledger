@@ -59,6 +59,45 @@ Weekly planning session.
 
 Required fields: `target`, `expires`. Optional: `title`, `time`, `place`.
 
+## Firestore Storage (optional)
+
+Instead of git/markdown files, memories can be stored in Google Cloud Firestore. Enable it with `--firestore` or by setting `LIVING_MEMORY_STORAGE=firestore`.
+
+### Setup
+
+1. **GCP project** — create a Firestore database in Native mode.
+2. **Authentication** — set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON key, or run on GCE/Cloud Run where default credentials are available.
+3. **Emulator (local dev)** — use the [Firestore Emulator](https://cloud.google.com/firestore/docs/emulator):
+   ```bash
+   gcloud emulators firestore start
+   export FIRESTORE_EMULATOR_HOST="localhost:8080"
+   ```
+
+### Usage with Firestore
+
+```bash
+# Add a memory via Firestore
+.venv/bin/python -m committer --message "Team meeting Thursday 10am" --firestore
+
+# Generate site from Firestore
+.venv/bin/python -m publisher --output-dir site/ --firestore
+
+# Clean up expired memories
+.venv/bin/python -m cleanup --firestore
+
+# Or set the env var globally
+export LIVING_MEMORY_STORAGE=firestore
+```
+
+### Migration
+
+Import existing markdown files into Firestore:
+
+```bash
+python scripts/migrate_to_firestore.py --memories-dir memories/
+# Use --dry-run to preview without writing
+```
+
 ## Running Tests
 
 ```bash

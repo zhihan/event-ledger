@@ -12,7 +12,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from cleanup import cleanup
 from memory import Memory, _next_sunday
 from storage import upload_to_gcs
 
@@ -127,6 +126,11 @@ def git_commit_and_push(path: Path, push: bool = True) -> None:
         subprocess.run(["git", "push"], check=True)
 
 
+def _use_firestore() -> bool:
+    """Check if Firestore mode is enabled via env var."""
+    return os.environ.get("LIVING_MEMORY_STORAGE", "").lower() == "firestore"
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Commit a memory to the repository")
     parser.add_argument("--memories-dir", type=Path, default=Path("memories"))
@@ -138,10 +142,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--user-id", type=str, default="cambridge-lexington",
                         help="Owner of the memory (default: 'cambridge-lexington')")
     parser.add_argument("--no-push", action="store_true", help="Skip git push")
+    parser.add_argument("--firestore", action="store_true",
+                        help="Use Firestore for storage (or set LIVING_MEMORY_STORAGE=firestore)")
     args = parser.parse_args(argv)
 
     today = args.today or date.today()
-    memories_dir: Path = args.memories_dir
+    use_fs = args.firestore or _use_firestore()
 
     # Upload attachments to GCS
     attachment_urls: list[str] = []
@@ -149,7 +155,13 @@ def main(argv: list[str] | None = None) -> None:
         url = upload_to_gcs(attach_path)
         attachment_urls.append(url)
 
-    existing_memories = load_memories(memories_dir, user_id=args.user_id)
+    if use_fs:
+        import firestore_storage
+        pairs = firestore_storage.load_memories(args.user_id, today)
+        existing_memories = [mem for _, mem in pairs]
+    else:
+        existing_memories = load_memories(args.memories_dir, user_id=args.user_id)
+
     prompt = build_ai_request(args.message, existing_memories, today,
                               attachment_urls=attachment_urls or None)
     result = call_ai(prompt)
@@ -169,26 +181,41 @@ def main(argv: list[str] | None = None) -> None:
         user_id=args.user_id,
     )
 
-    slug = result.get("slug")
-
-    if result["action"] == "update" and result.get("update_title"):
-        # Find existing file by matching title
-        path = None
-        for p in memories_dir.glob("*.md"):
-            existing = Memory.load(p)
-            if existing.title == result["update_title"]:
-                path = p
-                break
-        if path is None:
-            path = memories_dir / slugify(mem.title, target, slug=slug)
+    if use_fs:
+        import firestore_storage
+        # For updates, find existing doc ID by matching title
+        doc_id = None
+        if result["action"] == "update" and result.get("update_title"):
+            found = firestore_storage.find_memory_by_title(
+                args.user_id, result["update_title"], today,
+            )
+            if found:
+                doc_id = found[0]
+        firestore_storage.save_memory(mem, doc_id=doc_id)
+        firestore_storage.delete_expired(today)
     else:
-        path = memories_dir / slugify(mem.title, target, slug=slug)
+        slug = result.get("slug")
+        memories_dir: Path = args.memories_dir
 
-    # Remove expired memories before committing the new one.
-    cleanup(memories_dir, today, push=False)
+        if result["action"] == "update" and result.get("update_title"):
+            # Find existing file by matching title
+            path = None
+            for p in memories_dir.glob("*.md"):
+                existing = Memory.load(p)
+                if existing.title == result["update_title"]:
+                    path = p
+                    break
+            if path is None:
+                path = memories_dir / slugify(mem.title, target, slug=slug)
+        else:
+            path = memories_dir / slugify(mem.title, target, slug=slug)
 
-    mem.dump(path)
-    git_commit_and_push(path, push=not args.no_push)
+        # Remove expired memories before committing the new one.
+        from cleanup import cleanup
+        cleanup(memories_dir, today, push=False)
+
+        mem.dump(path)
+        git_commit_and_push(path, push=not args.no_push)
 
 
 if __name__ == "__main__":

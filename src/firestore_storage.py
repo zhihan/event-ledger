@@ -1,0 +1,104 @@
+"""Firestore-backed storage for memories."""
+
+from __future__ import annotations
+
+from datetime import date
+
+from memory import Memory
+
+COLLECTION = "memories"
+
+
+def _get_client():
+    """Return a Firestore client (lazy import to avoid import-time errors)."""
+    from google.cloud import firestore
+    return firestore.Client()
+
+
+def save_memory(memory: Memory, doc_id: str | None = None) -> str:
+    """Save a memory to Firestore. Returns the document ID.
+
+    If *doc_id* is provided the document is overwritten (update);
+    otherwise a new document with an auto-generated ID is created.
+    """
+    db = _get_client()
+    data = memory.to_dict()
+    if doc_id:
+        db.collection(COLLECTION).document(doc_id).set(data)
+        return doc_id
+    _, ref = db.collection(COLLECTION).add(data)
+    return ref.id
+
+
+def load_memories(user_id: str, today: date | None = None) -> list[tuple[str, Memory]]:
+    """Load non-expired memories for a given user.
+
+    Returns a list of ``(doc_id, Memory)`` tuples.
+    Expiry is checked client-side to match ``Memory.is_expired`` semantics
+    (expired when ``today > expires``, so ``today == expires`` is still valid).
+    """
+    if today is None:
+        today = date.today()
+    db = _get_client()
+    docs = (
+        db.collection(COLLECTION)
+        .where("user_id", "==", user_id)
+        .stream()
+    )
+    results: list[tuple[str, Memory]] = []
+    for doc in docs:
+        mem = Memory.from_dict(doc.to_dict())
+        if not mem.is_expired(today):
+            results.append((doc.id, mem))
+    return results
+
+
+def load_all_memories() -> list[tuple[str, Memory]]:
+    """Load every memory document (admin/migration use).
+
+    Returns a list of ``(doc_id, Memory)`` tuples.
+    """
+    db = _get_client()
+    results: list[tuple[str, Memory]] = []
+    for doc in db.collection(COLLECTION).stream():
+        mem = Memory.from_dict(doc.to_dict())
+        results.append((doc.id, mem))
+    return results
+
+
+def delete_memory(doc_id: str) -> None:
+    """Delete a single memory document by its Firestore ID."""
+    db = _get_client()
+    db.collection(COLLECTION).document(doc_id).delete()
+
+
+def delete_expired(today: date | None = None) -> list[tuple[str, Memory]]:
+    """Find and delete all expired memory documents.
+
+    Returns a list of ``(doc_id, Memory)`` tuples for deleted documents
+    (so callers can purge attachments, etc.).
+    """
+    if today is None:
+        today = date.today()
+    db = _get_client()
+    all_docs = db.collection(COLLECTION).stream()
+    deleted: list[tuple[str, Memory]] = []
+    for doc in all_docs:
+        mem = Memory.from_dict(doc.to_dict())
+        if mem.is_expired(today):
+            doc.reference.delete()
+            deleted.append((doc.id, mem))
+    return deleted
+
+
+def find_memory_by_title(
+    user_id: str, title: str, today: date | None = None,
+) -> tuple[str, Memory] | None:
+    """Find a non-expired memory matching *title* for *user_id*.
+
+    Returns ``(doc_id, Memory)`` or ``None``.
+    """
+    for doc_id, mem in load_memories(user_id, today):
+        if mem.title == title:
+            return doc_id, mem
+    return None
