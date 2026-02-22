@@ -110,7 +110,7 @@ EVENT_LEDGER_API_KEY=dev-key GEMINI_API_KEY=... \
   .venv/bin/uvicorn api:app --app-dir src --reload
 ```
 
-Endpoints: `GET /healthz`, `POST /memories`, `GET /memories`, `DELETE /memories/{id}`. All except `/healthz` require `Authorization: Bearer <key>`. Deployed to Cloud Run via `.github/workflows/deploy-api.yml`.
+Endpoints: `GET /_healthz`, `POST /memories`, `GET /memories`, `DELETE /memories/{id}`. Legacy alias `GET /healthz` also works. All except `/healthz` require `Authorization: Bearer <key>`. Deployed to Cloud Run via `.github/workflows/deploy-api.yml`.
 
 ## Client-Side Page
 

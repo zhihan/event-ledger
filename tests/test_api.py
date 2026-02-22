@@ -32,6 +32,12 @@ AUTH = {"Authorization": "Bearer test-key"}
 # --- Auth tests ---
 
 def test_healthz_no_auth(client):
+    resp = client.get("/_healthz")
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
+def test_healthz_legacy_alias(client):
     resp = client.get("/healthz")
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
