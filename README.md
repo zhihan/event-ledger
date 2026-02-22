@@ -130,23 +130,26 @@ The following values are embedded in `client/index.html`:
 
 The API key is safe to embed publicly — it only identifies the project. Access control is enforced by Firestore security rules.
 
-### Firestore security rules (public read-only)
+### Firestore security rules (private via Google sign-in)
 
-Deploy these rules to allow unauthenticated reads while blocking all writes:
+To make the GitHub Pages client app private, require Firebase Authentication for reads and deny all writes:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /memories/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if false;
     }
   }
 }
 ```
 
-> **Note:** Since this page runs entirely in the browser on GitHub Pages, there is no way to keep Firebase credentials secret. The security rules above ensure that even with the API key, clients can only read — never write or delete.
+**Important:** In Firebase Console → Authentication → Settings → Authorized domains, add:
+- `zhihan.github.io`
+
+The API key is not a secret; access control is enforced by Firestore security rules.
 
 ### Named database support
 
