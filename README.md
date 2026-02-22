@@ -1,206 +1,52 @@
 # Event Ledger
 
-A family events page backed by Firestore. The **GitHub Pages homepage** is a client-rendered page (`client/index.html`) that reads memories directly from Firestore in the browser — no server-side build required.
+A family events board powered by Firestore and deployed to GitHub Pages. Add events via CLI or REST API, and view them on a simple, auth-protected web page — no server-side rendering required.
 
-## How It Works
+**Homepage:** https://zhihan.github.io/lexington-ma-events/
 
-1. **Committer** — CLI tool that adds event memories (to Firestore or local markdown files) and pushes to GitHub.
-2. **GitHub Pages** — On push to `client/**`, the workflow copies `client/index.html` to Pages. The page reads Firestore at runtime.
-3. **Publisher** (optional) — Can generate a static HTML snapshot locally for offline use or debugging, but is **not** part of the Pages deploy pipeline.
+## What It Does
 
-```
-User → committer → Firestore ← client/index.html (GitHub Pages)
-```
+- **Collect events** — Add memories via natural language CLI or HTTP API; an AI extracts dates, times, and locations automatically.
+- **Show what's coming** — The homepage groups events into "This Week" and "Upcoming" sections, filtered in the browser.
+- **Auto-expire** — Each event has an expiry date; expired events are hidden client-side and can be cleaned up with a one-liner.
+- **Auth-protected** — The homepage requires Google sign-in; Firestore security rules enforce access control.
 
 ## Quick Start
+
+### View the homepage
+
+Visit https://zhihan.github.io/lexington-ma-events/ and sign in with Google.
+
+### Local development (optional)
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest              # run tests
 ```
 
-### Add a memory
+## HTTP API
 
-Requires `GEMINI_API_KEY`. Set it in a `.env` file at the project root or as an environment variable.
+A REST API deployed to Cloud Run with static API key auth. The API key is a secret — do not expose it in client code.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/_healthz` | GET | No | Health check |
+| `/memories` | POST | Yes | Create a memory |
+| `/memories` | GET | Yes | List memories |
+| `/memories/{id}` | DELETE | Yes | Delete a memory |
+
+### Example
 
 ```bash
-.venv/bin/python -m committer --message "Team meeting next Thursday at 10am in Room A"
-```
-
-Options:
-- `--attach <file>` — attach a file (uploaded to cloud storage); repeatable for multiple files
-- `--memories-dir` — directory for memory files (default: `memories/`)
-- `--no-push` — skip git push
-- `--today 2026-02-18` — override today's date (for testing)
-
-The AI extracts event details from your message and decides whether to create a new memory or update an existing one.
-
-### Generate a static snapshot locally (optional)
-
-The publisher is not used in the Pages deploy but can still generate a local HTML snapshot:
-
-```bash
-python -m publisher --memories-dir memories/ --output-dir site/
-```
-
-The output is a single `index.html` with two sections: **This Week** and **Upcoming**.
-
-## Memory Format
-
-Each memory is a markdown file with YAML frontmatter:
-
-```markdown
----
-target: 2026-03-01
-expires: 2026-04-01
-title: Team Meeting
-time: "10:00"
-place: Room A
----
-Weekly planning session.
-```
-
-Required fields: `target`, `expires`. Optional: `title`, `time`, `place`.
-
-## Firestore Storage (optional)
-
-Instead of git/markdown files, memories can be stored in Google Cloud Firestore. Enable it with `--firestore` or by setting `LIVING_MEMORY_STORAGE=firestore`.
-
-### Setup
-
-1. **GCP project** — create a Firestore database in Native mode.
-2. **Authentication** — set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON key, or run on GCE/Cloud Run where default credentials are available.
-3. **Database ID** — if your Firestore database is not `(default)`, set the database name:
-   ```bash
-   export LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db
-   ```
-   You can also set `GOOGLE_CLOUD_PROJECT` if the project cannot be inferred from credentials.
-4. **Emulator (local dev)** — use the [Firestore Emulator](https://cloud.google.com/firestore/docs/emulator):
-   ```bash
-   gcloud emulators firestore start
-   export FIRESTORE_EMULATOR_HOST="localhost:8080"
-   ```
-
-### Usage with Firestore
-
-```bash
-# Add a memory via Firestore
-.venv/bin/python -m committer --message "Team meeting Thursday 10am" --firestore
-
-# Generate site from Firestore
-.venv/bin/python -m publisher --output-dir site/ --firestore
-
-# Clean up expired memories
-.venv/bin/python -m cleanup --firestore
-
-# Or set the env var globally
-export LIVING_MEMORY_STORAGE=firestore
-```
-
-### Migration
-
-Import existing markdown files into Firestore:
-
-```bash
-python scripts/migrate_to_firestore.py --memories-dir memories/
-# Use --dry-run to preview without writing
-```
-
-## Client-Side Page (Step 1.5)
-
-A fully static HTML page that reads memories directly from Firestore in the browser. No server needed — suitable for GitHub Pages or any static host.
-
-### How it works
-
-`client/index.html` uses the Firebase Web SDK to query the `memories` collection in Firestore, filters out expired memories client-side, and renders **This Week** / **Upcoming** sections matching the server-side publisher output.
-
-### Usage
-
-1. Open `client/index.html` in a browser (or deploy to GitHub Pages).
-2. By default it shows events for `user_id=cambridge-lexington`.
-3. Override via query parameter: `?user_id=other-group`.
-
-### Firebase config
-
-The following values are embedded in `client/index.html`:
-
-| Key | Value |
-|-----|-------|
-| `projectId` | `living-memories-488001` |
-| `databaseId` | `living-memories-db` |
-| `collection` | `memories` |
-| `apiKey` | `AIzaSyCbx3sME8MqAqn35tweXfpLfjnpirBjFZY` |
-
-The API key is safe to embed publicly — it only identifies the project. Access control is enforced by Firestore security rules.
-
-### Firestore security rules (private via Google sign-in)
-
-To make the GitHub Pages client app private, require Firebase Authentication for reads and deny all writes:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /memories/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-  }
-}
-```
-
-**Important:** In Firebase Console → Authentication → Settings → Authorized domains, add:
-- `zhihan.github.io`
-
-The API key is not a secret; access control is enforced by Firestore security rules.
-
-### Troubleshooting Google Sign-In
-
-If sign-in doesn't work (popup flashes and disappears, or nothing happens):
-
-1. **Authorized domains** — In Firebase Console → Authentication → Settings → Authorized domains, make sure `zhihan.github.io` is listed.
-2. **Google provider enabled** — In Firebase Console → Authentication → Sign-in method, confirm the Google provider is enabled.
-3. **Popup blockers** — Browser extensions or built-in popup blockers can prevent the sign-in popup from opening. If the popup is blocked, an error message will appear with a "Sign in (redirect)" button as a fallback.
-4. **Safari / third-party cookie restrictions** — Safari blocks third-party cookies by default, which can prevent popup-based sign-in. Use the "Sign in (redirect)" button instead, which navigates to Google's sign-in page and redirects back.
-5. **Incognito / private browsing** — Some browsers restrict storage in private windows. Try a normal browsing window.
-
-### Named database support
-
-The Firebase Web SDK (v10.4+) supports non-default database IDs via `getFirestore(app, "database-id")`. The client page targets the `living-memories-db` database directly. If you encounter issues with named database access, you can either:
-- Migrate data to the `(default)` database, or
-- Update `DATABASE_ID` in `client/index.html` to `"(default)"`.
-
-## HTTP API (Cloud Run)
-
-A REST API for managing memories, deployed to Cloud Run with static API key auth.
-
-### Environment variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `EVENT_LEDGER_API_KEY` | Yes | Static Bearer token for auth |
-| `EVENT_LEDGER_USER_ID` | No | User ID for memories (default: `default`) |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key (for POST /memories) |
-| `GOOGLE_CLOUD_PROJECT` | Yes | GCP project ID |
-| `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
-
-### Endpoints
-
-```bash
-# Health check (no auth)
-curl https://YOUR-SERVICE-URL/healthz
+# Health check (no auth required)
+curl https://YOUR-SERVICE-URL/_healthz
 
 # Create a memory
 curl -X POST https://YOUR-SERVICE-URL/memories \
   -H "Authorization: Bearer $EVENT_LEDGER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
-
-# Create with attachments
-curl -X POST https://YOUR-SERVICE-URL/memories \
-  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Flyer for bake sale", "attachments": ["https://storage.googleapis.com/bucket/flyer.png"]}'
 
 # List memories
 curl https://YOUR-SERVICE-URL/memories \
@@ -211,32 +57,20 @@ curl -X DELETE https://YOUR-SERVICE-URL/memories/DOCUMENT_ID \
   -H "Authorization: Bearer $EVENT_LEDGER_API_KEY"
 ```
 
-### Deploy
+## Environment Variables
 
-Deployment is automated via `.github/workflows/deploy-api.yml` on pushes to `main` that change `src/`, `Dockerfile`, or `pyproject.toml`.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Google Gemini API key |
+| `EVENT_LEDGER_API_KEY` | Yes (API only) | Bearer token for API auth — keep secret |
+| `GOOGLE_CLOUD_PROJECT` | Yes (API only) | GCP project ID |
+| `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
 
-**Required GitHub secrets:**
-- `WIF_PROVIDER` — Workload Identity Federation provider resource name
-- `WIF_SERVICE_ACCOUNT` — GCP service account email
-- `EVENT_LEDGER_API_KEY` — API key for the deployed service
-- `GEMINI_API_KEY` — Google Gemini API key
+## Firebase / Client
 
-**Required GitHub variables:**
-- `GCP_PROJECT_ID` — GCP project ID
-- `GCP_REGION` (optional, default: `us-east1`)
-- `CLOUD_RUN_SERVICE` (optional, default: `event-ledger-api`)
-- `EVENT_LEDGER_USER_ID` (optional, default: `cambridge-lexington`)
-- `FIRESTORE_DATABASE` (optional, default: `living-memories-db`)
+Client uses Firebase Auth + Firestore; see `client/index.html` for config and set Firestore rules to require auth.
 
-### Run locally
+## Deploy
 
-```bash
-EVENT_LEDGER_API_KEY=dev-key GEMINI_API_KEY=... \
-  .venv/bin/uvicorn api:app --app-dir src --reload
-```
-
-## Running Tests
-
-```bash
-.venv/bin/pytest
-```
+- **GitHub Pages** — see `.github/workflows/publish.yml`
+- **Cloud Run API** — see `.github/workflows/deploy-api.yml`
