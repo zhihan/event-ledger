@@ -28,6 +28,7 @@ class CreateMemoryRequest(BaseModel):
     attachments: list[str] | None = None
 
 
+@app.get("/_healthz")
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
