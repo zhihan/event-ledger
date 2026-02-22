@@ -15,16 +15,26 @@
   .attachments { margin-top: 0.5rem; }
   .loading { color: #888; font-style: italic; }
   .error { color: #c00; }
+  .authbar { display: flex; gap: 0.5rem; align-items: center; margin: 0.75rem 0 1rem; }
+  .authbar button { padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #ccc; background: white; cursor: pointer; }
+  .authbar button:hover { background: #f2f2f2; }
+  .authbar .who { color: #666; font-size: 0.95rem; }
 </style>
 </head>
 <body>
 <h1>Our Church Events</h1>
-<div id="app"><p class="loading">Loading events from Firestore&hellip;</p></div>
+<div class="authbar">
+  <button id="signin" type="button">Sign in with Google</button>
+  <button id="signout" type="button" style="display:none">Sign out</button>
+  <span id="who" class="who"></span>
+</div>
+<div id="app"><p class="loading">Please sign in to load events&hellip;</p></div>
 
 <script type="module">
 // --- Firebase config ---
-// These values are safe to embed in a public page; Firestore security rules
-// enforce read-only access.  Override user_id via ?user_id=... query param.
+// These values are safe to embed in a static page.
+// IMPORTANT: this page is private via Firebase Auth + Firestore security rules.
+// Override user_id via ?user_id=... query param.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCbx3sME8MqAqn35tweXfpLfjnpirBjFZY",
   authDomain: "living-memories-488001.firebaseapp.com",
@@ -36,12 +46,29 @@ const DEFAULT_USER_ID = "cambridge-lexington";
 
 // --- Firebase SDK (CDN, modular) ---
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
 import { getFirestore, collection, query, where, getDocs }
   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
 // --- Init ---
 const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
 const db  = getFirestore(app, DATABASE_ID);
+
+// --- Auth UI ---
+const signInBtn = document.getElementById("signin");
+const signOutBtn = document.getElementById("signout");
+const whoEl = document.getElementById("who");
+
+signInBtn.addEventListener("click", async () => {
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+});
+
+signOutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+});
 
 // --- Helpers ---
 function getUserId() {
@@ -149,50 +176,73 @@ function renderSection(title, events) {
 }
 
 // --- Main ---
-async function main() {
+async function loadAndRender() {
   const appEl = document.getElementById("app");
   const userId = getUserId();
   const t = today();
   const wEnd = weekEnd(t);
 
-  try {
-    const q = query(
-      collection(db, COLLECTION),
-      where("user_id", "==", userId)
-    );
-    const snapshot = await getDocs(q);
+  appEl.innerHTML = `<p class="loading">Loading events from Firestore…</p>`;
 
-    const memories = [];
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      if (!isExpired(d.expires, t)) {
-        memories.push(d);
-      }
-    });
+  const q = query(
+    collection(db, COLLECTION),
+    where("user_id", "==", userId)
+  );
+  const snapshot = await getDocs(q);
 
-    // Sort: ongoing (no target) first, then by target ascending
-    memories.sort((a, b) => {
-      const aHas = a.target != null ? 1 : 0;
-      const bHas = b.target != null ? 1 : 0;
-      if (aHas !== bHas) return aHas - bHas;
-      if (!a.target && !b.target) return 0;
-      return a.target < b.target ? -1 : a.target > b.target ? 1 : 0;
-    });
+  const memories = [];
+  snapshot.forEach(doc => {
+    const d = doc.data();
+    if (!isExpired(d.expires, t)) {
+      memories.push(d);
+    }
+  });
 
-    // Split into sections (matches publisher logic)
-    const thisWeek = memories.filter(m => m.target == null || parseDate(m.target) <= wEnd);
-    const upcoming = memories.filter(m => m.target != null && parseDate(m.target) > wEnd);
+  // Sort: ongoing (no target) first, then by target ascending
+  memories.sort((a, b) => {
+    const aHas = a.target != null ? 1 : 0;
+    const bHas = b.target != null ? 1 : 0;
+    if (aHas !== bHas) return aHas - bHas;
+    if (!a.target && !b.target) return 0;
+    return a.target < b.target ? -1 : a.target > b.target ? 1 : 0;
+  });
 
-    appEl.innerHTML = renderSection("This Week", thisWeek)
-                    + renderSection("Upcoming", upcoming);
-  } catch (err) {
-    console.error("Firestore error:", err);
-    appEl.innerHTML = `<p class="error">Failed to load events: ${escapeHtml(err.message)}</p>
-<p>Check that Firestore security rules allow public reads and the Firebase config is correct.</p>`;
-  }
+  // Split into sections (matches publisher logic)
+  const thisWeek = memories.filter(m => m.target == null || parseDate(m.target) <= wEnd);
+  const upcoming = memories.filter(m => m.target != null && parseDate(m.target) > wEnd);
+
+  appEl.innerHTML = renderSection("This Week", thisWeek)
+                  + renderSection("Upcoming", upcoming);
 }
 
-main();
+function setSignedOutUi() {
+  signInBtn.style.display = "";
+  signOutBtn.style.display = "none";
+  whoEl.textContent = "";
+  document.getElementById("app").innerHTML = `<p class="loading">Please sign in to load events…</p>`;
+}
+
+function setSignedInUi(user) {
+  signInBtn.style.display = "none";
+  signOutBtn.style.display = "";
+  whoEl.textContent = user.email || user.displayName || "Signed in";
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    setSignedOutUi();
+    return;
+  }
+
+  setSignedInUi(user);
+  try {
+    await loadAndRender();
+  } catch (err) {
+    console.error("Firestore error:", err);
+    document.getElementById("app").innerHTML = `<p class="error">Failed to load events: ${escapeHtml(err.message)}</p>
+<p>Check: (1) you are signed in, (2) Firestore rules allow reads for authenticated users, (3) authDomain includes zhihan.github.io.</p>`;
+  }
+});
 </script>
 </body>
 </html>
