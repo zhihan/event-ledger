@@ -166,9 +166,17 @@ def main(argv: list[str] | None = None) -> None:
                               attachment_urls=attachment_urls or None)
     result = call_ai(prompt)
 
+    _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
+
     raw_target = result.get("target")
+    if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
+        raw_target = None
     target = date.fromisoformat(raw_target) if raw_target else None
-    expires = date.fromisoformat(result["expires"]) if result.get("expires") else _next_sunday(today)
+
+    raw_expires = result.get("expires")
+    if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
+        raw_expires = None
+    expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
     raw_attachments = result.get("attachments")
     mem = Memory(
         target=target,

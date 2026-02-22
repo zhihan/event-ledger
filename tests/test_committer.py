@@ -270,6 +270,69 @@ def test_main_filters_memories_by_user_id(mock_call_ai, mock_git, tmp_path: Path
     assert "Bob Meeting" not in prompt
 
 
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_create_ongoing_string_target(mock_call_ai, mock_git, tmp_path: Path):
+    """AI returns target='ongoing' as a string instead of null — should not crash."""
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "ongoing",
+        "expires": "2026-02-22",
+        "title": "晨兴",
+        "time": None,
+        "place": None,
+        "content": "This week's 晨兴",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "This week's 晨兴",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.target is None
+    assert mem.title == "晨兴"
+    mock_git.assert_called_once()
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_create_ongoing_string_expires(mock_call_ai, mock_git, tmp_path: Path):
+    """AI returns expires='ongoing' — should fall back to next Sunday."""
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-01",
+        "expires": "Ongoing",
+        "title": "Test",
+        "time": None,
+        "place": None,
+        "content": "Test content",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Test",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.expires == date(2026, 2, 22)  # next Sunday from 2026-02-18
+    mock_git.assert_called_once()
+
+
 def test_build_ai_request_with_attachments():
     prompt = build_ai_request(
         "Meeting with flyer", [], date(2026, 2, 18),
