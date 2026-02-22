@@ -151,6 +151,16 @@ service cloud.firestore {
 
 The API key is not a secret; access control is enforced by Firestore security rules.
 
+### Troubleshooting Google Sign-In
+
+If sign-in doesn't work (popup flashes and disappears, or nothing happens):
+
+1. **Authorized domains** — In Firebase Console → Authentication → Settings → Authorized domains, make sure `zhihan.github.io` is listed.
+2. **Google provider enabled** — In Firebase Console → Authentication → Sign-in method, confirm the Google provider is enabled.
+3. **Popup blockers** — Browser extensions or built-in popup blockers can prevent the sign-in popup from opening. If the popup is blocked, an error message will appear with a "Sign in (redirect)" button as a fallback.
+4. **Safari / third-party cookie restrictions** — Safari blocks third-party cookies by default, which can prevent popup-based sign-in. Use the "Sign in (redirect)" button instead, which navigates to Google's sign-in page and redirects back.
+5. **Incognito / private browsing** — Some browsers restrict storage in private windows. Try a normal browsing window.
+
 ### Named database support
 
 The Firebase Web SDK (v10.4+) supports non-default database IDs via `getFirestore(app, "database-id")`. The client page targets the `living-memories-db` database directly. If you encounter issues with named database access, you can either:

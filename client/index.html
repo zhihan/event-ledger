@@ -19,15 +19,18 @@
   .authbar button { padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #ccc; background: white; cursor: pointer; }
   .authbar button:hover { background: #f2f2f2; }
   .authbar .who { color: #666; font-size: 0.95rem; }
+  .auth-error { color: #c00; background: #fff0f0; border: 1px solid #fcc; border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; font-size: 0.9rem; }
 </style>
 </head>
 <body>
 <h1>Our Church Events</h1>
 <div class="authbar">
   <button id="signin" type="button">Sign in with Google</button>
+  <button id="signin-redirect" type="button" style="display:none">Sign in (redirect)</button>
   <button id="signout" type="button" style="display:none">Sign out</button>
   <span id="who" class="who"></span>
 </div>
+<div id="auth-error"></div>
 <div id="app"><p class="loading">Please sign in to load events&hellip;</p></div>
 
 <script type="module">
@@ -46,7 +49,7 @@ const DEFAULT_USER_ID = "cambridge-lexington";
 
 // --- Firebase SDK (CDN, modular) ---
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
 import { getFirestore, collection, query, where, getDocs }
   from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
@@ -58,16 +61,52 @@ const db  = getFirestore(app, DATABASE_ID);
 
 // --- Auth UI ---
 const signInBtn = document.getElementById("signin");
+const signInRedirectBtn = document.getElementById("signin-redirect");
 const signOutBtn = document.getElementById("signout");
 const whoEl = document.getElementById("who");
+const authErrorEl = document.getElementById("auth-error");
+
+const provider = new GoogleAuthProvider();
+
+function showAuthError(msg) {
+  authErrorEl.innerHTML = `<p class="auth-error">${escapeHtml(msg)}</p>`;
+}
+
+function clearAuthError() {
+  authErrorEl.innerHTML = "";
+}
 
 signInBtn.addEventListener("click", async () => {
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
+  clearAuthError();
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("Popup sign-in failed:", err);
+    showAuthError(`Popup sign-in failed: ${err.message}. Try the "Sign in (redirect)" button instead.`);
+    signInRedirectBtn.style.display = "";
+  }
+});
+
+signInRedirectBtn.addEventListener("click", async () => {
+  clearAuthError();
+  try {
+    await signInWithRedirect(auth, provider);
+  } catch (err) {
+    console.error("Redirect sign-in failed:", err);
+    showAuthError(`Redirect sign-in failed: ${err.message}`);
+  }
 });
 
 signOutBtn.addEventListener("click", async () => {
+  clearAuthError();
   await signOut(auth);
+});
+
+// Handle redirect result on page load
+getRedirectResult(auth).catch((err) => {
+  if (err.code === "auth/credential-already-in-use") return;
+  console.error("Redirect result error:", err);
+  showAuthError(`Sign-in error: ${err.message}`);
 });
 
 // --- Helpers ---
@@ -217,6 +256,7 @@ async function loadAndRender() {
 
 function setSignedOutUi() {
   signInBtn.style.display = "";
+  signInRedirectBtn.style.display = "none";
   signOutBtn.style.display = "none";
   whoEl.textContent = "";
   document.getElementById("app").innerHTML = `<p class="loading">Please sign in to load events…</p>`;
@@ -224,8 +264,10 @@ function setSignedOutUi() {
 
 function setSignedInUi(user) {
   signInBtn.style.display = "none";
+  signInRedirectBtn.style.display = "none";
   signOutBtn.style.display = "";
   whoEl.textContent = user.email || user.displayName || "Signed in";
+  clearAuthError();
 }
 
 onAuthStateChanged(auth, async (user) => {
