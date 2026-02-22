@@ -132,15 +132,19 @@ function today() {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
+function weekStart(todayDate) {
+  // Sunday-to-Saturday week: week starts on the most recent Sunday.
+  const jsDay = todayDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const start = new Date(todayDate);
+  start.setDate(start.getDate() - jsDay);
+  return start;
+}
+
 function weekEnd(todayDate) {
-  // Match publisher: week ends on Sunday (weekday 0 in JS = Sunday = 6 in Python ISO)
-  // Python: week_end = today + timedelta(days=(6 - today.weekday()))  where Monday=0
-  // JS: getDay() Sunday=0 Mon=1 ... Sat=6
-  const jsDay = todayDate.getDay(); // 0=Sun
-  const pyDay = jsDay === 0 ? 6 : jsDay - 1; // convert to Mon=0 .. Sun=6
-  const daysUntilSunday = 6 - pyDay;
-  const end = new Date(todayDate);
-  end.setDate(end.getDate() + daysUntilSunday);
+  // Sunday-to-Saturday week: week ends on Saturday.
+  const start = weekStart(todayDate);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
   return end;
 }
 
@@ -220,6 +224,7 @@ async function loadAndRender() {
   const appEl = document.getElementById("app");
   const userId = getUserId();
   const t = today();
+  const wStart = weekStart(t);
   const wEnd = weekEnd(t);
 
   appEl.innerHTML = `<p class="loading">Loading events from Firestore…</p>`;
@@ -247,8 +252,8 @@ async function loadAndRender() {
     return a.target < b.target ? -1 : a.target > b.target ? 1 : 0;
   });
 
-  // Split into sections (matches publisher logic)
-  const thisWeek = memories.filter(m => m.target == null || parseDate(m.target) <= wEnd);
+  // Split into sections (matches publisher logic — Sunday-to-Saturday weeks)
+  const thisWeek = memories.filter(m => m.target == null || (parseDate(m.target) >= wStart && parseDate(m.target) <= wEnd));
   const upcoming = memories.filter(m => m.target != null && parseDate(m.target) > wEnd);
 
   appEl.innerHTML = renderSection("This Week", thisWeek)

@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from memory import Memory
-from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event, _linkify_bare_urls
+from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event, _linkify_bare_urls, week_bounds
 
 
 def _write_memory(
@@ -49,7 +49,7 @@ def test_load_memories_sorted_by_target(tmp_path: Path):
 
 
 def test_generate_page_splits_this_week_and_future():
-    # 2026-02-18 is a Wednesday; week ends Sunday 2026-02-22
+    # 2026-02-18 is a Wednesday; week is Sun Feb 15 – Sat Feb 21
     today = date(2026, 2, 18)
     memories = [
         Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
@@ -261,3 +261,74 @@ def test_load_memories_filters_by_user_id(tmp_path: Path):
 
     all_mems = load_memories(tmp_path, date(2026, 2, 18))
     assert len(all_mems) == 2
+
+
+# --- week_bounds tests ---
+
+def test_week_bounds_sunday():
+    """On Sunday, the week starts today and ends Saturday."""
+    # 2026-02-22 is a Sunday
+    start, end = week_bounds(date(2026, 2, 22))
+    assert start == date(2026, 2, 22)  # Sunday
+    assert end == date(2026, 2, 28)    # Saturday
+
+
+def test_week_bounds_wednesday():
+    """On Wednesday, the week started last Sunday and ends this Saturday."""
+    # 2026-02-18 is a Wednesday
+    start, end = week_bounds(date(2026, 2, 18))
+    assert start == date(2026, 2, 15)  # Sunday
+    assert end == date(2026, 2, 21)    # Saturday
+
+
+def test_week_bounds_saturday():
+    """On Saturday, the week started last Sunday and ends today."""
+    # 2026-02-21 is a Saturday
+    start, end = week_bounds(date(2026, 2, 21))
+    assert start == date(2026, 2, 15)  # Sunday
+    assert end == date(2026, 2, 21)    # Saturday
+
+
+def test_week_bounds_monday():
+    """On Monday, the week started yesterday (Sunday)."""
+    # 2026-02-23 is a Monday
+    start, end = week_bounds(date(2026, 2, 23))
+    assert start == date(2026, 2, 22)  # Sunday
+    assert end == date(2026, 2, 28)    # Saturday
+
+
+def test_this_week_resets_on_sunday():
+    """On Sunday, prior-week events (Mon-Sat) should NOT appear in This Week."""
+    # 2026-02-22 is a Sunday
+    today = date(2026, 2, 22)
+    memories = [
+        # Last week events (Mon Feb 16 – Sat Feb 21)
+        Memory(target=date(2026, 2, 16), expires=date(2026, 3, 1),
+               content="Last Monday", title="Past Mon"),
+        Memory(target=date(2026, 2, 21), expires=date(2026, 3, 1),
+               content="Last Saturday", title="Past Sat"),
+        # This week events (Sun Feb 22 – Sat Feb 28)
+        Memory(target=date(2026, 2, 22), expires=date(2026, 3, 1),
+               content="This Sunday", title="Today"),
+        Memory(target=date(2026, 2, 25), expires=date(2026, 3, 1),
+               content="This Wednesday", title="Wed"),
+        # Future event
+        Memory(target=date(2026, 3, 5), expires=date(2026, 4, 1),
+               content="Next month", title="Future"),
+    ]
+
+    html = generate_page(memories, today)
+
+    this_week_pos = html.index("This Week")
+    upcoming_pos = html.index("Upcoming")
+
+    # "Today" and "Wed" should be in This Week
+    assert "Today" in html[this_week_pos:upcoming_pos]
+    assert "Wed" in html[this_week_pos:upcoming_pos]
+
+    # "Past Mon" and "Past Sat" should NOT be in This Week
+    assert "Past Mon" not in html[this_week_pos:upcoming_pos]
+    assert "Past Sat" not in html[this_week_pos:upcoming_pos]
+
+    # "Future" should be in Upcoming
+    assert "Future" in html[upcoming_pos:]
