@@ -170,6 +170,71 @@ The Firebase Web SDK (v10.4+) supports non-default database IDs via `getFirestor
 - Migrate data to the `(default)` database, or
 - Update `DATABASE_ID` in `client/index.html` to `"(default)"`.
 
+## HTTP API (Cloud Run)
+
+A REST API for managing memories, deployed to Cloud Run with static API key auth.
+
+### Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `EVENT_LEDGER_API_KEY` | Yes | Static Bearer token for auth |
+| `EVENT_LEDGER_USER_ID` | No | User ID for memories (default: `default`) |
+| `GEMINI_API_KEY` | Yes | Google Gemini API key (for POST /memories) |
+| `GOOGLE_CLOUD_PROJECT` | Yes | GCP project ID |
+| `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
+
+### Endpoints
+
+```bash
+# Health check (no auth)
+curl https://YOUR-SERVICE-URL/healthz
+
+# Create a memory
+curl -X POST https://YOUR-SERVICE-URL/memories \
+  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
+
+# Create with attachments
+curl -X POST https://YOUR-SERVICE-URL/memories \
+  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Flyer for bake sale", "attachments": ["https://storage.googleapis.com/bucket/flyer.png"]}'
+
+# List memories
+curl https://YOUR-SERVICE-URL/memories \
+  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY"
+
+# Delete a memory
+curl -X DELETE https://YOUR-SERVICE-URL/memories/DOCUMENT_ID \
+  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY"
+```
+
+### Deploy
+
+Deployment is automated via `.github/workflows/deploy-api.yml` on pushes to `main` that change `src/`, `Dockerfile`, or `pyproject.toml`.
+
+**Required GitHub secrets:**
+- `WIF_PROVIDER` — Workload Identity Federation provider resource name
+- `WIF_SERVICE_ACCOUNT` — GCP service account email
+- `EVENT_LEDGER_API_KEY` — API key for the deployed service
+- `GEMINI_API_KEY` — Google Gemini API key
+
+**Required GitHub variables:**
+- `GCP_PROJECT_ID` — GCP project ID
+- `GCP_REGION` (optional, default: `us-east1`)
+- `CLOUD_RUN_SERVICE` (optional, default: `event-ledger-api`)
+- `EVENT_LEDGER_USER_ID` (optional, default: `cambridge-lexington`)
+- `FIRESTORE_DATABASE` (optional, default: `living-memories-db`)
+
+### Run locally
+
+```bash
+EVENT_LEDGER_API_KEY=dev-key GEMINI_API_KEY=... \
+  .venv/bin/uvicorn api:app --app-dir src --reload
+```
+
 ## Running Tests
 
 ```bash

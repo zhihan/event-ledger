@@ -1,0 +1,46 @@
+name: Deploy API to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-api.yml'
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}         # e.g. living-memories-488001
+  REGION: ${{ vars.GCP_REGION || 'us-east1' }}
+  SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'event-ledger-api' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}  # e.g. projects/123/locations/global/workloadIdentityPools/github/providers/github
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}      # e.g. github-actions@project.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push container
+        run: |
+          gcloud builds submit --tag "gcr.io/$PROJECT_ID/$SERVICE"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "gcr.io/$PROJECT_ID/$SERVICE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "EVENT_LEDGER_API_KEY=${{ secrets.EVENT_LEDGER_API_KEY }},EVENT_LEDGER_USER_ID=${{ vars.EVENT_LEDGER_USER_ID || 'cambridge-lexington' }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GOOGLE_CLOUD_PROJECT=${{ vars.GCP_PROJECT_ID }},LIVING_MEMORY_FIRESTORE_DATABASE=${{ vars.FIRESTORE_DATABASE || 'living-memories-db' }}"

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -165,9 +166,83 @@ def git_commit_and_push(path: Path, push: bool = True) -> None:
         subprocess.run(["git", "push"], check=True)
 
 
+@dataclass
+class CommitResult:
+    """Result of committing a memory via the core function."""
+    action: str
+    doc_id: str | None
+    memory: Memory
+
+
 def _use_firestore() -> bool:
     """Check if Firestore mode is enabled via env var."""
     return os.environ.get("LIVING_MEMORY_STORAGE", "").lower() == "firestore"
+
+
+def commit_memory_firestore(
+    message: str,
+    user_id: str,
+    today: date | None = None,
+    attachment_urls: list[str] | None = None,
+) -> CommitResult:
+    """Core function: process a message and save to Firestore.
+
+    Returns a ``CommitResult`` with the action taken, document ID, and Memory.
+    """
+    import firestore_storage
+
+    if today is None:
+        today = date.today()
+
+    pairs = firestore_storage.load_memories(user_id, today)
+    existing_memories = [mem for _, mem in pairs]
+
+    prompt = build_ai_request(message, existing_memories, today,
+                              attachment_urls=attachment_urls or None)
+    result = call_ai(prompt)
+
+    _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
+
+    raw_target = result.get("target")
+    if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
+        raw_target = None
+    target = date.fromisoformat(raw_target) if raw_target else None
+
+    raw_expires = result.get("expires")
+    if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
+        raw_expires = None
+    expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
+    raw_attachments = result.get("attachments")
+
+    # Prefer user-provided URLs over AI-generated ones
+    user_urls = extract_urls(message)
+    ai_title = result.get("title") or ""
+    ai_content = result["content"]
+    if user_urls:
+        ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
+
+    mem = Memory(
+        target=target,
+        expires=expires,
+        content=ai_content,
+        title=ai_title or result.get("title"),
+        time=result.get("time"),
+        place=result.get("place"),
+        attachments=raw_attachments if raw_attachments else None,
+        user_id=user_id,
+    )
+
+    doc_id = None
+    if result["action"] == "update" and result.get("update_title"):
+        found = firestore_storage.find_memory_by_title(
+            user_id, result["update_title"], today,
+        )
+        if found:
+            doc_id = found[0]
+    saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
+    firestore_storage.delete_expired(today)
+
+    return CommitResult(action=result["action"], doc_id=saved_id, memory=mem)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -195,60 +270,50 @@ def main(argv: list[str] | None = None) -> None:
         attachment_urls.append(url)
 
     if use_fs:
-        import firestore_storage
-        pairs = firestore_storage.load_memories(args.user_id, today)
-        existing_memories = [mem for _, mem in pairs]
+        commit_memory_firestore(
+            message=args.message,
+            user_id=args.user_id,
+            today=today,
+            attachment_urls=attachment_urls or None,
+        )
     else:
         existing_memories = load_memories(args.memories_dir, user_id=args.user_id)
 
-    prompt = build_ai_request(args.message, existing_memories, today,
-                              attachment_urls=attachment_urls or None)
-    result = call_ai(prompt)
+        prompt = build_ai_request(args.message, existing_memories, today,
+                                  attachment_urls=attachment_urls or None)
+        result = call_ai(prompt)
 
-    _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
+        _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
 
-    raw_target = result.get("target")
-    if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
-        raw_target = None
-    target = date.fromisoformat(raw_target) if raw_target else None
+        raw_target = result.get("target")
+        if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
+            raw_target = None
+        target = date.fromisoformat(raw_target) if raw_target else None
 
-    raw_expires = result.get("expires")
-    if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
-        raw_expires = None
-    expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
-    raw_attachments = result.get("attachments")
+        raw_expires = result.get("expires")
+        if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
+            raw_expires = None
+        expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
+        raw_attachments = result.get("attachments")
 
-    # Prefer user-provided URLs over AI-generated ones
-    user_urls = extract_urls(args.message)
-    ai_title = result.get("title") or ""
-    ai_content = result["content"]
-    if user_urls:
-        ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
+        # Prefer user-provided URLs over AI-generated ones
+        user_urls = extract_urls(args.message)
+        ai_title = result.get("title") or ""
+        ai_content = result["content"]
+        if user_urls:
+            ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
 
-    mem = Memory(
-        target=target,
-        expires=expires,
-        content=ai_content,
-        title=ai_title or result.get("title"),
-        time=result.get("time"),
-        place=result.get("place"),
-        attachments=raw_attachments if raw_attachments else None,
-        user_id=args.user_id,
-    )
+        mem = Memory(
+            target=target,
+            expires=expires,
+            content=ai_content,
+            title=ai_title or result.get("title"),
+            time=result.get("time"),
+            place=result.get("place"),
+            attachments=raw_attachments if raw_attachments else None,
+            user_id=args.user_id,
+        )
 
-    if use_fs:
-        import firestore_storage
-        # For updates, find existing doc ID by matching title
-        doc_id = None
-        if result["action"] == "update" and result.get("update_title"):
-            found = firestore_storage.find_memory_by_title(
-                args.user_id, result["update_title"], today,
-            )
-            if found:
-                doc_id = found[0]
-        firestore_storage.save_memory(mem, doc_id=doc_id)
-        firestore_storage.delete_expired(today)
-    else:
         slug = result.get("slug")
         memories_dir: Path = args.memories_dir
 
