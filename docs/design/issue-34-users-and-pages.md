@@ -1,0 +1,401 @@
+# Design Doc — Issue #34: Implement Users and Pages
+
+## 0) Context / Problem Statement
+Issue #34 proposes evolving the “living memory” app toward a **social-app-like model**:
+- Every logged-in person is a distinct **User**.
+- Users can create **Pages**.
+- A Page can have **one or more owners** (must have at least one).
+- **All Pages are public** (readable by anyone with the URL, though not necessarily discoverable).
+- **Personal pages are private**.
+- This implies moving from a “single-family board / single-tenant ledger” vibe into a more general **web app** with first-class identity + authorization.
+
+This repo already has:
+- Firestore-backed `memories` documents with `user_id`
+- a `client/` using Firebase Auth + Firestore
+- a Cloud Run REST API (currently API-key protected)
+
+The missing piece is a coherent **multi-user + multi-page** authorization and data model.
+
+---
+
+## 1) Goals
+
+### Functional
+1. **User identity**: Each Firebase Auth user is a first-class user (by UID).
+2. **Pages**:
+   - Users can create pages.
+   - Pages have **≥ 1 owner** (the only role for now).
+   - Pages can be **co-owned** by multiple users via share-link invites.
+3. **Visibility**:
+   - **Public pages**: readable by anyone with the URL (including logged-out users). Public does **not** imply discoverable — there is no global directory or search of pages.
+   - **Personal pages**: private; readable only by the owners.
+4. **Memories belong to pages**: a memory is associated with a page (not directly with a user).
+5. **Web app architecture alignment**:
+   - Client can route to `/p/{slug}` or similar.
+   - API supports page-scoped memory CRUD.
+
+### Non-goals (for this issue)
+- "Following", likes, comments, notifications.
+- Fine-grained roles (e.g., editor/viewer/member). Only **owners** for now.
+- Paid plans / billing.
+- Cross-page search / discovery (public pages are readable, not discoverable).
+
+---
+
+## 2) Terminology
+- **User**: Firebase Auth identity (UID). Stored as `users/{uid}` for profile + metadata.
+- **Page**: A container for memories. Has owners and a visibility mode.
+- **Personal Page**: A page intended to be private, typically 1:1 with a user (one owner = user).
+- **Public Page**: A page visible to all users (and optionally anonymous visitors).
+- **Owner**: A user who can manage a page and write/delete its memories. The only role for now.
+
+---
+
+## 3) Current State (as of PLAN.md / README.md)
+- Firestore collection `memories` exists and stores `user_id: string`.
+- API endpoints exist for `/memories` (POST/GET/DELETE) protected by a static bearer token `EVENT_LEDGER_API_KEY`.
+- `client/` uses Firebase Auth + Firestore to display memories.
+
+Gaps relative to Issue #34:
+- No `pages` collection.
+- No ownership model.
+- No public vs personal/private visibility concept.
+- No clear relationship between “user” and “their memories” beyond a string field.
+
+---
+
+## 4) Proposed Data Model
+
+### 4.1 Collections overview
+```
+users/{uid}
+pages/{slug}
+pages/{slug}/invites/{inviteId}
+memories/{memoryId}
+audit_log/{entryId}
+```
+
+### 4.2 `users/{uid}`
+**Purpose:** profile + bookkeeping.
+
+Fields:
+- `uid: string` (redundant but convenient)
+- `created_at: timestamp`
+- `display_name: string | null`
+- `photo_url: string | null`
+- `default_personal_page_id: string | null`
+
+Notes:
+- The source of truth for identity is Firebase Auth; this document is for app metadata.
+
+### 4.3 `pages/{pageId}`
+**Purpose:** shared container and authorization boundary.
+
+The document ID **is** the slug (immutable, URL-friendly).
+
+Fields:
+- `title: string`
+- `description: string | null`
+- `visibility: "public" | "personal"`
+  - `public`: readable by anyone with the URL (not discoverable)
+  - `personal`: private
+- `owner_uids: array<string>` (must be non-empty)
+- `created_at: timestamp`
+- `updated_at: timestamp`
+
+Constraints:
+- `owner_uids.length >= 1`
+- Slug (document ID) is immutable after creation
+
+### 4.4 `memories/{memoryId}` (updated)
+**Key change:** associate memories with pages.
+
+Fields (existing + new):
+- `page_id: string`  ✅ new (required)
+- `user_id: string`  ⚠️ legacy (keep temporarily for migration/back-compat)
+- `target: timestamp | null`
+- `expires: timestamp`
+- `title: string | null`
+- `time: string | null`
+- `place: string | null`
+- `content: string`
+- `attachments: array<string> | null`
+- `created_at: timestamp`
+- `updated_at: timestamp`
+
+Rule:
+- A memory’s access is determined by its parent page’s visibility + ownership.
+
+---
+
+## 5) Firestore Indexes
+
+### 5.1 Required queries
+- List memories for a page (exclude expired, sort by target):
+  - `where page_id == X AND expires > now` (or `expires >= now`)
+  - order by `target` (or `created_at`) depending on UI
+
+Suggested composite indexes:
+1. `memories`: `(page_id ASC, expires ASC)`
+2. `memories`: `(page_id ASC, target ASC)`
+3. If you filter on non-expired and order by target, you may need:
+   - `(page_id ASC, expires ASC, target ASC)` (depending on query shape)
+
+### 5.2 Slug as document ID
+**Decision: Use slug as document ID.** The slug is immutable — once a page is created, its slug cannot be changed.
+
+- Document path: `pages/{slug}`
+- No extra index needed for slug lookup.
+- Simplifies routing, security rules, and client queries.
+- Trade-off: if a user wants a different URL, they must create a new page.
+
+---
+
+## 6) Authorization Model
+
+### 6.1 High-level rules
+- **Public page**: anyone can read.
+- **Personal page**: only owners can read.
+- Writes (create/update/delete memories): owners only.
+
+### 6.2 Firestore Security Rules (sketch)
+Pseudocode (not exact syntax):
+
+```
+function isSignedIn() { return request.auth != null; }
+function uid() { return request.auth.uid; }
+function page(slug) { return get(/databases/$(database)/documents/pages/$(slug)).data; }
+function isOwner(slug) { return isSignedIn() && (uid() in page(slug).owner_uids); }
+function canReadPage(slug) {
+  let p = page(slug);
+  return p.visibility == "public" || isOwner(slug);
+}
+
+match /pages/{slug} {
+  allow read: if resource.data.visibility == "public" || isOwner(slug);
+  allow create: if isSignedIn() && request.resource.data.owner_uids.size() >= 1
+                && (uid() in request.resource.data.owner_uids);
+  allow update, delete: if isOwner(slug);
+}
+
+match /memories/{memoryId} {
+  allow read: if canReadPage(resource.data.page_id);
+  allow create: if isOwner(request.resource.data.page_id);
+  allow update, delete: if isOwner(resource.data.page_id);
+}
+
+match /users/{userId} {
+  allow read: if isSignedIn() && uid() == userId;
+  allow write: if isSignedIn() && uid() == userId;
+}
+
+match /audit_log/{entryId} {
+  allow read: if false;   // read via Admin SDK only
+  allow create: if false; // written by server (Admin SDK) only
+}
+```
+
+Important implementation notes:
+- If we keep legacy `user_id`, security must be page-based only; otherwise we get inconsistent enforcement.
+- Consider preventing owners array from being emptied on update.
+
+---
+
+## 7) API Changes (Cloud Run)
+
+### 7.1 Auth
+Move from static API key to **Firebase ID token** verification.
+- Client sends `Authorization: Bearer <firebase_id_token>`
+- API verifies token via Firebase Admin SDK, obtains `uid`.
+
+(We can keep API-key mode temporarily during migration/rollout.)
+
+### 7.2 Endpoints
+Suggested resource-oriented endpoints:
+
+#### Users
+- `GET /users/me`
+  - returns uid + default personal page
+
+#### Pages
+- `POST /pages`
+  - create page (slug is immutable once set)
+- `GET /pages/{slug}`
+  - fetch page metadata (public data if visibility public)
+- `DELETE /pages/{slug}/owners/{uid}`
+  - remove co-owner (requires owner; must keep ≥1 owner)
+
+#### Invites
+- `POST /pages/{slug}/invites`
+  - generate a share-link invite (requires owner)
+- `POST /invites/{inviteId}/accept`
+  - accept an invite and become a co-owner (requires sign-in)
+
+#### Memories (page-scoped)
+- `POST /pages/{slug}/memories`
+- `GET /pages/{slug}/memories`
+- `DELETE /pages/{slug}/memories/{id}`
+
+### 7.3 Request/Response examples
+Create page:
+```json
+POST /pages
+Authorization: Bearer <id_token>
+{
+  "slug": "lexington-family",
+  "title": "Lexington Family",
+  "visibility": "public"
+}
+
+200
+{
+  "page": {
+    "slug": "lexington-family",
+    "title": "Lexington Family",
+    "visibility": "public",
+    "owner_uids": ["abc123"],
+    "created_at": "..."
+  }
+}
+```
+
+Create memory on a page:
+```json
+POST /pages/lexington-family/memories
+Authorization: Bearer <id_token>
+{
+  "message": "Team meeting next Thursday at 10am in Room A",
+  "attachments": []
+}
+
+200
+{
+  "action": "created",
+  "memory": {
+    "id": "...",
+    "page_id": "lexington-family",
+    "content": "...",
+    "target": "...",
+    "expires": "..."
+  }
+}
+```
+
+---
+
+## 8) Client UX / Routes
+
+### 8.1 Routes
+- `/` — landing
+- `/sign-in` — Google sign-in
+- `/me` — redirects to personal page
+- `/p/{slug}` — page view
+- `/p/{slug}/settings` — owners, visibility
+
+### 8.2 Flows
+**First-time sign-in**:
+1. User signs in with Google.
+2. Client calls `GET /users/me`.
+3. If no personal page exists, create one:
+   - slug: derived from uid or username-like slug
+   - visibility: `personal`
+   - owners: [uid]
+4. Redirect to `/p/{personalSlug}`.
+
+**Public visitor**:
+- Can open `/p/{slug}` and read if page is public.
+
+**Owner adding co-owner via share link**:
+1. Owner generates an invite link from the page settings UI.
+2. Server creates an invite document at `pages/{slug}/invites/{inviteId}` with:
+   - `invite_id: string` (random token, used in the URL)
+   - `created_by: string` (owner UID)
+   - `created_at: timestamp`
+   - `expires_at: timestamp` (e.g. 7 days)
+   - `accepted_by: string | null`
+3. Owner shares the link (e.g. `https://app/invite/{inviteId}`).
+4. Recipient signs in (or creates account), then the client calls `POST /invites/{inviteId}/accept`.
+5. Server validates the invite (exists, not expired, not already used), adds the recipient's UID to `owner_uids`, marks the invite as accepted, and logs the change to the audit log.
+
+---
+
+## 9) Migration / Backfill Plan
+
+### Phase 0: Prepare
+- Add `pages` collection + basic page creation.
+- Add `page_id` field to new memories.
+- Keep reading legacy `user_id` for existing docs.
+
+### Phase 1: Create personal pages for existing users
+- For each distinct `user_id` in `memories`, create a personal page:
+  - `page_id/slug`: e.g. `u-{user_id}` (or map if it’s already a Firebase uid)
+  - `visibility`: `personal`
+  - `owner_uids`: [user_id] (only if `user_id` is Firebase uid; otherwise needs mapping)
+
+### Phase 2: Backfill memories
+- For each memory with `user_id` and no `page_id`, set `page_id` to the created personal page.
+
+### Phase 3: Cutover
+- Update client and API to exclusively use `page_id`.
+- Remove reliance on `user_id`. No per-memory `created_by_uid` is needed — authorship is not tracked at the memory level.
+
+Note: This migration assumes `user_id` is already a Firebase UID. If it isn’t, we need a mapping table or a one-time migration script.
+
+---
+
+## 10) Privacy & Security Considerations
+- Ensure **personal pages are not readable** by non-owners.
+- Ensure memory documents cannot be read directly unless page access is satisfied.
+- Avoid storing sensitive PII in page slugs.
+- Logging: do not log auth tokens or raw memory content (current README says this is already a goal).
+
+---
+
+## 11) Testing Strategy
+
+### Unit tests
+- Page creation enforces `owner_uids` non-empty.
+- Ownership checks for memory CRUD.
+- Slug uniqueness.
+
+### Security rules tests
+- Anonymous read works for public page memories.
+- Anonymous read denied for personal page.
+- Owner read/write allowed.
+- Non-owner write denied.
+
+### API integration
+- Verify Firebase token auth.
+- End-to-end: create page → add memory → list memories.
+
+---
+
+## 12) Rollout Plan
+1. **Dual mode**: support legacy `/memories` endpoints + new page-scoped endpoints.
+2. Update client to use page-scoped API.
+3. Backfill `page_id` across existing memories.
+4. Flip off legacy modes and remove `user_id` dependency.
+
+---
+
+## 13) Audit Log
+
+Ownership changes must be logged for accountability.
+
+### Collection: `audit_log/{entryId}`
+
+Fields:
+- `entry_id: string`
+- `page_slug: string` — the affected page
+- `action: string` — e.g. `"owner_added"`, `"owner_removed"`, `"invite_created"`, `"invite_accepted"`
+- `actor_uid: string` — the user who performed the action
+- `target_uid: string | null` — the user affected (e.g. the new/removed owner)
+- `metadata: map | null` — additional context (e.g. invite ID)
+- `created_at: timestamp`
+
+Notes:
+- Audit log entries are append-only; they should never be updated or deleted.
+- Security rules: only the server (Admin SDK) or the acting owner can create entries; no client can update/delete.
+- For MVP, logging ownership additions/removals and invite acceptance is sufficient.
+
+---
