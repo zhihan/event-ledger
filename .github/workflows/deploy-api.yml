@@ -28,7 +28,9 @@ jobs:
 
       - name: Build and push container
         run: |
-          gcloud builds submit --tag "gcr.io/$PROJECT_ID/$SERVICE"
+          # gcloud can fail if it cannot stream logs (e.g. VPC-SC / logs bucket perms).
+          # Suppress log streaming; logs remain available in Cloud Console.
+          gcloud builds submit --tag "gcr.io/$PROJECT_ID/$SERVICE" --suppress-logs
 
       - name: Deploy to Cloud Run
         run: |
