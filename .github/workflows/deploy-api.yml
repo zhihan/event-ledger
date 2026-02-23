@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}         # e.g. living-memories-488001
+  PROJECT_ID: living-memories-488001
   REGION: ${{ vars.GCP_REGION || 'us-east1' }}
   SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'event-ledger-api' }}
 
