@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}         # e.g. living-memories-488001
-  REGION: ${{ vars.GCP_REGION || 'us-east1' }}
+  PROJECT_ID: living-memories-488001
+  REGION: northamerica-northeast1
   SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'event-ledger-api' }}
 
 jobs:
@@ -14,23 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      # Map secrets into env so we can reference them in expressions without using the `secrets` context.
-      GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fail fast if missing GCP credentials
-        if: ${{ env.GCP_CREDENTIALS_JSON == '' }}
-        run: |
-          echo "Missing required secret: GCP_CREDENTIALS_JSON (service account key JSON)."
-          exit 1
-
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ env.GCP_CREDENTIALS_JSON }}
+          # Pass secret directly; avoids edge-cases with env propagation in expressions.
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
