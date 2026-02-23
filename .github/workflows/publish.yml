@@ -1,37 +1,83 @@
-name: Publish Site
+name: Deploy Web App
 
 on:
   push:
     branches: [main]
     paths:
-      - 'client/**'
+      - 'web/**'
+      - '.github/workflows/publish.yml'
+  pull_request:
+    paths:
+      - 'web/**'
       - '.github/workflows/publish.yml'
 
-permissions:
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare site directory
-        run: |
-          mkdir -p site
-          cp client/index.html site/index.html
-
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/setup-node@v4
         with:
-          path: site/
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Install dependencies
+        run: cd web && npm ci
+
+      - name: Type-check
+        run: cd web && npx tsc --noEmit
+
+      - name: Build
+        run: cd web && npm run build
+
+      - name: Copy legacy client
+        run: cp client/index.html web/dist/legacy.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+  deploy-preview:
+    if: github.event_name == 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: living-memories-488001
+          entryPoint: web
+
+  deploy-live:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://living-memories-488001.web.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: living-memories-488001
+          entryPoint: web

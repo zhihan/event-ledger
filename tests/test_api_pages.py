@@ -71,6 +71,30 @@ class TestGetCurrentUser:
 
 
 # ---------------------------------------------------------------------------
+# GET /users/me/pages
+# ---------------------------------------------------------------------------
+
+class TestListMyPages:
+    @patch("api.page_storage.list_pages_for_user")
+    def test_returns_owned_pages(self, mock_list, client):
+        mock_list.return_value = [PUBLIC_PAGE, PERSONAL_PAGE]
+        resp = client.get("/users/me/pages", headers=AUTH)
+        assert resp.status_code == 200
+        pages = resp.json()["pages"]
+        assert len(pages) == 2
+        assert pages[0]["slug"] == "public-page"
+        assert pages[1]["slug"] == "personal-page"
+        mock_list.assert_called_once_with(OWNER_UID)
+
+    @patch("api.page_storage.list_pages_for_user")
+    def test_returns_empty_list(self, mock_list, client):
+        mock_list.return_value = []
+        resp = client.get("/users/me/pages", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["pages"] == []
+
+
+# ---------------------------------------------------------------------------
 # POST /pages
 # ---------------------------------------------------------------------------
 

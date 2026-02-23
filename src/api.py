@@ -185,6 +185,17 @@ def get_current_user(uid: str = Depends(_get_uid)):
     return {"user": user.to_dict()}
 
 
+@app.get("/users/me/pages")
+def list_my_pages(uid: str = Depends(_get_uid)):
+    pages = page_storage.list_pages_for_user(uid)
+    return {
+        "pages": [
+            {**p.to_dict(), "slug": p.slug}
+            for p in pages
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Page endpoints (Firebase Auth)
 # ---------------------------------------------------------------------------
@@ -329,3 +340,17 @@ def delete_page_memory(slug: str, memory_id: str, uid: str = Depends(_get_uid)):
     firestore_storage.delete_memory(memory_id)
     logger.info("delete_page_memory slug=%s memory_id=%s uid=%s", slug, memory_id, uid)
     return {"ok": True}
+
+
+
+# ---------------------------------------------------------------------------
+# /api prefix support for Firebase Hosting rewrites
+# ---------------------------------------------------------------------------
+# Firebase Hosting rewrites /api/** to Cloud Run, preserving the /api prefix.
+# This middleware strips the /api prefix so routes work under both paths.
+
+@app.middleware("http")
+async def strip_api_prefix(request: Request, call_next) -> Response:
+    if request.url.path.startswith("/api/"):
+        request.scope["path"] = request.url.path[4:]  # strip "/api"
+    return await call_next(request)
