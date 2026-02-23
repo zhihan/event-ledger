@@ -77,4 +77,4 @@ The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each re
 ## Deploy
 
 - **GitHub Pages** — see `.github/workflows/publish.yml`
-- **Cloud Run API** — see `.github/workflows/deploy-api.yml`
+- **Cloud Run API** — `./scripts/deploy_cloud_run.sh` (or see `.github/workflows/deploy-api.yml` for CI)
