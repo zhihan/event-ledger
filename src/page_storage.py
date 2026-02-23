@@ -213,6 +213,17 @@ def list_pages_for_user(uid: str) -> list[Page]:
     return [Page.from_dict(doc.id, doc.to_dict()) for doc in docs]
 
 
+def list_ownerless_pages() -> list[Page]:
+    """List all pages that have no owners (legacy/orphaned pages)."""
+    db = _get_client()
+    results: list[Page] = []
+    for doc in db.collection(PAGES_COLLECTION).stream():
+        page = Page.from_dict(doc.id, doc.to_dict())
+        if not page.owner_uids:
+            results.append(page)
+    return results
+
+
 def add_owner(slug: str, uid: str) -> Page:
     """Add a co-owner to a page."""
     from google.cloud.firestore import ArrayUnion
