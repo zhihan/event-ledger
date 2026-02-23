@@ -399,11 +399,3 @@ Notes:
 - For MVP, logging ownership additions/removals and invite acceptance is sufficient.
 
 ---
-
-## 14) Open Questions (Resolved)
-1. ~~Should "all pages are public" mean *discoverable* or just *readable if you have the URL*?~~ **Resolved:** Readable only. Public pages are not discoverable — URLs include the slug so they are self-describing.
-2. ~~Should we support non-owner members now (viewer/editor), or only owners?~~ **Resolved:** Only owners for now.
-3. ~~Best invite mechanism: email-based invites, UID-based, or "share link"?~~ **Resolved:** Share link. See section 8.2.
-4. ~~Should slug be immutable (doc ID) or mutable (field + index)?~~ **Resolved:** Immutable. Slug is the document ID.
-5. ~~Should we store `created_by_uid` on memories separately from page ownership?~~ **Resolved:** Not necessary. No per-memory authorship tracking.
-6. ~~Do we need audit logs for ownership changes?~~ **Resolved:** Yes. See section 13.
