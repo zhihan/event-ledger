@@ -70,6 +70,10 @@ curl -X DELETE https://YOUR-SERVICE-URL/memories/DOCUMENT_ID \
 
 Client uses Firebase Auth + Firestore; see `client/index.html` for config and set Firestore rules to require auth.
 
+## Logging
+
+The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each request logs `method`, `path`, `status_code`, and `duration_ms`. Cloud Trace correlation is included when the `x-cloud-trace-context` header is present. Endpoint-specific fields: `action`, `doc_id`, `user_id`, `message_len`, `num_attachments` (POST), `count` (GET), `memory_id` (DELETE). Message content and API keys are never logged.
+
 ## Deploy
 
 - **GitHub Pages** — see `.github/workflows/publish.yml`
