@@ -94,6 +94,8 @@ def _verify_firebase_token(authorization: str = Header(...)) -> dict:
     """Verify a Firebase ID token and return the decoded token dict.
 
     The token dict contains at least ``uid``, ``email``, etc.
+    Cloud Run uses Application Default Credentials (service account) to verify.
+
     During testing, set FIREBASE_AUTH_EMULATOR_HOST or pass a mock.
     """
     if not authorization.startswith("Bearer "):
@@ -101,8 +103,17 @@ def _verify_firebase_token(authorization: str = Header(...)) -> dict:
     token = authorization[len("Bearer "):]
 
     try:
+        import firebase_admin
         from firebase_admin import auth as firebase_auth
+
+        # Ensure Firebase Admin is initialized (required for verify_id_token).
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+
         decoded = firebase_auth.verify_id_token(token)
+    except ImportError as exc:
+        logger.error("firebase_admin_not_installed: %s", exc)
+        raise HTTPException(status_code=500, detail="Firebase Admin not configured")
     except Exception as exc:
         logger.warning("firebase_auth_failure: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid Firebase token")
