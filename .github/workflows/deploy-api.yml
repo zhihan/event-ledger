@@ -14,12 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # Map secrets into env so we can reference them in expressions without using the `secrets` context.
+      GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Fail fast if missing GCP credentials
-        if: ${{ secrets.GCP_CREDENTIALS_JSON == '' }}
+        if: ${{ env.GCP_CREDENTIALS_JSON == '' }}
         run: |
           echo "Missing required secret: GCP_CREDENTIALS_JSON (service account key JSON)."
           exit 1
@@ -27,7 +30,7 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+          credentials_json: ${{ env.GCP_CREDENTIALS_JSON }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
