@@ -6,8 +6,8 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "living-memory-api",
-          "region": "us-east1"
+          "serviceId": "event-ledger-api",
+          "region": "northamerica-northeast1"
         }
       },
       {
