@@ -1,13 +1,8 @@
+# Template: requires GCP auth (WIF or credentials_json).
 name: Deploy API to Cloud Run
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'Dockerfile'
-      - 'pyproject.toml'
-      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
 
 env:
   PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}         # e.g. living-memories-488001
