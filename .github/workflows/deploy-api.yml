@@ -6,7 +6,7 @@ on:
 
 env:
   PROJECT_ID: living-memories-488001
-  REGION: ${{ vars.GCP_REGION || 'us-east1' }}
+  REGION: northamerica-northeast1
   SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'event-ledger-api' }}
 
 jobs:
