@@ -1,4 +1,4 @@
-# Template: requires GCP auth (WIF or credentials_json).
+# Template: requires GCP auth via service account JSON.
 name: Deploy API to Cloud Run
 
 on:
@@ -14,16 +14,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write  # for Workload Identity Federation
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fail fast if missing GCP credentials
+        if: ${{ secrets.GCP_CREDENTIALS_JSON == '' }}
+        run: |
+          echo "Missing required secret: GCP_CREDENTIALS_JSON (service account key JSON)."
+          exit 1
+
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}  # e.g. projects/123/locations/global/workloadIdentityPools/github/providers/github
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}      # e.g. github-actions@project.iam.gserviceaccount.com
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
