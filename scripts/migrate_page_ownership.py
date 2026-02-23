@@ -22,17 +22,40 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import page_storage  # noqa: E402
 
 
-def migrate_page_ownership(owner_uid: str, *, dry_run: bool = False) -> list[str]:
-    """Assign *owner_uid* to every page that currently has no owners.
+def _legacy_page_slugs_from_memories() -> list[str]:
+    """Infer legacy page slugs from pre-ownership memory docs.
 
-    Returns the list of page slugs that were (or would be) updated.
+    Before the page model existed, memories were stored under the top-level
+    `memories` collection with a `user_id` field (e.g. "cambridge-lexington").
+    When migrating to owned pages, we may need to create `pages/{slug}` docs.
+
+    Returns distinct legacy slugs (sorted) found in memories.
     """
-    ownerless = page_storage.list_ownerless_pages()
-    if not ownerless:
-        print("No ownerless pages found — nothing to do.")
-        return []
+    # Import lazily so scripts can still be imported in tests with mocks.
+    from firestore_storage import _get_client  # type: ignore
 
+    db = _get_client()
+    slugs: set[str] = set()
+    for doc in db.collection("memories").stream():
+        data = doc.to_dict() or {}
+        slug = data.get("user_id")
+        if isinstance(slug, str) and slug:
+            slugs.add(slug)
+    return sorted(slugs)
+
+
+def migrate_page_ownership(owner_uid: str, *, dry_run: bool = False) -> list[str]:
+    """Migrate legacy installs to the page-ownership model.
+
+    1) Assign *owner_uid* to any existing pages that have empty/missing owners.
+    2) If there are no pages but there are legacy memories, create pages inferred
+       from legacy `memories.user_id` and set *owner_uid* as owner.
+
+    Returns the list of page slugs that were (or would be) updated/created.
+    """
     updated: list[str] = []
+
+    ownerless = page_storage.list_ownerless_pages()
     for page in ownerless:
         if dry_run:
             print(f"[dry-run] Would assign owner {owner_uid} to page '{page.slug}'")
@@ -47,6 +70,37 @@ def migrate_page_ownership(owner_uid: str, *, dry_run: bool = False) -> list[str
             )
             print(f"Assigned owner {owner_uid} to page '{page.slug}'")
         updated.append(page.slug)
+
+    # If no pages exist yet but legacy memories do, create the page docs.
+    if not updated and not ownerless:
+        legacy_slugs = _legacy_page_slugs_from_memories()
+        if not legacy_slugs:
+            print("No ownerless pages found — nothing to do.")
+            return []
+
+        for slug in legacy_slugs:
+            if page_storage.get_page(slug) is not None:
+                continue
+            if dry_run:
+                print(f"[dry-run] Would create page '{slug}' with owner {owner_uid}")
+            else:
+                page_storage.create_page(
+                    page_storage.Page(
+                        slug=slug,
+                        title=slug,
+                        visibility="public",
+                        owner_uids=[owner_uid],
+                        description="Migrated legacy page (inferred from memories.user_id)",
+                    )
+                )
+                page_storage.write_audit_log(
+                    page_slug=slug,
+                    action="page_created",
+                    actor_uid=owner_uid,
+                    metadata={"reason": "legacy_migration"},
+                )
+                print(f"Created page '{slug}' with owner {owner_uid}")
+            updated.append(slug)
 
     return updated
 

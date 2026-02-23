@@ -96,6 +96,35 @@ class TestMigratePageOwnership:
         assert audit_kwargs.kwargs["metadata"]["reason"] == "legacy_migration"
 
     @patch("migrate_page_ownership.page_storage.write_audit_log")
+    @patch("migrate_page_ownership.page_storage.create_page")
+    @patch("migrate_page_ownership.page_storage.get_page")
+    @patch("migrate_page_ownership._legacy_page_slugs_from_memories")
+    @patch("migrate_page_ownership.page_storage.list_ownerless_pages")
+    def test_creates_pages_from_legacy_memories_when_no_pages_exist(
+        self,
+        mock_list_ownerless,
+        mock_legacy_slugs,
+        mock_get_page,
+        mock_create_page,
+        mock_audit,
+    ):
+        mock_list_ownerless.return_value = []
+        mock_legacy_slugs.return_value = ["cambridge-lexington"]
+        mock_get_page.return_value = None
+
+        result = migrate_page_ownership(OWNER_UID)
+
+        assert result == ["cambridge-lexington"]
+        mock_create_page.assert_called_once()
+        created_page = mock_create_page.call_args.args[0]
+        assert created_page.slug == "cambridge-lexington"
+        assert created_page.owner_uids == [OWNER_UID]
+        assert created_page.visibility == "public"
+        # audit called for page_created
+        assert mock_audit.called
+        assert any(c.kwargs.get("action") == "page_created" for c in mock_audit.call_args_list)
+
+    @patch("migrate_page_ownership.page_storage.write_audit_log")
     @patch("migrate_page_ownership.page_storage.update_page")
     @patch("migrate_page_ownership.page_storage.list_ownerless_pages")
     def test_dry_run_does_not_write(self, mock_list, mock_update, mock_audit):
@@ -108,9 +137,11 @@ class TestMigratePageOwnership:
         mock_update.assert_not_called()
         mock_audit.assert_not_called()
 
+    @patch("migrate_page_ownership._legacy_page_slugs_from_memories")
     @patch("migrate_page_ownership.page_storage.list_ownerless_pages")
-    def test_no_ownerless_pages(self, mock_list):
+    def test_no_ownerless_pages(self, mock_list, mock_legacy_slugs):
         mock_list.return_value = []
+        mock_legacy_slugs.return_value = []
 
         result = migrate_page_ownership(OWNER_UID)
         assert result == []
