@@ -5,7 +5,7 @@ Issue #34 proposes evolving the “living memory” app toward a **social-app-li
 - Every logged-in person is a distinct **User**.
 - Users can create **Pages**.
 - A Page can have **one or more owners** (must have at least one).
-- **All Pages are public**.
+- **All Pages are public** (readable by anyone with the URL, though not necessarily discoverable).
 - **Personal pages are private**.
 - This implies moving from a “single-family board / single-tenant ledger” vibe into a more general **web app** with first-class identity + authorization.
 
@@ -24,21 +24,21 @@ The missing piece is a coherent **multi-user + multi-page** authorization and da
 1. **User identity**: Each Firebase Auth user is a first-class user (by UID).
 2. **Pages**:
    - Users can create pages.
-   - Pages have **≥ 1 owner**.
-   - Pages can be **co-owned** by multiple users.
+   - Pages have **≥ 1 owner** (the only role for now).
+   - Pages can be **co-owned** by multiple users via share-link invites.
 3. **Visibility**:
-   - **Public pages**: readable by anyone (including logged-out users).
-   - **Personal pages**: private; readable only by the owners (and optionally members, if we add membership).
+   - **Public pages**: readable by anyone with the URL (including logged-out users). Public does **not** imply discoverable — there is no global directory or search of pages.
+   - **Personal pages**: private; readable only by the owners.
 4. **Memories belong to pages**: a memory is associated with a page (not directly with a user).
 5. **Web app architecture alignment**:
    - Client can route to `/p/{slug}` or similar.
    - API supports page-scoped memory CRUD.
 
 ### Non-goals (for this issue)
-- “Following”, likes, comments, notifications.
-- Fine-grained roles beyond **owner** (e.g., editor/viewer), unless needed for future extension.
+- "Following", likes, comments, notifications.
+- Fine-grained roles (e.g., editor/viewer/member). Only **owners** for now.
 - Paid plans / billing.
-- Cross-page search / discovery.
+- Cross-page search / discovery (public pages are readable, not discoverable).
 
 ---
 
@@ -47,10 +47,7 @@ The missing piece is a coherent **multi-user + multi-page** authorization and da
 - **Page**: A container for memories. Has owners and a visibility mode.
 - **Personal Page**: A page intended to be private, typically 1:1 with a user (one owner = user).
 - **Public Page**: A page visible to all users (and optionally anonymous visitors).
-- **Owner**: A user who can manage a page and write/delete its memories.
-
-Optional future term:
-- **Member**: a user with access but not owner privileges.
+- **Owner**: A user who can manage a page and write/delete its memories. The only role for now.
 
 ---
 
@@ -72,9 +69,10 @@ Gaps relative to Issue #34:
 ### 4.1 Collections overview
 ```
 users/{uid}
-pages/{pageId}
-pages/{pageId}/invites/{inviteId}        (optional, if we implement invites)
+pages/{slug}
+pages/{slug}/invites/{inviteId}
 memories/{memoryId}
+audit_log/{entryId}
 ```
 
 ### 4.2 `users/{uid}`
@@ -93,13 +91,13 @@ Notes:
 ### 4.3 `pages/{pageId}`
 **Purpose:** shared container and authorization boundary.
 
+The document ID **is** the slug (immutable, URL-friendly).
+
 Fields:
-- `page_id: string` (redundant)
-- `slug: string` (unique, URL-friendly)
 - `title: string`
 - `description: string | null`
 - `visibility: "public" | "personal"`
-  - `public`: readable by anyone
+  - `public`: readable by anyone with the URL (not discoverable)
   - `personal`: private
 - `owner_uids: array<string>` (must be non-empty)
 - `created_at: timestamp`
@@ -107,7 +105,7 @@ Fields:
 
 Constraints:
 - `owner_uids.length >= 1`
-- `slug` unique across all pages
+- Slug (document ID) is immutable after creation
 
 ### 4.4 `memories/{memoryId}` (updated)
 **Key change:** associate memories with pages.
@@ -143,14 +141,13 @@ Suggested composite indexes:
 3. If you filter on non-expired and order by target, you may need:
    - `(page_id ASC, expires ASC, target ASC)` (depending on query shape)
 
-### 5.2 Slug lookup
-- `pages` by slug:
-  - option A: make `pageId == slug` (simplest, no index)
-  - option B: keep `slug` field and query `where slug == "foo"` (needs index)
+### 5.2 Slug as document ID
+**Decision: Use slug as document ID.** The slug is immutable — once a page is created, its slug cannot be changed.
 
-Recommendation: **Use slug as document id** if feasible.
-- Pros: simplest routing and rules checks.
-- Cons: renaming slug becomes a document move.
+- Document path: `pages/{slug}`
+- No extra index needed for slug lookup.
+- Simplifies routing, security rules, and client queries.
+- Trade-off: if a user wants a different URL, they must create a new page.
 
 ---
 
@@ -167,18 +164,18 @@ Pseudocode (not exact syntax):
 ```
 function isSignedIn() { return request.auth != null; }
 function uid() { return request.auth.uid; }
-function page(pageId) { return get(/databases/$(database)/documents/pages/$(pageId)).data; }
-function isOwner(pageId) { return isSignedIn() && (uid() in page(pageId).owner_uids); }
-function canReadPage(pageId) {
-  let p = page(pageId);
-  return p.visibility == "public" || isOwner(pageId);
+function page(slug) { return get(/databases/$(database)/documents/pages/$(slug)).data; }
+function isOwner(slug) { return isSignedIn() && (uid() in page(slug).owner_uids); }
+function canReadPage(slug) {
+  let p = page(slug);
+  return p.visibility == "public" || isOwner(slug);
 }
 
-match /pages/{pageId} {
-  allow read: if resource.data.visibility == "public" || isOwner(pageId);
+match /pages/{slug} {
+  allow read: if resource.data.visibility == "public" || isOwner(slug);
   allow create: if isSignedIn() && request.resource.data.owner_uids.size() >= 1
                 && (uid() in request.resource.data.owner_uids);
-  allow update, delete: if isOwner(pageId);
+  allow update, delete: if isOwner(slug);
 }
 
 match /memories/{memoryId} {
@@ -190,6 +187,11 @@ match /memories/{memoryId} {
 match /users/{userId} {
   allow read: if isSignedIn() && uid() == userId;
   allow write: if isSignedIn() && uid() == userId;
+}
+
+match /audit_log/{entryId} {
+  allow read: if false;   // read via Admin SDK only
+  allow create: if false; // written by server (Admin SDK) only
 }
 ```
 
@@ -217,13 +219,17 @@ Suggested resource-oriented endpoints:
 
 #### Pages
 - `POST /pages`
-  - create page
+  - create page (slug is immutable once set)
 - `GET /pages/{slug}`
   - fetch page metadata (public data if visibility public)
-- `POST /pages/{slug}/owners`
-  - add co-owner (requires owner)
 - `DELETE /pages/{slug}/owners/{uid}`
   - remove co-owner (requires owner; must keep ≥1 owner)
+
+#### Invites
+- `POST /pages/{slug}/invites`
+  - generate a share-link invite (requires owner)
+- `POST /invites/{inviteId}/accept`
+  - accept an invite and become a co-owner (requires sign-in)
 
 #### Memories (page-scoped)
 - `POST /pages/{slug}/memories`
@@ -244,7 +250,6 @@ Authorization: Bearer <id_token>
 200
 {
   "page": {
-    "page_id": "lexington-family",
     "slug": "lexington-family",
     "title": "Lexington Family",
     "visibility": "public",
@@ -300,10 +305,17 @@ Authorization: Bearer <id_token>
 **Public visitor**:
 - Can open `/p/{slug}` and read if page is public.
 
-**Owner adding co-owner**:
-- For MVP: owner enters another user’s UID/email.
-  - If email: requires a lookup mapping email→uid (needs server/admin) or invite flow.
-- Recommendation: implement `invites` with email tokens (see Open Questions).
+**Owner adding co-owner via share link**:
+1. Owner generates an invite link from the page settings UI.
+2. Server creates an invite document at `pages/{slug}/invites/{inviteId}` with:
+   - `invite_id: string` (random token, used in the URL)
+   - `created_by: string` (owner UID)
+   - `created_at: timestamp`
+   - `expires_at: timestamp` (e.g. 7 days)
+   - `accepted_by: string | null`
+3. Owner shares the link (e.g. `https://app/invite/{inviteId}`).
+4. Recipient signs in (or creates account), then the client calls `POST /invites/{inviteId}/accept`.
+5. Server validates the invite (exists, not expired, not already used), adds the recipient's UID to `owner_uids`, marks the invite as accepted, and logs the change to the audit log.
 
 ---
 
@@ -325,7 +337,7 @@ Authorization: Bearer <id_token>
 
 ### Phase 3: Cutover
 - Update client and API to exclusively use `page_id`.
-- Remove reliance on `user_id` (or keep as denormalized author uid, if desired).
+- Remove reliance on `user_id`. No per-memory `created_by_uid` is needed — authorship is not tracked at the memory level.
 
 Note: This migration assumes `user_id` is already a Firebase UID. If it isn’t, we need a mapping table or a one-time migration script.
 
@@ -366,10 +378,32 @@ Note: This migration assumes `user_id` is already a Firebase UID. If it isn’t,
 
 ---
 
-## 13) Open Questions
-1. Should “all pages are public” mean *discoverable* or just *readable if you have the URL*?
-2. Should we support non-owner members now (viewer/editor), or only owners?
-3. Best invite mechanism: email-based invites, UID-based, or “share link”?
-4. Should slug be immutable (doc ID) or mutable (field + index)?
-5. Should we store `created_by_uid` on memories separately from page ownership?
-6. Do we need audit logs for ownership changes?
+## 13) Audit Log
+
+Ownership changes must be logged for accountability.
+
+### Collection: `audit_log/{entryId}`
+
+Fields:
+- `entry_id: string`
+- `page_slug: string` — the affected page
+- `action: string` — e.g. `"owner_added"`, `"owner_removed"`, `"invite_created"`, `"invite_accepted"`
+- `actor_uid: string` — the user who performed the action
+- `target_uid: string | null` — the user affected (e.g. the new/removed owner)
+- `metadata: map | null` — additional context (e.g. invite ID)
+- `created_at: timestamp`
+
+Notes:
+- Audit log entries are append-only; they should never be updated or deleted.
+- Security rules: only the server (Admin SDK) or the acting owner can create entries; no client can update/delete.
+- For MVP, logging ownership additions/removals and invite acceptance is sufficient.
+
+---
+
+## 14) Open Questions (Resolved)
+1. ~~Should "all pages are public" mean *discoverable* or just *readable if you have the URL*?~~ **Resolved:** Readable only. Public pages are not discoverable — URLs include the slug so they are self-describing.
+2. ~~Should we support non-owner members now (viewer/editor), or only owners?~~ **Resolved:** Only owners for now.
+3. ~~Best invite mechanism: email-based invites, UID-based, or "share link"?~~ **Resolved:** Share link. See section 8.2.
+4. ~~Should slug be immutable (doc ID) or mutable (field + index)?~~ **Resolved:** Immutable. Slug is the document ID.
+5. ~~Should we store `created_by_uid` on memories separately from page ownership?~~ **Resolved:** Not necessary. No per-memory authorship tracking.
+6. ~~Do we need audit logs for ownership changes?~~ **Resolved:** Yes. See section 13.
