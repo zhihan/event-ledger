@@ -23,6 +23,34 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Event Ledger API")
 
+
+class StripApiPrefixMiddleware:
+    """Allow Firebase Hosting /api/** rewrites without requiring separate routes.
+
+    Firebase Hosting forwards requests to Cloud Run with the original path, e.g.
+    `/api/pages/foo`. The backend historically serves `/pages/foo`.
+
+    This middleware strips a leading `/api` prefix so both paths work.
+    """
+
+    def __init__(self, inner_app):
+        self.inner_app = inner_app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            path = scope.get("path") or ""
+            if path == "/api":
+                scope = dict(scope)
+                scope["path"] = "/"
+            elif path.startswith("/api/"):
+                scope = dict(scope)
+                scope["path"] = path[len("/api"):]
+        await self.inner_app(scope, receive, send)
+
+
+# Must be installed before routing.
+app.add_middleware(StripApiPrefixMiddleware)
+
 API_KEY = os.environ.get("EVENT_LEDGER_API_KEY", "")
 USER_ID = os.environ.get("EVENT_LEDGER_USER_ID", "default")
 
