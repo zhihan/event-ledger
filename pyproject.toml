@@ -12,6 +12,7 @@ dependencies = [
     "markdown>=3.5",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
+    "firebase-admin>=6.0.0",
 ]
 
 [project.scripts]

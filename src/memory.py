@@ -32,6 +32,7 @@ class Memory:
     place: str | None = None
     attachments: list[str] | None = None
     user_id: str = "cambridge-lexington"
+    page_id: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> Memory:
@@ -48,6 +49,7 @@ class Memory:
             place=post.metadata.get("place"),
             attachments=list(raw_attachments) if raw_attachments else None,
             user_id=post.metadata.get("user_id", "cambridge-lexington"),
+            page_id=post.metadata.get("page_id"),
         )
 
     def dump(self, path: Path) -> None:
@@ -65,6 +67,8 @@ class Memory:
         if self.attachments:
             metadata["attachments"] = self.attachments
         metadata["user_id"] = self.user_id
+        if self.page_id is not None:
+            metadata["page_id"] = self.page_id
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 
@@ -79,6 +83,7 @@ class Memory:
             "place": self.place,
             "attachments": self.attachments,
             "user_id": self.user_id,
+            "page_id": self.page_id,
         }
         return d
 
@@ -96,6 +101,7 @@ class Memory:
             place=data.get("place"),
             attachments=list(raw_attachments) if raw_attachments else None,
             user_id=data.get("user_id", "cambridge-lexington"),
+            page_id=data.get("page_id"),
         )
 
     def is_expired(self, today: date | None = None) -> bool:

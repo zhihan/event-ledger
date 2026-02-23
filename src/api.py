@@ -1,4 +1,9 @@
-"""HTTP API for Event Ledger — deployed to Cloud Run."""
+"""HTTP API for Event Ledger — deployed to Cloud Run.
+
+Supports both legacy API-key auth and Firebase ID token auth.
+New page-scoped endpoints use Firebase Auth; legacy /memories endpoints
+continue to use API key auth during migration.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response
 from pydantic import BaseModel
 
 import firestore_storage
+import page_storage
 from committer import commit_memory_firestore
 
 logging.basicConfig(level=logging.INFO)
@@ -43,7 +49,12 @@ async def logging_middleware(request: Request, call_next) -> Response:
     return response
 
 
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+
 def _check_auth(authorization: str = Header(...)) -> None:
+    """Legacy API-key auth for /memories endpoints."""
     if not API_KEY:
         raise HTTPException(status_code=500, detail="API key not configured")
     if authorization != f"Bearer {API_KEY}":
@@ -51,16 +62,69 @@ def _check_auth(authorization: str = Header(...)) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+def _verify_firebase_token(authorization: str = Header(...)) -> dict:
+    """Verify a Firebase ID token and return the decoded token dict.
+
+    The token dict contains at least ``uid``, ``email``, etc.
+    During testing, set FIREBASE_AUTH_EMULATOR_HOST or pass a mock.
+    """
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    token = authorization[len("Bearer "):]
+
+    try:
+        from firebase_admin import auth as firebase_auth
+        decoded = firebase_auth.verify_id_token(token)
+    except Exception as exc:
+        logger.warning("firebase_auth_failure: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    return decoded
+
+
+def _get_uid(token: dict = Depends(_verify_firebase_token)) -> str:
+    """Extract uid from a verified Firebase token."""
+    return token["uid"]
+
+
+def _require_page_owner(slug: str, uid: str) -> page_storage.Page:
+    """Fetch a page and verify the user is an owner. Raises 404 or 403."""
+    page = page_storage.get_page(slug)
+    if page is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+    if uid not in page.owner_uids:
+        raise HTTPException(status_code=403, detail="Not an owner of this page")
+    return page
+
+
+# ---------------------------------------------------------------------------
+# Request/Response models
+# ---------------------------------------------------------------------------
+
 class CreateMemoryRequest(BaseModel):
     message: str
     attachments: list[str] | None = None
 
+
+class CreatePageRequest(BaseModel):
+    slug: str
+    title: str
+    visibility: str = "public"
+    description: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
 
 @app.get("/_healthz")
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
 
+
+# ---------------------------------------------------------------------------
+# Legacy API-key endpoints (kept for backward compatibility)
+# ---------------------------------------------------------------------------
 
 @app.post("/memories", dependencies=[Depends(_check_auth)])
 def create_memory(body: CreateMemoryRequest):
@@ -108,4 +172,160 @@ def delete_memory(memory_id: str):
         "delete_memory memory_id=%s user_id=%s", memory_id, USER_ID,
         extra={"memory_id": memory_id, "user_id": USER_ID},
     )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# User endpoints (Firebase Auth)
+# ---------------------------------------------------------------------------
+
+@app.get("/users/me")
+def get_current_user(uid: str = Depends(_get_uid)):
+    user = page_storage.get_or_create_user(uid)
+    return {"user": user.to_dict()}
+
+
+# ---------------------------------------------------------------------------
+# Page endpoints (Firebase Auth)
+# ---------------------------------------------------------------------------
+
+@app.post("/pages")
+def create_page(body: CreatePageRequest, uid: str = Depends(_get_uid)):
+    page = page_storage.Page(
+        slug=body.slug,
+        title=body.title,
+        visibility=body.visibility,
+        owner_uids=[uid],
+        description=body.description,
+    )
+    try:
+        created = page_storage.create_page(page)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    logger.info("create_page slug=%s uid=%s", body.slug, uid)
+    return {"page": {**created.to_dict(), "slug": created.slug}}
+
+
+@app.get("/pages/{slug}")
+def get_page(slug: str, authorization: str = Header(default=None)):
+    """Get page metadata. Public pages are readable by anyone; personal pages require owner auth."""
+    page = page_storage.get_page(slug)
+    if page is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    if page.visibility == "public":
+        return {"page": {**page.to_dict(), "slug": page.slug}}
+
+    # Personal page — require auth
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    token = _verify_firebase_token(authorization)
+    if token["uid"] not in page.owner_uids:
+        raise HTTPException(status_code=403, detail="Not an owner of this page")
+    return {"page": {**page.to_dict(), "slug": page.slug}}
+
+
+@app.delete("/pages/{slug}/owners/{target_uid}")
+def remove_page_owner(slug: str, target_uid: str, uid: str = Depends(_get_uid)):
+    page = _require_page_owner(slug, uid)
+    try:
+        updated = page_storage.remove_owner(slug, target_uid)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    page_storage.write_audit_log(
+        page_slug=slug,
+        action="owner_removed",
+        actor_uid=uid,
+        target_uid=target_uid,
+    )
+    logger.info("remove_owner slug=%s actor=%s target=%s", slug, uid, target_uid)
+    return {"page": {**updated.to_dict(), "slug": updated.slug}}
+
+
+# ---------------------------------------------------------------------------
+# Invite endpoints (Firebase Auth)
+# ---------------------------------------------------------------------------
+
+@app.post("/pages/{slug}/invites")
+def create_invite(slug: str, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    invite = page_storage.create_invite(slug, uid)
+    page_storage.write_audit_log(
+        page_slug=slug,
+        action="invite_created",
+        actor_uid=uid,
+        metadata={"invite_id": invite.invite_id},
+    )
+    logger.info("create_invite slug=%s uid=%s invite_id=%s", slug, uid, invite.invite_id)
+    return {"invite": invite.to_dict(), "page_slug": slug}
+
+
+@app.post("/invites/{invite_id}/accept")
+def accept_invite(invite_id: str, uid: str = Depends(_get_uid)):
+    try:
+        invite = page_storage.accept_invite(invite_id, uid)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    logger.info("accept_invite invite_id=%s uid=%s page=%s", invite_id, uid, invite.page_slug)
+    return {"ok": True, "page_slug": invite.page_slug}
+
+
+# ---------------------------------------------------------------------------
+# Page-scoped memory endpoints (Firebase Auth)
+# ---------------------------------------------------------------------------
+
+@app.post("/pages/{slug}/memories")
+def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    result = commit_memory_firestore(
+        message=body.message,
+        user_id=uid,
+        attachment_urls=body.attachments,
+        page_id=slug,
+    )
+    logger.info(
+        "create_page_memory slug=%s action=%s doc_id=%s", slug, result.action, result.doc_id,
+    )
+    return {
+        "action": result.action,
+        "id": result.doc_id,
+        "memory": result.memory.to_dict(),
+    }
+
+
+@app.get("/pages/{slug}/memories")
+def list_page_memories(slug: str, authorization: str = Header(default=None)):
+    """List memories for a page. Public pages readable by anyone; personal pages require owner auth."""
+    page = page_storage.get_page(slug)
+    if page is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    if page.visibility == "personal":
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        token = _verify_firebase_token(authorization)
+        if token["uid"] not in page.owner_uids:
+            raise HTTPException(status_code=403, detail="Not an owner of this page")
+
+    pairs = firestore_storage.load_memories_by_page(slug)
+    return {
+        "memories": [
+            {"id": doc_id, **mem.to_dict()}
+            for doc_id, mem in pairs
+        ],
+    }
+
+
+@app.delete("/pages/{slug}/memories/{memory_id}")
+def delete_page_memory(slug: str, memory_id: str, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    # Verify the memory belongs to this page
+    mem = firestore_storage.get_memory(memory_id)
+    if mem is None:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    if mem.page_id != slug:
+        raise HTTPException(status_code=404, detail="Memory not found on this page")
+    firestore_storage.delete_memory(memory_id)
+    logger.info("delete_page_memory slug=%s memory_id=%s uid=%s", slug, memory_id, uid)
     return {"ok": True}
