@@ -57,20 +57,27 @@ supports login, per-user dashboards, and page-based URLs.
   edge runtime) without clear benefit — our pages are dynamic (fetched per
   request from the API) and we don't need SEO for personal/private pages.
 
-### Hosting: GitHub Pages (static files)
+### Hosting: Firebase Hosting
 
-**Choice:** Continue deploying to GitHub Pages, same as today.
+**Choice:** Deploy the SPA to Firebase Hosting with rewrites to the Cloud Run API.
 
 **Rationale:**
-- The SPA is a static bundle — no server needed for hosting.
-- GitHub Pages already serves `client/index.html`; we replace it with the Vite
-  build output.
-- Free, simple, integrates with existing CI (`publish.yml`).
-- SPA routing requires a 404 fallback to `index.html` — GitHub Pages supports
-  this via a `404.html` copy of `index.html`.
+- **Unified Firebase stack**: The project already uses Firebase Auth and
+  Firestore. Firebase Hosting keeps the entire frontend infrastructure on
+  Google Cloud, simplifying configuration (auth redirect URIs, CORS).
+- **Built-in SPA support**: Firebase Hosting natively supports SPA rewrites —
+  all unmatched routes serve `index.html` without workarounds like `404.html`.
+- **API rewrites**: `firebase.json` can proxy `/api/**` requests to the Cloud
+  Run API, eliminating CORS configuration entirely. The browser sees a single
+  origin.
+- **Free tier**: Firebase Hosting's free tier (Spark plan) is generous for our
+  traffic (10 GB/month transfer, 1 GB storage).
+- **Preview channels**: Firebase Hosting supports preview URLs per PR, useful
+  for reviewing frontend changes before merge.
 
-**Alternative considered:** Hosting on Cloud Run alongside the API. Rejected
-because it adds container complexity for serving static files and costs more.
+**Alternative considered:** GitHub Pages — rejected because it requires
+`404.html` hacks for SPA routing, cannot proxy API requests (requires CORS),
+and splits infrastructure across GitHub and Google Cloud.
 
 ### API: Existing Cloud Run API
 
@@ -103,9 +110,9 @@ All routes are handled client-side by `react-router`.
 
 ### SPA fallback
 
-GitHub Pages doesn't natively support SPA routing. The standard workaround:
-copy `index.html` to `404.html` so that any unmatched path loads the SPA, which
-then routes client-side.
+Firebase Hosting natively supports SPA routing via the `rewrites` config in
+`firebase.json`. All unmatched routes serve `index.html` — no workarounds
+needed.
 
 ---
 
@@ -292,8 +299,8 @@ web/                          # New directory (replaces client/)
 │       ├── MemoryList.tsx
 │       ├── LoadingSpinner.tsx
 │       └── ErrorMessage.tsx
+├── firebase.json             # Hosting config (rewrites, public dir)
 └── public/
-    └── 404.html              # SPA fallback for GitHub Pages
 ```
 
 The `web/` directory is self-contained with its own `package.json`. The Python
@@ -308,9 +315,10 @@ backend is unaffected.
 1. Create `web/` directory with Vite + React + TypeScript setup.
 2. Implement routing skeleton (all four routes with placeholder content).
 3. Set up Firebase Auth (sign-in / sign-out).
-4. Update `publish.yml` to build `web/` and deploy output to GitHub Pages.
-5. **Keep `client/index.html` accessible** at `/legacy.html` (or a query param)
-   during rollout. The CI workflow copies it alongside the new build output.
+4. Configure `firebase.json` with hosting settings and API rewrites.
+5. Deploy to Firebase Hosting via CI.
+6. **Keep `client/index.html` accessible** at `/legacy.html` during rollout.
+   The CI workflow deploys it alongside the new build output.
 
 ### Phase 2: Core screens
 
@@ -329,21 +337,80 @@ backend is unaffected.
 4. Remove `client/index.html` legacy fallback once the new app is confirmed
    working.
 
+### Firebase Hosting configuration
+
+`web/firebase.json`:
+```json
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "living-memory-api",
+          "region": "us-east1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+```
+
+The `/api/**` rewrite proxies API calls to the Cloud Run service, so the
+browser sees a single origin and no CORS headers are needed.
+
 ### CI/CD changes
 
-Update `.github/workflows/publish.yml`:
+Replace the GitHub Pages deployment in `.github/workflows/publish.yml` with
+Firebase Hosting deployment:
 ```yaml
-# Before: just copy client/index.html
-# After:
 - uses: actions/setup-node@v4
   with:
     node-version: 20
 - run: cd web && npm ci && npm run build
-- name: Deploy
-  uses: peaceiris/actions-gh-pages@v3
+- uses: FirebaseExtended/action-hosting-deploy@v0
   with:
-    publish_dir: web/dist
+    repoToken: '${{ secrets.GITHUB_TOKEN }}'
+    firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+    channelId: live
+    projectId: <firebase-project-id>
 ```
+
+For PR previews, the same action with `channelId: pr-${{ github.event.number }}`
+deploys to a preview channel URL.
+
+### Local development
+
+```bash
+cd web
+npm install
+npm run dev          # Vite dev server on localhost:5173
+```
+
+The Vite dev server proxies `/api` to the local Cloud Run API
+(`http://localhost:8000`) via `vite.config.ts`:
+```ts
+export default defineConfig({
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8000',
+    },
+  },
+});
+```
+
+### Environment configuration
+
+| Variable | Build-time / Runtime | Purpose |
+|---|---|---|
+| `VITE_FIREBASE_CONFIG` | Build-time | Firebase project config (JSON string) |
+| `VITE_API_BASE_URL` | Build-time | API base URL (empty string when using Firebase Hosting rewrites; set to Cloud Run URL for local dev without proxy) |
 
 ---
 
@@ -364,9 +431,10 @@ Update `.github/workflows/publish.yml`:
 ### Smoke test (manual / CI)
 
 - Build succeeds (`npm run build` in CI).
-- `index.html` and `404.html` are present in build output.
+- Firebase Hosting deploy succeeds; `index.html` is present in build output.
 - App loads at `/`, redirects to `/sign-in`, sign-in works, dashboard shows
   pages, page view shows memories.
+- API rewrite (`/api/**` → Cloud Run) works correctly.
 
 ### E2E (future, not required for initial merge)
 
@@ -392,5 +460,5 @@ Update `.github/workflows/publish.yml`:
    the web app is stable.
 
 4. **Custom domain**: Is the app served from a custom domain or the default
-   GitHub Pages URL? This affects Firebase Auth redirect URIs and API CORS
-   configuration.
+   Firebase Hosting URL? Firebase Hosting supports custom domains via the
+   console. This affects Firebase Auth redirect URIs.
