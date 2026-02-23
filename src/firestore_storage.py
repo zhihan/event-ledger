@@ -115,3 +115,52 @@ def find_memory_by_title(
         if mem.title == title:
             return doc_id, mem
     return None
+
+
+# ---------------------------------------------------------------------------
+# Page-scoped memory operations
+# ---------------------------------------------------------------------------
+
+def load_memories_by_page(
+    page_id: str, today: date | None = None,
+) -> list[tuple[str, Memory]]:
+    """Load non-expired memories for a given page.
+
+    Returns a list of ``(doc_id, Memory)`` tuples.
+    """
+    if today is None:
+        today = date.today()
+    db = _get_client()
+    docs = (
+        db.collection(COLLECTION)
+        .where("page_id", "==", page_id)
+        .stream()
+    )
+    results: list[tuple[str, Memory]] = []
+    for doc in docs:
+        mem = Memory.from_dict(doc.to_dict())
+        if not mem.is_expired(today):
+            results.append((doc.id, mem))
+    return results
+
+
+def find_memory_by_title_on_page(
+    page_id: str, title: str, today: date | None = None,
+) -> tuple[str, Memory] | None:
+    """Find a non-expired memory matching *title* on a page.
+
+    Returns ``(doc_id, Memory)`` or ``None``.
+    """
+    for doc_id, mem in load_memories_by_page(page_id, today):
+        if mem.title == title:
+            return doc_id, mem
+    return None
+
+
+def get_memory(doc_id: str) -> Memory | None:
+    """Get a single memory by document ID. Returns None if not found."""
+    db = _get_client()
+    doc = db.collection(COLLECTION).document(doc_id).get()
+    if not doc.exists:
+        return None
+    return Memory.from_dict(doc.to_dict())

@@ -184,6 +184,7 @@ def commit_memory_firestore(
     user_id: str,
     today: date | None = None,
     attachment_urls: list[str] | None = None,
+    page_id: str | None = None,
 ) -> CommitResult:
     """Core function: process a message and save to Firestore.
 
@@ -194,7 +195,10 @@ def commit_memory_firestore(
     if today is None:
         today = date.today()
 
-    pairs = firestore_storage.load_memories(user_id, today)
+    if page_id:
+        pairs = firestore_storage.load_memories_by_page(page_id, today)
+    else:
+        pairs = firestore_storage.load_memories(user_id, today)
     existing_memories = [mem for _, mem in pairs]
 
     prompt = build_ai_request(message, existing_memories, today,
@@ -230,13 +234,19 @@ def commit_memory_firestore(
         place=result.get("place"),
         attachments=raw_attachments if raw_attachments else None,
         user_id=user_id,
+        page_id=page_id,
     )
 
     doc_id = None
     if result["action"] == "update" and result.get("update_title"):
-        found = firestore_storage.find_memory_by_title(
-            user_id, result["update_title"], today,
-        )
+        if page_id:
+            found = firestore_storage.find_memory_by_title_on_page(
+                page_id, result["update_title"], today,
+            )
+        else:
+            found = firestore_storage.find_memory_by_title(
+                user_id, result["update_title"], today,
+            )
         if found:
             doc_id = found[0]
     saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
