@@ -2,6 +2,12 @@
 name: Deploy API to Cloud Run
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'pyproject.toml'
   workflow_dispatch:
 
 env:
