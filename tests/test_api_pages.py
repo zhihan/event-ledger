@@ -334,3 +334,105 @@ class TestPageMemories:
         assert resp.status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# PATCH /pages/{slug}
+# ---------------------------------------------------------------------------
+
+class TestUpdatePage:
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.update_page")
+    @patch("api.page_storage.get_page")
+    def test_patch_page_rename(self, mock_get, mock_update, mock_audit, client):
+        mock_get.return_value = PUBLIC_PAGE
+        updated = Page(
+            slug="public-page", title="New Title", visibility="public",
+            owner_uids=[OWNER_UID],
+        )
+        mock_update.return_value = updated
+        resp = client.patch("/pages/public-page", json={"title": "New Title"}, headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["page"]["title"] == "New Title"
+        mock_update.assert_called_once_with("public-page", {"title": "New Title"})
+        mock_audit.assert_called_once()
+
+    @patch("api.page_storage.get_page")
+    def test_patch_page_not_owner(self, mock_get, other_client):
+        mock_get.return_value = PUBLIC_PAGE
+        resp = other_client.patch("/pages/public-page", json={"title": "X"}, headers=AUTH)
+        assert resp.status_code == 403
+
+    @patch("api.page_storage.get_page")
+    def test_patch_page_empty_body(self, mock_get, client):
+        mock_get.return_value = PUBLIC_PAGE
+        resp = client.patch("/pages/public-page", json={}, headers=AUTH)
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# DELETE /pages/{slug}
+# ---------------------------------------------------------------------------
+
+class TestDeletePage:
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.soft_delete_page")
+    @patch("api.page_storage.get_page")
+    def test_delete_page_soft(self, mock_get, mock_soft_del, mock_audit, client):
+        mock_get.return_value = PUBLIC_PAGE
+        deadline = datetime(2026, 3, 26, tzinfo=timezone.utc)
+        mock_soft_del.return_value = Page(
+            slug="public-page", title="Public", visibility="public",
+            owner_uids=[OWNER_UID], delete_after=deadline,
+        )
+        resp = client.delete("/pages/public-page", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+        mock_soft_del.assert_called_once_with("public-page")
+        mock_audit.assert_called_once()
+
+    @patch("api.page_storage.get_page")
+    def test_delete_page_not_owner(self, mock_get, other_client):
+        mock_get.return_value = PUBLIC_PAGE
+        resp = other_client.delete("/pages/public-page", headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /pages/{slug}/restore
+# ---------------------------------------------------------------------------
+
+class TestRestorePage:
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.restore_page")
+    @patch("api.page_storage.get_page")
+    def test_restore_page(self, mock_get, mock_restore, mock_audit, client):
+        deadline = datetime(2026, 3, 26, tzinfo=timezone.utc)
+        mock_get.return_value = Page(
+            slug="public-page", title="Public", visibility="public",
+            owner_uids=[OWNER_UID], delete_after=deadline,
+        )
+        restored = Page(
+            slug="public-page", title="Public", visibility="public",
+            owner_uids=[OWNER_UID], delete_after=None,
+        )
+        mock_restore.return_value = restored
+        resp = client.post("/pages/public-page/restore", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["page"]["delete_after"] is None
+        mock_restore.assert_called_once_with("public-page")
+        mock_audit.assert_called_once()
+
+    @patch("api.page_storage.restore_page")
+    @patch("api.page_storage.get_page")
+    def test_restore_page_not_deleted(self, mock_get, mock_restore, client):
+        mock_get.return_value = PUBLIC_PAGE  # delete_after is None
+        mock_restore.side_effect = ValueError("Page 'public-page' is not pending deletion")
+        resp = client.post("/pages/public-page/restore", headers=AUTH)
+        assert resp.status_code == 400
+
+    @patch("api.page_storage.get_page")
+    def test_restore_page_not_owner(self, mock_get, other_client):
+        mock_get.return_value = PUBLIC_PAGE
+        resp = other_client.post("/pages/public-page/restore", headers=AUTH)
+        assert resp.status_code == 403
+
+

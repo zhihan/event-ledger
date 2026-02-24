@@ -138,6 +138,11 @@ class CreatePageRequest(BaseModel):
     description: str | None = None
 
 
+class UpdatePageRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
@@ -206,6 +211,46 @@ def get_page(slug: str, authorization: str = Header(default=None)):
     token = _verify_firebase_token(authorization)
     if token["uid"] not in page.owner_uids:
         raise HTTPException(status_code=403, detail="Not an owner of this page")
+    return {"page": {**page.to_dict(), "slug": page.slug}}
+
+
+@app.patch("/pages/{slug}")
+def update_page(slug: str, body: UpdatePageRequest, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    try:
+        updated = page_storage.update_page(slug, updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    page_storage.write_audit_log(
+        page_slug=slug, action="page_updated", actor_uid=uid,
+        metadata={"fields": list(updates.keys())},
+    )
+    return {"page": {**updated.to_dict(), "slug": updated.slug}}
+
+
+@app.delete("/pages/{slug}", response_model=None)
+def delete_page(slug: str, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    page_storage.soft_delete_page(slug)
+    page_storage.write_audit_log(
+        page_slug=slug, action="page_deleted", actor_uid=uid,
+    )
+    return {"ok": True}
+
+
+@app.post("/pages/{slug}/restore")
+def restore_page(slug: str, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    try:
+        page = page_storage.restore_page(slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    page_storage.write_audit_log(
+        page_slug=slug, action="page_restored", actor_uid=uid,
+    )
     return {"page": {**page.to_dict(), "slug": page.slug}}
 
 

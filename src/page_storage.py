@@ -36,6 +36,7 @@ class Page:
     created_at: datetime | None = None
     updated_at: datetime | None = None
     description: str | None = None
+    delete_after: datetime | None = None
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -46,6 +47,7 @@ class Page:
             "owner_uids": self.owner_uids,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
+            "delete_after": self.delete_after,
         }
 
     @classmethod
@@ -58,6 +60,7 @@ class Page:
             owner_uids=list(data.get("owner_uids", [])),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            delete_after=data.get("delete_after"),
         )
 
 
@@ -222,6 +225,48 @@ def list_ownerless_pages() -> list[Page]:
         if not page.owner_uids:
             results.append(page)
     return results
+
+
+def soft_delete_page(slug: str) -> Page:
+    """Soft-delete a page: set delete_after and expire all its memories."""
+    import firestore_storage
+    from datetime import date as date_cls
+
+    deadline = _utcnow() + timedelta(days=30)
+    expire_date = date_cls.today() + timedelta(days=30)
+
+    # Expire all memories on this page (use far-future today to load all)
+    pairs = firestore_storage.load_memories_by_page(
+        slug, today=date_cls(9999, 12, 31),
+    )
+    for doc_id, mem in pairs:
+        mem.expires = expire_date
+        firestore_storage.save_memory(mem, doc_id=doc_id)
+
+    return update_page(slug, {"delete_after": deadline})
+
+
+def restore_page(slug: str) -> Page:
+    """Restore a soft-deleted page: clear delete_after, remove forced expiry."""
+    import firestore_storage
+    from datetime import date as date_cls
+
+    page = get_page(slug)
+    if page is None:
+        raise ValueError(f"Page {slug!r} not found")
+    if page.delete_after is None:
+        raise ValueError(f"Page {slug!r} is not pending deletion")
+
+    # Clear forced expiry from memories whose expires matches the deadline
+    deadline_date = page.delete_after.date()
+    far_future = date_cls(9999, 12, 31)
+    pairs = firestore_storage.load_memories_by_page(slug, today=far_future)
+    for doc_id, mem in pairs:
+        if mem.expires and abs((mem.expires - deadline_date).days) <= 1:
+            mem.expires = far_future
+            firestore_storage.save_memory(mem, doc_id=doc_id)
+
+    return update_page(slug, {"delete_after": None})
 
 
 def add_owner(slug: str, uid: str) -> Page:
