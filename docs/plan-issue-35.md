@@ -3,7 +3,8 @@
 ## Goal
 
 Add page admin capabilities: rename pages, soft-delete pages (with 30-day grace
-period), and clean up soft-deleted pages in the existing cleanup job.
+period), restore soft-deleted pages, notify all owners of pending deletions, and
+clean up soft-deleted pages in the existing cleanup job.
 
 ## What Already Exists
 
@@ -127,7 +128,84 @@ def delete_page(slug: str, uid: str = Depends(_get_uid)):
     return {"ok": True}
 ```
 
-### 5. Update cleanup job to purge soft-deleted pages
+### 5. `POST /pages/{slug}/restore` — Restore a soft-deleted page
+
+**File:** `src/page_storage.py`
+
+Add a `restore_page()` helper that clears the `delete_after` field and un-expires
+the page's memories:
+
+```python
+def restore_page(slug: str) -> Page:
+    """Restore a soft-deleted page: clear delete_after, remove forced expiry."""
+    import firestore_storage
+    from datetime import date, timedelta
+
+    page = get_page(slug)
+    if page is None:
+        raise ValueError(f"Page {slug!r} not found")
+    if page.delete_after is None:
+        raise ValueError(f"Page {slug!r} is not pending deletion")
+
+    # Clear forced expiry from memories (set expires back to None so normal
+    # expiry rules apply; memories that already had an independent expiry
+    # before soft-delete are handled via the audit log timestamp — we reset
+    # any memory whose expires == the soft-delete deadline ± 1 day).
+    deadline_date = page.delete_after.date()
+    pairs = firestore_storage.load_memories_by_page(slug)
+    for doc_id, mem in pairs:
+        if mem.expires and abs((mem.expires - deadline_date).days) <= 1:
+            mem.expires = None
+            firestore_storage.save_memory(mem, doc_id=doc_id, page_id=slug)
+
+    # Clear the page's delete_after
+    return update_page(slug, {"delete_after": None})
+```
+
+**File:** `src/api.py`
+
+```python
+@app.post("/pages/{slug}/restore")
+def restore_page(slug: str, uid: str = Depends(_get_uid)):
+    _require_page_owner(slug, uid)
+    try:
+        page = page_storage.restore_page(slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    page_storage.write_audit_log(
+        page_slug=slug, action="page_restored", actor_uid=uid,
+    )
+    return {"page": {**page.to_dict(), "slug": page.slug}}
+```
+
+Any owner of the page can restore it during the 30-day grace period. Once the
+cleanup job hard-deletes the page, restoration is no longer possible.
+
+### 6. Multi-owner soft-delete visibility
+
+All owners must be able to discover that a page is pending deletion so they can
+restore it if needed.
+
+**Existing endpoints — no new endpoints required:**
+
+- `GET /pages/{slug}` already returns the full page dict. Since `delete_after` is
+  now part of `Page.to_dict()`, any owner (or anyone with read access) will see
+  the `delete_after` field in the response. A non-null value means the page is
+  scheduled for deletion.
+
+- `GET /users/me/pages` returns all pages owned by the current user. The response
+  already includes the full page dict, so `delete_after` will be visible there
+  too. Clients can filter or highlight pages with a pending deletion.
+
+**Client-side responsibility:** The client UI (`client/index.html`) should display
+a warning banner when `delete_after` is set, showing the deadline and a "Restore"
+button that calls `POST /pages/{slug}/restore`. This ensures all owners who visit
+the page are aware of the pending deletion.
+
+**Audit log:** The `page_deleted` and `page_restored` audit log entries already
+include `actor_uid`, so owners can see who initiated or reversed the deletion.
+
+### 7. Update cleanup job to purge soft-deleted pages
 
 **File:** `src/cleanup.py`
 
@@ -160,7 +238,7 @@ def cleanup_pages(now: datetime | None = None) -> list[str]:
 Wire it into `main()` so both expired memories and soft-deleted pages are cleaned
 up in a single run.
 
-### 6. Tests
+### 8. Tests
 
 **File:** `tests/test_api_pages.py` — add tests:
 
@@ -169,10 +247,14 @@ up in a single run.
 - `test_patch_page_empty_body` — PATCH with no fields returns 400
 - `test_delete_page_soft` — DELETE sets `delete_after`, expires memories
 - `test_delete_page_not_owner` — DELETE by non-owner returns 403
+- `test_restore_page` — POST restore clears `delete_after`, un-expires memories
+- `test_restore_page_not_deleted` — POST restore on active page returns 400
+- `test_restore_page_not_owner` — POST restore by non-owner returns 403
 
 **File:** `tests/test_page_storage.py` — add tests:
 
 - `test_soft_delete_page` — verifies `delete_after` is set, memories are expired
+- `test_restore_page` — verifies `delete_after` cleared, memory expiry reset
 - `test_page_delete_after_roundtrip` — `to_dict()` / `from_dict()` with `delete_after`
 
 **File:** `tests/test_cleanup.py` (or add to existing test file):
@@ -184,8 +266,8 @@ up in a single run.
 
 | File | Change |
 |---|---|
-| `src/page_storage.py` | Add `delete_after` field to `Page`, add `soft_delete_page()` |
-| `src/api.py` | Add `PATCH /pages/{slug}`, `DELETE /pages/{slug}`, `UpdatePageRequest` model |
+| `src/page_storage.py` | Add `delete_after` field to `Page`, add `soft_delete_page()`, add `restore_page()` |
+| `src/api.py` | Add `PATCH /pages/{slug}`, `DELETE /pages/{slug}`, `POST /pages/{slug}/restore`, `UpdatePageRequest` model |
 | `src/cleanup.py` | Add `cleanup_pages()`, wire into `main()` |
 | `tests/test_api_pages.py` | Tests for PATCH and DELETE endpoints |
 | `tests/test_page_storage.py` | Tests for soft-delete and `delete_after` serialization |
@@ -194,5 +276,7 @@ up in a single run.
 ## Verification
 
 1. `pytest` — all existing tests still pass
-2. New tests cover rename, soft-delete, and cleanup flows
+2. New tests cover rename, soft-delete, restore, and cleanup flows
 3. Manual smoke test: create page, rename, soft-delete, verify `delete_after` set
+4. Manual smoke test: restore soft-deleted page, verify `delete_after` cleared
+5. Verify `GET /users/me/pages` shows `delete_after` for soft-deleted pages (multi-owner visibility)
