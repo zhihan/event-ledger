@@ -54,5 +54,5 @@ jobs:
             --region "$REGION" \
             --platform managed \
             --allow-unauthenticated \
-            --set-secrets "EVENT_LEDGER_API_KEY=EVENT_LEDGER_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
-            --set-env-vars "EVENT_LEDGER_USER_ID=cambridge-lexington,GOOGLE_CLOUD_PROJECT=living-memories-488001,LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db"
+            --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=living-memories-488001,LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db"

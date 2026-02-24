@@ -27,14 +27,20 @@ python3 -m venv .venv
 
 ## HTTP API
 
-A REST API deployed to Cloud Run with static API key auth. The API key is a secret — do not expose it in client code.
+A REST API deployed to Cloud Run with Firebase Auth (ID tokens).
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/_healthz` | GET | No | Health check |
-| `/memories` | POST | Yes | Create a memory |
-| `/memories` | GET | Yes | List memories |
-| `/memories/{id}` | DELETE | Yes | Delete a memory |
+| `/pages` | POST | Firebase | Create a page |
+| `/pages/{slug}` | GET | Optional | Get page metadata |
+| `/pages/{slug}/memories` | POST | Firebase | Create a memory on a page |
+| `/pages/{slug}/memories` | GET | Optional | List memories for a page |
+| `/pages/{slug}/memories/{id}` | DELETE | Firebase | Delete a memory |
+| `/pages/{slug}/invites` | POST | Firebase | Create an invite link |
+| `/invites/{id}/accept` | POST | Firebase | Accept an invite |
+| `/users/me` | GET | Firebase | Get current user |
+| `/users/me/pages` | GET | Firebase | List pages owned by current user |
 
 ### Example
 
@@ -42,19 +48,14 @@ A REST API deployed to Cloud Run with static API key auth. The API key is a secr
 # Health check (no auth required)
 curl https://YOUR-SERVICE-URL/_healthz
 
-# Create a memory
-curl -X POST https://YOUR-SERVICE-URL/memories \
-  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY" \
+# Create a memory on a page (requires Firebase ID token)
+curl -X POST https://YOUR-SERVICE-URL/pages/my-page/memories \
+  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
 
-# List memories
-curl https://YOUR-SERVICE-URL/memories \
-  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY"
-
-# Delete a memory
-curl -X DELETE https://YOUR-SERVICE-URL/memories/DOCUMENT_ID \
-  -H "Authorization: Bearer $EVENT_LEDGER_API_KEY"
+# List memories for a public page (no auth required)
+curl https://YOUR-SERVICE-URL/pages/my-page/memories
 ```
 
 ## Environment Variables
@@ -62,8 +63,7 @@ curl -X DELETE https://YOUR-SERVICE-URL/memories/DOCUMENT_ID \
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `EVENT_LEDGER_API_KEY` | Yes (API only) | Bearer token for API auth — keep secret |
-| `GOOGLE_CLOUD_PROJECT` | Yes (API only) | GCP project ID |
+| `GOOGLE_CLOUD_PROJECT` | Yes | GCP project ID |
 | `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
 
 ## Firebase / Client
@@ -72,7 +72,7 @@ Client uses Firebase Auth + Firestore; see `client/index.html` for config and se
 
 ## Logging
 
-The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each request logs `method`, `path`, `status_code`, and `duration_ms`. Cloud Trace correlation is included when the `x-cloud-trace-context` header is present. Endpoint-specific fields: `action`, `doc_id`, `user_id`, `message_len`, `num_attachments` (POST), `count` (GET), `memory_id` (DELETE). Message content and API keys are never logged.
+The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each request logs `method`, `path`, `status_code`, and `duration_ms`. Cloud Trace correlation is included when the `x-cloud-trace-context` header is present.
 
 ## Deploy
 

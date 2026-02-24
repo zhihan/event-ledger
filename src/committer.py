@@ -6,7 +6,6 @@ import argparse
 import json
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -57,35 +56,6 @@ def apply_user_urls(title: str | None, content: str, user_urls: list[str]) -> tu
         content = content + links_section
 
     return title, content
-
-
-def slugify(title: str | None, target: date, slug: str | None = None) -> str:
-    """Generate a filename from the title and target date."""
-    prefix = target.isoformat() if target else "ongoing"
-    if slug:
-        clean = re.sub(r"[^a-z0-9]+", "-", slug.lower()).strip("-")
-        if clean:
-            return f"{prefix}-{clean}.md"
-    if not title:
-        return f"{prefix}.md"
-    clean = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-    if not clean:
-        return f"{prefix}.md"
-    return f"{prefix}-{clean}.md"
-
-
-def load_memories(memories_dir: Path, user_id: str | None = None) -> list[Memory]:
-    """Load all memories from the directory (no date filtering).
-
-    If *user_id* is given, only memories belonging to that user are returned.
-    """
-    memories = []
-    for path in sorted(memories_dir.glob("*.md")):
-        mem = Memory.load(path)
-        if user_id is not None and mem.user_id != user_id:
-            continue
-        memories.append(mem)
-    return memories
 
 
 def build_ai_request(message: str, existing_memories: list[Memory], today: date, attachment_urls: list[str] | None = None) -> str:
@@ -155,28 +125,12 @@ def call_ai(prompt: str) -> dict:
     return json.loads(response.text)
 
 
-def git_commit_and_push(path: Path, push: bool = True) -> None:
-    """Stage, commit, and optionally push the memory file."""
-    subprocess.run(["git", "add", str(path)], check=True)
-    subprocess.run(
-        ["git", "commit", "-m", f"Update memory: {path.name}"],
-        check=True,
-    )
-    if push:
-        subprocess.run(["git", "push"], check=True)
-
-
 @dataclass
 class CommitResult:
     """Result of committing a memory via the core function."""
     action: str
     doc_id: str | None
     memory: Memory
-
-
-def _use_firestore() -> bool:
-    """Check if Firestore mode is enabled via env var."""
-    return os.environ.get("LIVING_MEMORY_STORAGE", "").lower() == "firestore"
 
 
 def commit_memory_firestore(
@@ -256,8 +210,7 @@ def commit_memory_firestore(
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Commit a memory to the repository")
-    parser.add_argument("--memories-dir", type=Path, default=Path("memories"))
+    parser = argparse.ArgumentParser(description="Commit a memory to Firestore")
     parser.add_argument("--message", required=True, help="Free-form text describing the event")
     parser.add_argument("--today", type=date.fromisoformat, default=None,
                         help="Override today's date for testing")
@@ -265,13 +218,9 @@ def main(argv: list[str] | None = None) -> None:
                         help="File(s) to upload as attachments (repeatable)")
     parser.add_argument("--user-id", type=str, default="cambridge-lexington",
                         help="Owner of the memory (default: 'cambridge-lexington')")
-    parser.add_argument("--no-push", action="store_true", help="Skip git push")
-    parser.add_argument("--firestore", action="store_true",
-                        help="Use Firestore for storage (or set LIVING_MEMORY_STORAGE=firestore)")
     args = parser.parse_args(argv)
 
     today = args.today or date.today()
-    use_fs = args.firestore or _use_firestore()
 
     # Upload attachments to GCS
     attachment_urls: list[str] = []
@@ -279,73 +228,12 @@ def main(argv: list[str] | None = None) -> None:
         url = upload_to_gcs(attach_path)
         attachment_urls.append(url)
 
-    if use_fs:
-        commit_memory_firestore(
-            message=args.message,
-            user_id=args.user_id,
-            today=today,
-            attachment_urls=attachment_urls or None,
-        )
-    else:
-        existing_memories = load_memories(args.memories_dir, user_id=args.user_id)
-
-        prompt = build_ai_request(args.message, existing_memories, today,
-                                  attachment_urls=attachment_urls or None)
-        result = call_ai(prompt)
-
-        _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
-
-        raw_target = result.get("target")
-        if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
-            raw_target = None
-        target = date.fromisoformat(raw_target) if raw_target else None
-
-        raw_expires = result.get("expires")
-        if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
-            raw_expires = None
-        expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
-        raw_attachments = result.get("attachments")
-
-        # Prefer user-provided URLs over AI-generated ones
-        user_urls = extract_urls(args.message)
-        ai_title = result.get("title") or ""
-        ai_content = result["content"]
-        if user_urls:
-            ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
-
-        mem = Memory(
-            target=target,
-            expires=expires,
-            content=ai_content,
-            title=ai_title or result.get("title"),
-            time=result.get("time"),
-            place=result.get("place"),
-            attachments=raw_attachments if raw_attachments else None,
-            user_id=args.user_id,
-        )
-
-        slug = result.get("slug")
-        memories_dir: Path = args.memories_dir
-
-        if result["action"] == "update" and result.get("update_title"):
-            # Find existing file by matching title
-            path = None
-            for p in memories_dir.glob("*.md"):
-                existing = Memory.load(p)
-                if existing.title == result["update_title"]:
-                    path = p
-                    break
-            if path is None:
-                path = memories_dir / slugify(mem.title, target, slug=slug)
-        else:
-            path = memories_dir / slugify(mem.title, target, slug=slug)
-
-        # Remove expired memories before committing the new one.
-        from cleanup import cleanup
-        cleanup(memories_dir, today, push=False)
-
-        mem.dump(path)
-        git_commit_and_push(path, push=not args.no_push)
+    commit_memory_firestore(
+        message=args.message,
+        user_id=args.user_id,
+        today=today,
+        attachment_urls=attachment_urls or None,
+    )
 
 
 if __name__ == "__main__":

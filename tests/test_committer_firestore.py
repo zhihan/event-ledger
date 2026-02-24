@@ -29,7 +29,6 @@ def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
     main([
         "--message", "Team meeting next Thursday at 10am in Room A",
         "--today", "2026-02-18",
-        "--firestore",
     ])
 
     mock_load.assert_called_once_with("cambridge-lexington", date(2026, 2, 18))
@@ -70,7 +69,6 @@ def test_main_firestore_update(mock_call_ai, mock_load, mock_find, mock_save, mo
         "--message", "Move team meeting to 11am",
         "--user-id", "alice",
         "--today", "2026-02-18",
-        "--firestore",
     ])
 
     mock_save.assert_called_once()

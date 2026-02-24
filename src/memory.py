@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import frontmatter
 from dataclasses import dataclass
 from datetime import date, timedelta
-from pathlib import Path
 
 
 def _next_sunday(d: date) -> date:
@@ -33,44 +31,6 @@ class Memory:
     attachments: list[str] | None = None
     user_id: str = "cambridge-lexington"
     page_id: str | None = None
-
-    @classmethod
-    def load(cls, path: Path) -> Memory:
-        """Load a memory from a markdown file with YAML frontmatter."""
-        post = frontmatter.load(path)
-        raw_target = post.metadata.get("target")
-        raw_attachments = post.metadata.get("attachments")
-        return cls(
-            target=_parse_date(raw_target) if raw_target is not None else None,
-            expires=_parse_date(post.metadata["expires"]),
-            content=post.content,
-            title=post.metadata.get("title"),
-            time=post.metadata.get("time"),
-            place=post.metadata.get("place"),
-            attachments=list(raw_attachments) if raw_attachments else None,
-            user_id=post.metadata.get("user_id", "cambridge-lexington"),
-            page_id=post.metadata.get("page_id"),
-        )
-
-    def dump(self, path: Path) -> None:
-        """Write this memory to a markdown file with YAML frontmatter."""
-        metadata: dict = {}
-        if self.target is not None:
-            metadata["target"] = self.target.isoformat()
-        metadata["expires"] = self.expires.isoformat()
-        if self.title is not None:
-            metadata["title"] = self.title
-        if self.time is not None:
-            metadata["time"] = self.time
-        if self.place is not None:
-            metadata["place"] = self.place
-        if self.attachments:
-            metadata["attachments"] = self.attachments
-        metadata["user_id"] = self.user_id
-        if self.page_id is not None:
-            metadata["page_id"] = self.page_id
-        post = frontmatter.Post(self.content, **metadata)
-        path.write_text(frontmatter.dumps(post) + "\n")
 
     def to_dict(self) -> dict:
         """Serialize to a plain dict suitable for Firestore storage."""

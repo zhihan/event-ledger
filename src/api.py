@@ -1,14 +1,13 @@
 """HTTP API for Event Ledger — deployed to Cloud Run.
 
-Supports both legacy API-key auth and Firebase ID token auth.
-New page-scoped endpoints use Firebase Auth; legacy /memories endpoints
-continue to use API key auth during migration.
+Uses Firebase ID token auth for all authenticated endpoints.
+Page-scoped endpoints manage memories per page; user endpoints manage
+page ownership and invites.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import time
 
 from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response
@@ -51,9 +50,6 @@ class StripApiPrefixMiddleware:
 # Must be installed before routing.
 app.add_middleware(StripApiPrefixMiddleware)
 
-API_KEY = os.environ.get("EVENT_LEDGER_API_KEY", "")
-USER_ID = os.environ.get("EVENT_LEDGER_USER_ID", "default")
-
 
 @app.middleware("http")
 async def logging_middleware(request: Request, call_next) -> Response:
@@ -80,15 +76,6 @@ async def logging_middleware(request: Request, call_next) -> Response:
 # ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
-
-def _check_auth(authorization: str = Header(...)) -> None:
-    """Legacy API-key auth for /memories endpoints."""
-    if not API_KEY:
-        raise HTTPException(status_code=500, detail="API key not configured")
-    if authorization != f"Bearer {API_KEY}":
-        logger.warning("auth_failure", extra={"path": "unknown"})
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
 
 def _verify_firebase_token(authorization: str = Header(...)) -> dict:
     """Verify a Firebase ID token and return the decoded token dict.
@@ -162,59 +149,6 @@ def healthz():
 
 
 # ---------------------------------------------------------------------------
-# Legacy API-key endpoints (kept for backward compatibility)
-# ---------------------------------------------------------------------------
-
-@app.post("/memories", dependencies=[Depends(_check_auth)])
-def create_memory(body: CreateMemoryRequest):
-    result = commit_memory_firestore(
-        message=body.message,
-        user_id=USER_ID,
-        attachment_urls=body.attachments,
-    )
-    logger.info(
-        "create_memory action=%s doc_id=%s", result.action, result.doc_id,
-        extra={
-            "action": result.action,
-            "doc_id": result.doc_id,
-            "user_id": USER_ID,
-            "message_len": len(body.message),
-            "num_attachments": len(body.attachments) if body.attachments else 0,
-        },
-    )
-    return {
-        "action": result.action,
-        "id": result.doc_id,
-        "memory": result.memory.to_dict(),
-    }
-
-
-@app.get("/memories", dependencies=[Depends(_check_auth)])
-def list_memories():
-    pairs = firestore_storage.load_memories(USER_ID)
-    logger.info(
-        "list_memories user_id=%s count=%d", USER_ID, len(pairs),
-        extra={"user_id": USER_ID, "count": len(pairs)},
-    )
-    return {
-        "memories": [
-            {"id": doc_id, **mem.to_dict()}
-            for doc_id, mem in pairs
-        ],
-    }
-
-
-@app.delete("/memories/{memory_id}", dependencies=[Depends(_check_auth)])
-def delete_memory(memory_id: str):
-    firestore_storage.delete_memory(memory_id)
-    logger.info(
-        "delete_memory memory_id=%s user_id=%s", memory_id, USER_ID,
-        extra={"memory_id": memory_id, "user_id": USER_ID},
-    )
-    return {"ok": True}
-
-
-# ---------------------------------------------------------------------------
 # User endpoints (Firebase Auth)
 # ---------------------------------------------------------------------------
 
@@ -277,7 +211,7 @@ def get_page(slug: str, authorization: str = Header(default=None)):
 
 @app.delete("/pages/{slug}/owners/{target_uid}")
 def remove_page_owner(slug: str, target_uid: str, uid: str = Depends(_get_uid)):
-    page = _require_page_owner(slug, uid)
+    _require_page_owner(slug, uid)
     try:
         updated = page_storage.remove_owner(slug, target_uid)
     except ValueError as exc:
@@ -379,17 +313,3 @@ def delete_page_memory(slug: str, memory_id: str, uid: str = Depends(_get_uid)):
     firestore_storage.delete_memory(memory_id)
     logger.info("delete_page_memory slug=%s memory_id=%s uid=%s", slug, memory_id, uid)
     return {"ok": True}
-
-
-
-# ---------------------------------------------------------------------------
-# /api prefix support for Firebase Hosting rewrites
-# ---------------------------------------------------------------------------
-# Firebase Hosting rewrites /api/** to Cloud Run, preserving the /api prefix.
-# This middleware strips the /api prefix so routes work under both paths.
-
-@app.middleware("http")
-async def strip_api_prefix(request: Request, call_next) -> Response:
-    if request.url.path.startswith("/api/"):
-        request.scope["path"] = request.url.path[4:]  # strip "/api"
-    return await call_next(request)

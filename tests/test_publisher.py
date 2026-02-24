@@ -4,48 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from memory import Memory
-from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event, _linkify_bare_urls, week_bounds
-
-
-def _write_memory(
-    path: Path,
-    target: str | None,
-    expires: str,
-    content: str,
-    title: str | None = None,
-    time: str | None = None,
-    place: str | None = None,
-) -> None:
-    mem = Memory(
-        target=date.fromisoformat(target) if target else None,
-        expires=date.fromisoformat(expires),
-        content=content,
-        title=title,
-        time=time,
-        place=place,
-    )
-    mem.dump(path)
-
-
-def test_load_memories_filters_expired(tmp_path: Path):
-    _write_memory(tmp_path / "a.md", "2026-01-01", "2026-01-31", "January event")
-    _write_memory(tmp_path / "b.md", "2026-03-01", "2026-06-01", "March event")
-    _write_memory(tmp_path / "c.md", "2026-02-15", "2026-05-01", "February event")
-
-    today = date(2026, 2, 18)
-    memories = load_memories(tmp_path, today)
-
-    assert len(memories) == 2
-    assert memories[0].content == "February event"
-    assert memories[1].content == "March event"
-
-
-def test_load_memories_sorted_by_target(tmp_path: Path):
-    _write_memory(tmp_path / "z.md", "2026-06-01", "2026-12-01", "June")
-    _write_memory(tmp_path / "a.md", "2026-03-01", "2026-12-01", "March")
-
-    memories = load_memories(tmp_path, date(2026, 1, 1))
-    assert [m.content for m in memories] == ["March", "June"]
+from publisher import generate_page, _DEFAULT_TITLE, _render_event, _linkify_bare_urls, week_bounds
 
 
 def test_generate_page_splits_this_week_and_future():
@@ -111,37 +70,6 @@ def test_generate_page_event_without_title():
     ]
     html = generate_page(memories, today)
     assert "Quick sync" in html
-
-
-def test_main_end_to_end(tmp_path: Path):
-    mem_dir = tmp_path / "memories"
-    mem_dir.mkdir()
-    _write_memory(
-        mem_dir / "event.md", "2026-03-01", "2026-06-01",
-        "Spring meetup", "Spring", time="14:00", place="Park",
-    )
-
-    out_dir = tmp_path / "site"
-
-    main(["--memories-dir", str(mem_dir), "--output-dir", str(out_dir)])
-
-    index = out_dir / "index.html"
-    assert index.exists()
-    content = index.read_text()
-    assert "Spring" in content
-    assert "Park" in content
-    assert "14:00" in content
-
-
-def test_load_memories_keeps_ongoing(tmp_path: Path):
-    """Ongoing memories (no target) are never filtered out before expiry."""
-    _write_memory(tmp_path / "ongoing.md", None, "2026-03-01", "Weekly event", title="Worship")
-    _write_memory(tmp_path / "expired.md", "2026-01-01", "2026-01-31", "Old event")
-
-    memories = load_memories(tmp_path, date(2026, 2, 18))
-    assert len(memories) == 1
-    assert memories[0].title == "Worship"
-    assert memories[0].target is None
 
 
 def test_generate_page_ongoing_in_this_week():
@@ -244,23 +172,6 @@ def test_linkify_bare_urls_wraps_bare():
     text = "Join at https://zoom.us/j/123?pwd=abc"
     result = _linkify_bare_urls(text)
     assert "<https://zoom.us/j/123?pwd=abc>" in result
-
-
-def test_load_memories_filters_by_user_id(tmp_path: Path):
-    """When user_id is given, only that user's memories are loaded."""
-    Memory(target=date(2026, 3, 1), expires=date(2026, 6, 1),
-           content="Alice event", title="Alice", user_id="alice").dump(
-        tmp_path / "alice.md")
-    Memory(target=date(2026, 3, 2), expires=date(2026, 6, 1),
-           content="Bob event", title="Bob", user_id="bob").dump(
-        tmp_path / "bob.md")
-
-    alice_mems = load_memories(tmp_path, date(2026, 2, 18), user_id="alice")
-    assert len(alice_mems) == 1
-    assert alice_mems[0].title == "Alice"
-
-    all_mems = load_memories(tmp_path, date(2026, 2, 18))
-    assert len(all_mems) == 2
 
 
 # --- week_bounds tests ---

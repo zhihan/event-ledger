@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import re
 from datetime import date, timedelta
 from html import escape
@@ -15,24 +14,6 @@ from memory import Memory
 
 _DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
 _DEFAULT_TITLE = "Our Church Events"
-
-
-def load_memories(directory: Path, today: date, user_id: str | None = None) -> list[Memory]:
-    """Load non-expired memories from *directory*, sorted by target date.
-
-    If *user_id* is given, only memories belonging to that user are returned.
-    """
-    memories: list[Memory] = []
-    for path in sorted(directory.glob("*.md")):
-        mem = Memory.load(path)
-        if mem.is_expired(today):
-            continue
-        if user_id is not None and mem.user_id != user_id:
-            continue
-        memories.append(mem)
-    # Ongoing memories (no target) sort first so they appear at the top.
-    memories.sort(key=lambda m: (m.target is not None, m.target or date.min))
-    return memories
 
 
 def _attachment_label(url: str) -> str:
@@ -175,27 +156,17 @@ def load_memories_from_firestore(today: date, user_id: str | None = None) -> lis
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Generate a static site from memories")
-    parser.add_argument("--memories-dir", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--template", type=Path, default=None)
     parser.add_argument("--title", type=str, default=_DEFAULT_TITLE)
     parser.add_argument("--user-id", type=str, default=None,
                         help="Only render memories for this user (default: all)")
-    parser.add_argument("--firestore", action="store_true",
-                        help="Read memories from Firestore (or set LIVING_MEMORY_STORAGE=firestore)")
     args = parser.parse_args(argv)
 
     template_text = args.template.read_text() if args.template else None
 
     today = date.today()
-    use_fs = args.firestore or os.environ.get("LIVING_MEMORY_STORAGE", "").lower() == "firestore"
-
-    if use_fs:
-        memories = load_memories_from_firestore(today, user_id=args.user_id)
-    else:
-        if args.memories_dir is None:
-            parser.error("--memories-dir is required when not using --firestore")
-        memories = load_memories(args.memories_dir, today, user_id=args.user_id)
+    memories = load_memories_from_firestore(today, user_id=args.user_id)
 
     html = generate_page(memories, today, template=template_text, site_title=args.title)
 

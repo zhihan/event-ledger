@@ -334,32 +334,3 @@ class TestPageMemories:
         assert resp.status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# Legacy endpoints still work
-# ---------------------------------------------------------------------------
-
-class TestLegacyEndpoints:
-    @pytest.fixture(autouse=True)
-    def _set_api_key(self, monkeypatch):
-        monkeypatch.setenv("EVENT_LEDGER_API_KEY", "test-key")
-        monkeypatch.setenv("EVENT_LEDGER_USER_ID", "test-user")
-        import api
-        api.API_KEY = "test-key"
-        api.USER_ID = "test-user"
-
-    @pytest.fixture
-    def legacy_client(self):
-        from api import app
-        app.dependency_overrides.clear()
-        return TestClient(app)
-
-    def test_healthz(self, legacy_client):
-        resp = legacy_client.get("/_healthz")
-        assert resp.status_code == 200
-
-    @patch("api.firestore_storage.load_memories")
-    def test_list_memories_legacy(self, mock_load, legacy_client):
-        mock_load.return_value = []
-        resp = legacy_client.get("/memories",
-                                 headers={"Authorization": "Bearer test-key"})
-        assert resp.status_code == 200
