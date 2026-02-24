@@ -34,24 +34,9 @@ jobs:
 
       - name: Build and push container
         run: |
-          # Start the build asynchronously to avoid log-streaming permission errors
-          # (VPC-SC / logs bucket perms can cause gcloud builds submit to fail).
-          BUILD_ID=$(gcloud builds submit --tag "gcr.io/$PROJECT_ID/$SERVICE" --async --format='value(id)')
-          echo "Build started: $BUILD_ID"
-
-          # Poll until the build finishes
-          while true; do
-            STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)')
-            echo "Build status: $STATUS"
-            case "$STATUS" in
-              SUCCESS) break ;;
-              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
-                echo "Build failed with status: $STATUS"
-                gcloud builds describe "$BUILD_ID" --format='value(statusDetail)'
-                exit 1 ;;
-            esac
-            sleep 10
-          done
+          # Use our dedicated GCS bucket for logs to avoid VPC-SC / default bucket streaming issues.
+          gcloud builds submit --tag "gcr.io/$PROJECT_ID/$SERVICE" \
+            --gcs-log-dir "gs://living-memories-488001-cloudbuild-logs/build-logs"
 
       - name: Deploy to Cloud Run
         run: |
