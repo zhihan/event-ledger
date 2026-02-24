@@ -47,10 +47,11 @@ jobs:
             sleep 10
           done
 
-      - name: Clear env vars that may have been set as secrets
+      - name: Clear secret-bound env vars from previous deploys
         run: |
           gcloud run services update "$SERVICE" \
             --region "$REGION" \
+            --clear-secrets \
             --clear-env-vars || true
 
       - name: Deploy to Cloud Run
