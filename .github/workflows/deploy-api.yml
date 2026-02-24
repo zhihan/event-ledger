@@ -47,13 +47,6 @@ jobs:
             sleep 10
           done
 
-      - name: Clear secret-bound env vars from previous deploys
-        run: |
-          gcloud run services update "$SERVICE" \
-            --region "$REGION" \
-            --clear-secrets \
-            --clear-env-vars || true
-
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE" \
@@ -61,4 +54,5 @@ jobs:
             --region "$REGION" \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "EVENT_LEDGER_API_KEY=${{ secrets.EVENT_LEDGER_API_KEY }},EVENT_LEDGER_USER_ID=${{ vars.EVENT_LEDGER_USER_ID || 'cambridge-lexington' }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GOOGLE_CLOUD_PROJECT=${{ vars.GCP_PROJECT_ID }},LIVING_MEMORY_FIRESTORE_DATABASE=${{ vars.FIRESTORE_DATABASE || 'living-memories-db' }}"
+            --set-secrets "EVENT_LEDGER_API_KEY=EVENT_LEDGER_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+            --set-env-vars "EVENT_LEDGER_USER_ID=${{ vars.EVENT_LEDGER_USER_ID || 'cambridge-lexington' }},GOOGLE_CLOUD_PROJECT=${{ vars.GCP_PROJECT_ID }},LIVING_MEMORY_FIRESTORE_DATABASE=${{ vars.FIRESTORE_DATABASE || 'living-memories-db' }}"
