@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from datetime import date, datetime
 
@@ -62,22 +61,6 @@ def cleanup_pages(now: datetime | None = None) -> list[str]:
     return deleted_slugs
 
 
-def _log_firestore_config() -> None:
-    """Log Firestore client configuration for debugging."""
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT", "(not set)")
-    database = os.environ.get("LIVING_MEMORY_FIRESTORE_DATABASE", "(not set)")
-    creds_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "(not set)")
-    creds_present = (
-        "yes" if creds_file != "(not set)" and os.path.isfile(creds_file) else "no"
-    )
-    logger.info("Firestore config: project=%s, database=%s", project, database)
-    logger.info(
-        "GOOGLE_APPLICATION_CREDENTIALS=%s (file exists: %s)",
-        creds_file,
-        creds_present,
-    )
-
-
 def main(argv: list[str] | None = None) -> None:
     """CLI entry point for the cleanup module."""
     logging.basicConfig(
@@ -95,8 +78,6 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
     today = args.today or date.today()
-
-    _log_firestore_config()
 
     try:
         logger.info("Starting memory cleanup (today=%s)...", today)
