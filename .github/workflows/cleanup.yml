@@ -11,6 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS_JSON }}
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -22,6 +27,5 @@ jobs:
         run: python -m cleanup
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY_PATH }}
           GOOGLE_CLOUD_PROJECT: living-memories-488001
           LIVING_MEMORY_FIRESTORE_DATABASE: living-memories-db
