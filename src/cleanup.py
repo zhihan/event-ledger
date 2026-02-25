@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from memory import Memory
 from storage import delete_from_gcs
@@ -39,6 +39,27 @@ def cleanup_firestore(today: date | None = None) -> list[str]:
     return [doc_id for doc_id, _ in deleted_pairs]
 
 
+def cleanup_pages(now: datetime | None = None) -> list[str]:
+    """Hard-delete pages whose delete_after has passed."""
+    import page_storage
+
+    if now is None:
+        now = page_storage._utcnow()
+
+    db = page_storage._get_client()
+    docs = (
+        db.collection(page_storage.PAGES_COLLECTION)
+        .where("delete_after", "<=", now)
+        .stream()
+    )
+    deleted_slugs = []
+    for doc in docs:
+        slug = doc.id
+        page_storage.delete_page(slug)
+        deleted_slugs.append(slug)
+    return deleted_slugs
+
+
 def main(argv: list[str] | None = None) -> None:
     """CLI entry point for the cleanup module."""
     parser = argparse.ArgumentParser(
@@ -54,6 +75,10 @@ def main(argv: list[str] | None = None) -> None:
     deleted_ids = cleanup_firestore(today)
     for doc_id in deleted_ids:
         print(f"Deleted Firestore doc: {doc_id}")
+
+    deleted_slugs = cleanup_pages()
+    for slug in deleted_slugs:
+        print(f"Deleted soft-deleted page: {slug}")
 
 
 if __name__ == "__main__":

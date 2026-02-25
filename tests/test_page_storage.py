@@ -260,3 +260,103 @@ class TestUserProfile:
         assert user.uid == "uid-1"
         assert user.default_personal_page_id == "p1"
         mock_db.collection.return_value.document.return_value.set.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Soft-delete and restore
+# ---------------------------------------------------------------------------
+
+class TestSoftDeletePage:
+    @patch("page_storage.update_page")
+    @patch("firestore_storage.save_memory")
+    @patch("firestore_storage.load_memories_by_page")
+    def test_soft_delete_page(self, mock_load, mock_save, mock_update):
+        from datetime import date
+        from memory import Memory
+
+        mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Test", title="Event", page_id="my-page",
+        )
+        mock_load.return_value = [("m1", mem)]
+        mock_update.return_value = Page(
+            slug="my-page", title="Test", visibility="public",
+            owner_uids=["u1"],
+            delete_after=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+
+        result = page_storage.soft_delete_page("my-page")
+
+        assert result.delete_after is not None
+        mock_save.assert_called_once()
+        saved_mem = mock_save.call_args[0][0]
+        assert saved_mem.expires == date.today() + timedelta(days=30)
+
+    @patch("page_storage.update_page")
+    @patch("firestore_storage.save_memory")
+    @patch("firestore_storage.load_memories_by_page")
+    @patch("page_storage.get_page")
+    def test_restore_page(self, mock_get, mock_load, mock_save, mock_update):
+        from datetime import date
+        from memory import Memory
+
+        deadline = datetime.now(timezone.utc) + timedelta(days=30)
+        mock_get.return_value = Page(
+            slug="my-page", title="Test", visibility="public",
+            owner_uids=["u1"], delete_after=deadline,
+        )
+        mem = Memory(
+            target=date(2026, 3, 5), expires=deadline.date(),
+            content="Test", title="Event", page_id="my-page",
+        )
+        mock_load.return_value = [("m1", mem)]
+        mock_update.return_value = Page(
+            slug="my-page", title="Test", visibility="public",
+            owner_uids=["u1"], delete_after=None,
+        )
+
+        result = page_storage.restore_page("my-page")
+
+        assert result.delete_after is None
+        mock_save.assert_called_once()
+        saved_mem = mock_save.call_args[0][0]
+        assert saved_mem.expires == date(9999, 12, 31)
+
+    @patch("page_storage.get_page")
+    def test_restore_page_not_deleted_raises(self, mock_get):
+        mock_get.return_value = Page(
+            slug="my-page", title="Test", visibility="public",
+            owner_uids=["u1"], delete_after=None,
+        )
+        with pytest.raises(ValueError, match="not pending deletion"):
+            page_storage.restore_page("my-page")
+
+
+class TestPageDeleteAfterRoundtrip:
+    def test_to_dict_with_delete_after(self):
+        deadline = datetime(2026, 3, 26, tzinfo=timezone.utc)
+        page = Page(
+            slug="test", title="Test", visibility="public",
+            owner_uids=["u1"], delete_after=deadline,
+        )
+        d = page.to_dict()
+        assert d["delete_after"] == deadline
+
+    def test_to_dict_without_delete_after(self):
+        page = Page(slug="test", title="Test", visibility="public", owner_uids=["u1"])
+        d = page.to_dict()
+        assert d["delete_after"] is None
+
+    def test_from_dict_with_delete_after(self):
+        deadline = datetime(2026, 3, 26, tzinfo=timezone.utc)
+        data = {
+            "title": "Test", "visibility": "public",
+            "owner_uids": ["u1"], "delete_after": deadline,
+        }
+        page = Page.from_dict("test", data)
+        assert page.delete_after == deadline
+
+    def test_from_dict_without_delete_after(self):
+        data = {"title": "Test", "visibility": "public", "owner_uids": ["u1"]}
+        page = Page.from_dict("test", data)
+        assert page.delete_after is None

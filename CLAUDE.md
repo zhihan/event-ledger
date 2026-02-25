@@ -86,6 +86,9 @@ Endpoints:
 - `GET /_healthz` — health check (legacy alias `GET /healthz` also works)
 - `POST /pages` — create a page (Firebase Auth)
 - `GET /pages/{slug}` — get page metadata
+- `PATCH /pages/{slug}` — rename / update page metadata (Firebase Auth)
+- `DELETE /pages/{slug}` — soft-delete a page with 30-day grace period (Firebase Auth)
+- `POST /pages/{slug}/restore` — restore a soft-deleted page (Firebase Auth)
 - `POST /pages/{slug}/memories` — create a memory on a page (Firebase Auth)
 - `GET /pages/{slug}/memories` — list memories for a page
 - `DELETE /pages/{slug}/memories/{id}` — delete a memory (Firebase Auth)
