@@ -1,20 +1,22 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth";
 import { getMe } from "../api";
 
 export function SignIn() {
   const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
 
   useEffect(() => {
     if (!loading && user) {
-      // Ensure user profile exists in backend, then go to dashboard
+      // Ensure user profile exists in backend, then redirect back
       getMe()
-        .then(() => navigate("/dashboard", { replace: true }))
-        .catch(() => navigate("/dashboard", { replace: true }));
+        .then(() => navigate(from, { replace: true }))
+        .catch(() => navigate(from, { replace: true }));
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, from]);
 
   if (loading) {
     return <div className="loading-screen">Loading...</div>;
