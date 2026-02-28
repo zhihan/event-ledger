@@ -94,3 +94,15 @@ export async function getPageMemories(slug: string): Promise<MemoryItem[]> {
   const data = await resp.json();
   return data.memories;
 }
+
+export async function createMemory(
+  slug: string,
+  message: string,
+): Promise<{ action: string; id: string; memory: MemoryItem }> {
+  const resp = await apiFetch(`/api/pages/${slug}/memories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  return resp.json();
+}

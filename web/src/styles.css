@@ -224,3 +224,40 @@ h2 {
 .attachments a {
   margin-right: 0.5rem;
 }
+
+/* Add memory form */
+.add-memory-form {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.add-memory-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-memory-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.add-memory-input:focus {
+  outline: none;
+  border-color: #333;
+}
+
+.add-memory-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.add-memory-error {
+  color: #c00;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
