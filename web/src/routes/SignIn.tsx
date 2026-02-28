@@ -1,22 +1,22 @@
 import { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { getMe } from "../api";
 
 export function SignIn() {
   const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/dashboard";
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/dashboard";
 
   useEffect(() => {
     if (!loading && user) {
       // Ensure user profile exists in backend, then redirect back
       getMe()
-        .then(() => navigate(from, { replace: true }))
-        .catch(() => navigate(from, { replace: true }));
+        .then(() => navigate(redirect, { replace: true }))
+        .catch(() => navigate(redirect, { replace: true }));
     }
-  }, [user, loading, navigate, from]);
+  }, [user, loading, navigate, redirect]);
 
   if (loading) {
     return <div className="loading-screen">Loading...</div>;
