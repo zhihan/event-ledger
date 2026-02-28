@@ -115,14 +115,21 @@ Use "update" when the user's message refers to an event that clearly matches an 
 def call_ai(prompt: str) -> dict:
     """Call Gemini and return the parsed JSON response."""
     from google import genai  # noqa: E402
+    from google.genai import types  # noqa: E402
 
     api_key = os.environ["GEMINI_API_KEY"]
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+        ),
     )
-    return json.loads(response.text)
+    text = response.text or ""
+    if not text.strip():
+        raise ValueError("Gemini returned an empty response")
+    return json.loads(text)
 
 
 @dataclass
