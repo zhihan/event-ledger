@@ -6,12 +6,15 @@ import {
   type PageSummary,
   type MemoryItem,
 } from "../api";
+import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { MemoryList } from "../components/MemoryList";
+import { AddMemoryForm } from "../components/AddMemoryForm";
 
 export function PageView() {
   const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuth();
   const [page, setPage] = useState<PageSummary | null>(null);
   const [memories, setMemories] = useState<MemoryItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,10 @@ export function PageView() {
         <MemoryList memories={memories} />
       ) : (
         <p className="placeholder">No upcoming events on this page.</p>
+      )}
+
+      {slug && user && page?.owner_uids.includes(user.uid) && (
+        <AddMemoryForm slug={slug} onSuccess={load} />
       )}
     </div>
   );
