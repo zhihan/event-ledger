@@ -73,7 +73,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/sign-in" state={{ from: location }} replace />;
+    const redirect = `/sign-in?redirect=${encodeURIComponent(location.pathname)}`;
+    return <Navigate to={redirect} replace />;
   }
 
   return <>{children}</>;
