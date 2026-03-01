@@ -126,6 +126,11 @@ def _require_page_owner(slug: str, uid: str) -> page_storage.Page:
 # Request/Response models
 # ---------------------------------------------------------------------------
 
+def _page_response(page: page_storage.Page) -> dict:
+    """Build a JSON-serialisable dict for a Page."""
+    return {**page.to_dict(), "slug": page.slug}
+
+
 class CreateMemoryRequest(BaseModel):
     message: str
     attachments: list[str] | None = None
@@ -168,7 +173,7 @@ def list_my_pages(uid: str = Depends(_get_uid)):
     pages = page_storage.list_pages_for_user(uid)
     return {
         "pages": [
-            {**p.to_dict(), "slug": p.slug}
+            _page_response(p)
             for p in pages
         ],
     }
@@ -200,7 +205,7 @@ def create_page(body: CreatePageRequest, uid: str = Depends(_get_uid)):
             page_storage.update_user(uid, {"default_personal_page_id": body.slug})
 
     logger.info("create_page slug=%s uid=%s", body.slug, uid)
-    return {"page": {**created.to_dict(), "slug": created.slug}}
+    return {"page": _page_response(created)}
 
 
 @app.get("/pages/{slug}")
@@ -211,7 +216,7 @@ def get_page(slug: str, authorization: str = Header(default=None)):
         raise HTTPException(status_code=404, detail="Page not found")
 
     if page.visibility == "public":
-        return {"page": {**page.to_dict(), "slug": page.slug}}
+        return {"page": _page_response(page)}
 
     # Personal page — require auth
     if not authorization:
@@ -219,7 +224,7 @@ def get_page(slug: str, authorization: str = Header(default=None)):
     token = _verify_firebase_token(authorization)
     if token["uid"] not in page.owner_uids:
         raise HTTPException(status_code=403, detail="Not an owner of this page")
-    return {"page": {**page.to_dict(), "slug": page.slug}}
+    return {"page": _page_response(page)}
 
 
 @app.patch("/pages/{slug}")
@@ -236,7 +241,7 @@ def update_page(slug: str, body: UpdatePageRequest, uid: str = Depends(_get_uid)
         page_slug=slug, action="page_updated", actor_uid=uid,
         metadata={"fields": list(updates.keys())},
     )
-    return {"page": {**updated.to_dict(), "slug": updated.slug}}
+    return {"page": _page_response(updated)}
 
 
 @app.delete("/pages/{slug}", response_model=None)
@@ -259,7 +264,7 @@ def restore_page(slug: str, uid: str = Depends(_get_uid)):
     page_storage.write_audit_log(
         page_slug=slug, action="page_restored", actor_uid=uid,
     )
-    return {"page": {**page.to_dict(), "slug": page.slug}}
+    return {"page": _page_response(page)}
 
 
 @app.delete("/pages/{slug}/owners/{target_uid}")
@@ -277,7 +282,7 @@ def remove_page_owner(slug: str, target_uid: str, uid: str = Depends(_get_uid)):
         target_uid=target_uid,
     )
     logger.info("remove_owner slug=%s actor=%s target=%s", slug, uid, target_uid)
-    return {"page": {**updated.to_dict(), "slug": updated.slug}}
+    return {"page": _page_response(updated)}
 
 
 # ---------------------------------------------------------------------------

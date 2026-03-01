@@ -43,6 +43,22 @@ def save_memory(memory: Memory, doc_id: str | None = None) -> str:
     return ref.id
 
 
+def _load_memories_where(
+    field: str, value: str, today: date | None = None,
+) -> list[tuple[str, Memory]]:
+    """Load non-expired memories matching a single field filter."""
+    if today is None:
+        today = date.today()
+    db = _get_client()
+    docs = db.collection(COLLECTION).where(field, "==", value).stream()
+    results: list[tuple[str, Memory]] = []
+    for doc in docs:
+        mem = Memory.from_dict(doc.to_dict())
+        if not mem.is_expired(today):
+            results.append((doc.id, mem))
+    return results
+
+
 def load_memories(user_id: str, today: date | None = None) -> list[tuple[str, Memory]]:
     """Load non-expired memories for a given user.
 
@@ -50,20 +66,7 @@ def load_memories(user_id: str, today: date | None = None) -> list[tuple[str, Me
     Expiry is checked client-side to match ``Memory.is_expired`` semantics
     (expired when ``today > expires``, so ``today == expires`` is still valid).
     """
-    if today is None:
-        today = date.today()
-    db = _get_client()
-    docs = (
-        db.collection(COLLECTION)
-        .where("user_id", "==", user_id)
-        .stream()
-    )
-    results: list[tuple[str, Memory]] = []
-    for doc in docs:
-        mem = Memory.from_dict(doc.to_dict())
-        if not mem.is_expired(today):
-            results.append((doc.id, mem))
-    return results
+    return _load_memories_where("user_id", user_id, today)
 
 
 def load_all_memories() -> list[tuple[str, Memory]]:
@@ -104,6 +107,16 @@ def delete_expired(today: date | None = None) -> list[tuple[str, Memory]]:
     return deleted
 
 
+def _find_memory_by_title_where(
+    field: str, value: str, title: str, today: date | None = None,
+) -> tuple[str, Memory] | None:
+    """Find a non-expired memory matching *title* filtered by a single field."""
+    for doc_id, mem in _load_memories_where(field, value, today):
+        if mem.title == title:
+            return doc_id, mem
+    return None
+
+
 def find_memory_by_title(
     user_id: str, title: str, today: date | None = None,
 ) -> tuple[str, Memory] | None:
@@ -111,10 +124,7 @@ def find_memory_by_title(
 
     Returns ``(doc_id, Memory)`` or ``None``.
     """
-    for doc_id, mem in load_memories(user_id, today):
-        if mem.title == title:
-            return doc_id, mem
-    return None
+    return _find_memory_by_title_where("user_id", user_id, title, today)
 
 
 # ---------------------------------------------------------------------------
@@ -128,20 +138,7 @@ def load_memories_by_page(
 
     Returns a list of ``(doc_id, Memory)`` tuples.
     """
-    if today is None:
-        today = date.today()
-    db = _get_client()
-    docs = (
-        db.collection(COLLECTION)
-        .where("page_id", "==", page_id)
-        .stream()
-    )
-    results: list[tuple[str, Memory]] = []
-    for doc in docs:
-        mem = Memory.from_dict(doc.to_dict())
-        if not mem.is_expired(today):
-            results.append((doc.id, mem))
-    return results
+    return _load_memories_where("page_id", page_id, today)
 
 
 def find_memory_by_title_on_page(
@@ -151,10 +148,7 @@ def find_memory_by_title_on_page(
 
     Returns ``(doc_id, Memory)`` or ``None``.
     """
-    for doc_id, mem in load_memories_by_page(page_id, today):
-        if mem.title == title:
-            return doc_id, mem
-    return None
+    return _find_memory_by_title_where("page_id", page_id, title, today)
 
 
 def get_memory(doc_id: str) -> Memory | None:

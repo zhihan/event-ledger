@@ -13,10 +13,7 @@ AUDIT_LOG_COLLECTION = "audit_log"
 USERS_COLLECTION = "users"
 
 
-def _get_client():
-    """Return a Firestore client (reuses firestore_storage helper)."""
-    from firestore_storage import _get_client as _fs_get_client
-    return _fs_get_client()
+from firestore_storage import _get_client
 
 
 def _utcnow() -> datetime:
