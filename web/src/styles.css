@@ -256,8 +256,30 @@ h2 {
   color: #999;
 }
 
+.add-memory-error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #fff0f0;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
 .add-memory-error {
   color: #c00;
   font-size: 0.9rem;
-  margin: 0.5rem 0 0;
+  margin: 0;
+  flex: 1;
+}
+
+.add-memory-error-dismiss {
+  background: none;
+  border: none;
+  color: #c00;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
 }

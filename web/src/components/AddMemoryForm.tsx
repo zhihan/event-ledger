@@ -48,7 +48,19 @@ export function AddMemoryForm({ slug, onSuccess }: AddMemoryFormProps) {
           {submitting ? "Adding..." : "Add"}
         </button>
       </div>
-      {error && <p className="add-memory-error">{error}</p>}
+      {error && (
+        <div className="add-memory-error-box">
+          <p className="add-memory-error">{error}</p>
+          <button
+            type="button"
+            className="add-memory-error-dismiss"
+            onClick={() => setError(null)}
+            aria-label="Dismiss"
+          >
+            &times;
+          </button>
+        </div>
+      )}
     </form>
   );
 }

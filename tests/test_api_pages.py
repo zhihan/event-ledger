@@ -273,6 +273,17 @@ class TestPageMemories:
                                  json={"message": "hi"}, headers=AUTH)
         assert resp.status_code == 403
 
+    @patch("api.commit_memory_firestore")
+    @patch("api.page_storage.get_page")
+    def test_create_memory_ai_failure_returns_502(self, mock_get, mock_commit, client):
+        """When the AI backend fails (e.g. empty response), return 502 with a clear message."""
+        mock_get.return_value = PUBLIC_PAGE
+        mock_commit.side_effect = Exception("Expecting value: line 1 column 1 (char 0)")
+        resp = client.post("/pages/public-page/memories",
+                           json={"message": "test message"}, headers=AUTH)
+        assert resp.status_code == 502
+        assert "AI backend" in resp.json()["detail"]
+
     @patch("api.firestore_storage.load_memories_by_page")
     @patch("api.page_storage.get_page")
     def test_list_public_page_memories_no_auth(self, mock_get, mock_load):
