@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -16,6 +17,10 @@ from memory import Memory, _next_sunday
 from storage import upload_to_gcs
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+_MAX_AI_RETRIES = 2
 
 # Regex to find URLs in plain text (not inside markdown link syntax)
 _URL_RE = re.compile(r'https?://[^\s)\]>]+')
@@ -113,20 +118,47 @@ Use "update" when the user's message refers to an event that clearly matches an 
 
 
 def call_ai(prompt: str) -> dict:
-    """Call Gemini and return the parsed JSON response."""
+    """Call Gemini and return the parsed JSON response.
+
+    Retries up to ``_MAX_AI_RETRIES`` times when the model returns an empty
+    or unparseable response (common with complex unicode/URL inputs).
+    """
     from google import genai  # noqa: E402
     from google.genai import types  # noqa: E402
 
     api_key = os.environ["GEMINI_API_KEY"]
     client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-        ),
-    )
-    return json.loads(response.text)
+
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_AI_RETRIES):
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        text = response.text
+        if not text or not text.strip():
+            last_exc = ValueError("Gemini returned an empty response")
+            logger.warning("call_ai attempt %d: empty response, retrying", attempt + 1)
+            continue
+        try:
+            result = json.loads(text)
+        except (json.JSONDecodeError, TypeError) as exc:
+            last_exc = exc
+            logger.warning("call_ai attempt %d: invalid JSON (%s), retrying", attempt + 1, exc)
+            continue
+
+        # Validate required keys
+        if "action" not in result or "content" not in result:
+            last_exc = ValueError(f"AI response missing required keys: {sorted(result.keys())}")
+            logger.warning("call_ai attempt %d: %s, retrying", attempt + 1, last_exc)
+            continue
+
+        return result
+
+    raise last_exc or ValueError("AI call failed after retries")
 
 
 @dataclass
