@@ -315,12 +315,16 @@ def accept_invite(invite_id: str, uid: str = Depends(_get_uid)):
 @app.post("/pages/{slug}/memories")
 def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(_get_uid)):
     _require_page_owner(slug, uid)
-    result = commit_memory_firestore(
-        message=body.message,
-        user_id=uid,
-        attachment_urls=body.attachments,
-        page_id=slug,
-    )
+    try:
+        result = commit_memory_firestore(
+            message=body.message,
+            user_id=uid,
+            attachment_urls=body.attachments,
+            page_id=slug,
+        )
+    except Exception:
+        logger.exception("create_page_memory failed slug=%s uid=%s", slug, uid)
+        raise HTTPException(status_code=502, detail="Failed to process memory — the AI backend returned an invalid response. Please try again.")
     logger.info(
         "create_page_memory slug=%s action=%s doc_id=%s", slug, result.action, result.doc_id,
     )
