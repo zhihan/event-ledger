@@ -1,21 +1,21 @@
 # Event Ledger
 
-A family events board powered by Firestore and deployed to GitHub Pages. Add events via CLI or REST API, and view them on a simple, auth-protected web page — no server-side rendering required.
+A family events board powered by Firestore and Firebase Hosting. Add events via CLI or REST API, and view them on a React web app with Google sign-in.
 
-**Homepage:** https://zhihan.github.io/lexington-ma-events/
+**Homepage:** https://living-memories-488001.web.app
 
 ## What It Does
 
 - **Collect events** — Add memories via natural language CLI or HTTP API; an AI extracts dates, times, and locations automatically.
 - **Show what's coming** — The homepage groups events into "This Week" and "Upcoming" sections, filtered in the browser.
 - **Auto-expire** — Each event has an expiry date; expired events are hidden client-side and can be cleaned up with a one-liner.
-- **Auth-protected** — The homepage requires Google sign-in; Firestore security rules enforce access control.
+- **Auth-protected** — The web app requires Google sign-in; Firebase Auth enforces access control.
 
 ## Quick Start
 
 ### View the homepage
 
-Visit https://zhihan.github.io/lexington-ma-events/ and sign in with Google.
+Visit https://living-memories-488001.web.app and sign in with Google.
 
 ### Local development (optional)
 
@@ -34,6 +34,10 @@ A REST API deployed to Cloud Run with Firebase Auth (ID tokens).
 | `/_healthz` | GET | No | Health check |
 | `/pages` | POST | Firebase | Create a page |
 | `/pages/{slug}` | GET | Optional | Get page metadata |
+| `/pages/{slug}` | PATCH | Firebase | Update page metadata |
+| `/pages/{slug}` | DELETE | Firebase | Soft-delete a page (30-day grace period) |
+| `/pages/{slug}/restore` | POST | Firebase | Restore a soft-deleted page |
+| `/pages/{slug}/owners/{uid}` | DELETE | Firebase | Remove a page co-owner |
 | `/pages/{slug}/memories` | POST | Firebase | Create a memory on a page |
 | `/pages/{slug}/memories` | GET | Optional | List memories for a page |
 | `/pages/{slug}/memories/{id}` | DELETE | Firebase | Delete a memory |
@@ -68,7 +72,7 @@ curl https://YOUR-SERVICE-URL/pages/my-page/memories
 
 ## Firebase / Client
 
-Client uses Firebase Auth + Firestore; see `client/index.html` for config and set Firestore rules to require auth.
+The web app (`web/`) is a React SPA using Firebase Auth for sign-in. It communicates with the Cloud Run API via Firebase Hosting rewrites. A legacy client (`client/index.html`) reads Firestore directly in the browser.
 
 ## Logging
 
@@ -76,5 +80,5 @@ The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each re
 
 ## Deploy
 
-- **GitHub Pages** — see `.github/workflows/publish.yml`
+- **Web App (Firebase Hosting)** — see `.github/workflows/publish.yml`
 - **Cloud Run API** — `./scripts/deploy_cloud_run.sh` (or see `.github/workflows/deploy-api.yml` for CI)
