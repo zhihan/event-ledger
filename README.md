@@ -75,6 +75,59 @@ curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
 curl https://living-memories-488001.web.app/api/pages/my-page/memories
 ```
 
+### Agent Integration
+
+You can connect any AI agent (Claude, GPT, custom tools) to Event Ledger via the HTTP API. The agent only needs to make standard HTTP requests — no SDK required.
+
+**Setup steps:**
+
+1. **Install the CLI** and authenticate:
+   ```bash
+   pip install .
+   login          # opens browser, sign in with Google
+   ```
+
+2. **Create a page** for your agent to write to:
+   ```bash
+   curl -X POST https://living-memories-488001.web.app/api/pages \
+     -H "Authorization: Bearer $(login token)" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "My Agent Page"}'
+   ```
+
+3. **Give your agent the token and page slug.** Your agent needs:
+   - The API base URL: `https://living-memories-488001.web.app/api`
+   - A valid Bearer token (from `login token`)
+   - The page slug to write to
+
+4. **Have your agent call the API** to add events in natural language:
+   ```bash
+   POST /pages/{slug}/memories
+   Authorization: Bearer <token>
+   Content-Type: application/json
+
+   {"message": "Dentist appointment March 15 at 2pm"}
+   ```
+
+   The API uses AI to extract structured fields (date, time, location) automatically. The response includes the parsed memory:
+   ```json
+   {
+     "action": "created",
+     "id": "abc123",
+     "memory": {
+       "title": "Dentist appointment",
+       "target": "2026-03-15",
+       "time": "14:00",
+       "place": null,
+       "expires": "2026-03-16"
+     }
+   }
+   ```
+
+**Token refresh:** ID tokens expire after 1 hour. If your agent runs long, call `login token` periodically to get a fresh token — it auto-refreshes using the stored keyring credential.
+
+**Reading events:** `GET /pages/{slug}/memories` returns all events on a page (no auth needed for public pages), so your agent can check for duplicates before adding.
+
 ---
 
 ## Development
