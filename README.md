@@ -1,23 +1,90 @@
 # Event Ledger
 
-A family events board powered by Firestore and Firebase Hosting. Add events via CLI or REST API, and view them on a React web app with Google sign-in.
+A family events board. Add events in plain language — an AI extracts dates, times, and locations automatically. View upcoming events on the web, grouped by "This Week" and "Upcoming."
 
 **Homepage:** https://living-memories-488001.web.app
 
-## What It Does
+## Using Event Ledger
 
-- **Collect events** — Add memories via natural language CLI or HTTP API; an AI extracts dates, times, and locations automatically.
-- **Show what's coming** — The homepage groups events into "This Week" and "Upcoming" sections, filtered in the browser.
-- **Auto-expire** — Each event has an expiry date; expired events are hidden client-side and can be cleaned up with a one-liner.
-- **Auth-protected** — The web app requires Google sign-in; Firebase Auth enforces access control.
+### Web App
 
-## Quick Start
+Visit https://living-memories-488001.web.app and sign in with Google. You can create pages, add events, and invite collaborators.
 
-### View the homepage
+### HTTP API
 
-Visit https://living-memories-488001.web.app and sign in with Google.
+The API is available at `https://living-memories-488001.web.app/api`. All authenticated endpoints require a Firebase ID token in the `Authorization: Bearer <token>` header.
 
-### Local development (optional)
+#### Pages
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/pages` | POST | Yes | Create a new page |
+| `/pages/{slug}` | GET | No | Get page metadata |
+| `/pages/{slug}` | PATCH | Yes | Rename or update a page |
+| `/pages/{slug}` | DELETE | Yes | Soft-delete a page (restorable for 30 days) |
+| `/pages/{slug}/restore` | POST | Yes | Restore a soft-deleted page |
+| `/pages/{slug}/owners/{uid}` | DELETE | Yes | Remove a co-owner from a page |
+
+#### Memories (events)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/pages/{slug}/memories` | POST | Yes | Add an event — pass `{"message": "..."}` in natural language |
+| `/pages/{slug}/memories` | GET | No | List all events on a page |
+| `/pages/{slug}/memories/{id}` | DELETE | Yes | Delete an event |
+
+#### Invites & Users
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/pages/{slug}/invites` | POST | Yes | Create an invite link for a page |
+| `/invites/{id}/accept` | POST | Yes | Accept an invite |
+| `/users/me` | GET | Yes | Get current user info |
+| `/users/me/pages` | GET | Yes | List pages you own |
+
+#### Authentication
+
+Authenticated endpoints require a Firebase ID token passed as `Authorization: Bearer <token>`. ID tokens expire after 1 hour, but you can use a long-lived **refresh token** to get fresh ones without re-authenticating.
+
+**One-time setup (requires a browser):**
+
+1. Sign into the web app at https://living-memories-488001.web.app
+2. Open browser DevTools → Console, and run:
+   ```js
+   JSON.parse(Object.entries(localStorage).find(([k]) => k.startsWith('firebase:authUser:'))[1]).spiTokens.refreshToken
+   ```
+3. Save the returned refresh token as a secret (e.g. `FIREBASE_REFRESH_TOKEN` env var)
+
+**Getting an ID token from the refresh token:**
+
+```bash
+curl -s -X POST \
+  "https://securetoken.googleapis.com/v1/token?key=AIzaSyCRPmK9euOr_rDVcQDBh_BC9OVM2MnJF0s" \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type": "refresh_token", "refresh_token": "'"$FIREBASE_REFRESH_TOKEN"'"}'
+# Returns JSON with "id_token" — use that as your Bearer token.
+```
+
+The refresh token does not expire unless the user's account is disabled or the token is explicitly revoked.
+
+#### Examples
+
+```bash
+# Add an event (requires Firebase ID token)
+curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
+  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
+
+# List events on a page (no auth required)
+curl https://living-memories-488001.web.app/api/pages/my-page/memories
+```
+
+---
+
+## Development
+
+### Setup
 
 ```bash
 python3 -m venv .venv
@@ -25,44 +92,7 @@ python3 -m venv .venv
 .venv/bin/pytest              # run tests
 ```
 
-## HTTP API
-
-A REST API deployed to Cloud Run with Firebase Auth (ID tokens).
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/_healthz` | GET | No | Health check |
-| `/pages` | POST | Firebase | Create a page |
-| `/pages/{slug}` | GET | Optional | Get page metadata |
-| `/pages/{slug}` | PATCH | Firebase | Update page metadata |
-| `/pages/{slug}` | DELETE | Firebase | Soft-delete a page (30-day grace period) |
-| `/pages/{slug}/restore` | POST | Firebase | Restore a soft-deleted page |
-| `/pages/{slug}/owners/{uid}` | DELETE | Firebase | Remove a page co-owner |
-| `/pages/{slug}/memories` | POST | Firebase | Create a memory on a page |
-| `/pages/{slug}/memories` | GET | Optional | List memories for a page |
-| `/pages/{slug}/memories/{id}` | DELETE | Firebase | Delete a memory |
-| `/pages/{slug}/invites` | POST | Firebase | Create an invite link |
-| `/invites/{id}/accept` | POST | Firebase | Accept an invite |
-| `/users/me` | GET | Firebase | Get current user |
-| `/users/me/pages` | GET | Firebase | List pages owned by current user |
-
-### Example
-
-```bash
-# Health check (no auth required)
-curl https://YOUR-SERVICE-URL/_healthz
-
-# Create a memory on a page (requires Firebase ID token)
-curl -X POST https://YOUR-SERVICE-URL/pages/my-page/memories \
-  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
-
-# List memories for a public page (no auth required)
-curl https://YOUR-SERVICE-URL/pages/my-page/memories
-```
-
-## Environment Variables
+### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -70,15 +100,33 @@ curl https://YOUR-SERVICE-URL/pages/my-page/memories
 | `GOOGLE_CLOUD_PROJECT` | Yes | GCP project ID |
 | `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
 
-## Firebase / Client
+### Running the API Locally
 
-The web app (`web/`) is a React SPA using Firebase Auth for sign-in. It communicates with the Cloud Run API via Firebase Hosting rewrites. A legacy client (`client/index.html`) reads Firestore directly in the browser.
+```bash
+GEMINI_API_KEY=... \
+  .venv/bin/uvicorn api:app --app-dir src --reload
+```
 
-## Logging
+### Project Structure
+
+- `web/` — React SPA (Firebase Auth, Firebase Hosting)
+- `client/` — Legacy static HTML client (reads Firestore directly)
+- `src/` — Python backend
+  - `api.py` — FastAPI app (Cloud Run)
+  - `committer.py` — AI-powered memory creation/deduplication
+  - `memory.py` — `Memory` dataclass
+  - `firestore_storage.py` — Firestore CRUD for memories
+  - `page_storage.py` — Firestore CRUD for pages, invites, users
+  - `publisher.py` — Static site generator
+  - `cleanup.py` — Expired memory removal
+  - `storage.py` — GCS attachment helpers
+- `tests/` — Pytest suite (Firestore mocked)
+
+### Deploy
+
+- **Web App (Firebase Hosting)** — `.github/workflows/publish.yml`
+- **Cloud Run API** — `./scripts/deploy_cloud_run.sh` or `.github/workflows/deploy-api.yml`
+
+### Logging
 
 The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each request logs `method`, `path`, `status_code`, and `duration_ms`. Cloud Trace correlation is included when the `x-cloud-trace-context` header is present.
-
-## Deploy
-
-- **Web App (Firebase Hosting)** — see `.github/workflows/publish.yml`
-- **Cloud Run API** — `./scripts/deploy_cloud_run.sh` (or see `.github/workflows/deploy-api.yml` for CI)
