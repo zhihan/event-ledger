@@ -191,6 +191,14 @@ def create_page(body: CreatePageRequest, uid: str = Depends(_get_uid)):
         created = page_storage.create_page(page)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    # Auto-set default_personal_page_id if this is a personal page
+    if body.visibility == "personal":
+        user = page_storage.get_user(uid)
+        if user is None or user.default_personal_page_id is None:
+            page_storage.get_or_create_user(uid)
+            page_storage.update_user(uid, {"default_personal_page_id": body.slug})
+
     logger.info("create_page slug=%s uid=%s", body.slug, uid)
     return {"page": {**created.to_dict(), "slug": created.slug}}
 
