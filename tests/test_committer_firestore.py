@@ -16,7 +16,7 @@ def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
     mock_save.return_value = "new-doc-id"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": "2026-03-05",
         "expires": "2026-04-04",
@@ -24,7 +24,7 @@ def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
         "time": "10:00",
         "place": "Room A",
         "content": "Weekly planning session",
-    }
+    }]
 
     main([
         "--message", "Team meeting next Thursday at 10am in Room A",
@@ -54,7 +54,7 @@ def test_main_firestore_update(mock_call_ai, mock_load, mock_find, mock_save, mo
     mock_save.return_value = "doc-123"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "update",
         "update_title": "Team Meeting",
         "target": "2026-03-05",
@@ -63,7 +63,7 @@ def test_main_firestore_update(mock_call_ai, mock_load, mock_find, mock_save, mo
         "time": "11:00",
         "place": "Room B",
         "content": "Updated: moved to 11am",
-    }
+    }]
 
     main([
         "--message", "Move team meeting to 11am",
@@ -111,7 +111,7 @@ def test_commit_long_chinese_message(mock_call_ai, mock_load, mock_save, mock_de
     mock_save.return_value = "new-doc-id"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": "2026-03-07",
         "expires": "2026-04-06",
@@ -120,7 +120,7 @@ def test_commit_long_chinese_message(mock_call_ai, mock_load, mock_save, mock_de
         "place": "50 Dudley Rd, Newton",
         "content": "成全训练与爱筵相调",
         "attachments": None,
-    }
+    }]
 
     result = commit_memory_firestore(
         message=LONG_CHINESE_MESSAGE,
@@ -129,10 +129,10 @@ def test_commit_long_chinese_message(mock_call_ai, mock_load, mock_save, mock_de
         page_id="cambridge-lexington",
     )
 
-    assert result.action == "create"
-    assert result.doc_id == "new-doc-id"
-    assert result.memory.place == "50 Dudley Rd, Newton"
-    assert result.memory.page_id == "cambridge-lexington"
+    assert result[0].action == "create"
+    assert result[0].doc_id == "new-doc-id"
+    assert result[0].memory.place == "50 Dudley Rd, Newton"
+    assert result[0].memory.page_id == "cambridge-lexington"
 
     # Verify the prompt sent to AI contains the full message
     prompt = mock_call_ai.call_args[0][0]
@@ -151,7 +151,7 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
     mock_save.return_value = "new-doc-id"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": None,
         "expires": "2026-03-08",
@@ -160,7 +160,7 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
         "place": None,
         "content": "晨兴圣言链接",
         "attachments": None,
-    }
+    }]
 
     result = commit_memory_firestore(
         message=ISSUE_74_MESSAGE,
@@ -169,13 +169,13 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
         page_id="test-page",
     )
 
-    assert result.action == "create"
-    assert result.doc_id == "new-doc-id"
+    assert result[0].action == "create"
+    assert result[0].doc_id == "new-doc-id"
     # Title should be wrapped as a markdown link with the user URL
-    assert UNICODE_URL in result.memory.title
-    assert "[本周晨兴](" in result.memory.title
+    assert UNICODE_URL in result[0].memory.title
+    assert "[本周晨兴](" in result[0].memory.title
     # Content should include the URL
-    assert UNICODE_URL in result.memory.content
+    assert UNICODE_URL in result[0].memory.content
 
     # Verify the prompt sent to AI has the URL replaced with a placeholder
     prompt = mock_call_ai.call_args[0][0]
@@ -213,7 +213,7 @@ def test_commit_retries_on_empty_ai_response(mock_call_ai, mock_load, mock_save,
     # calls call_ai which now has retry logic internally.
     # Instead, test the happy path where call_ai succeeds after internal retry.
     mock_call_ai.side_effect = None
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": None,
         "expires": "2026-03-08",
@@ -222,7 +222,7 @@ def test_commit_retries_on_empty_ai_response(mock_call_ai, mock_load, mock_save,
         "place": None,
         "content": "Test content",
         "attachments": None,
-    }
+    }]
 
     result = commit_memory_firestore(
         message="test message",
@@ -231,4 +231,51 @@ def test_commit_retries_on_empty_ai_response(mock_call_ai, mock_load, mock_save,
         page_id="test-page",
     )
 
-    assert result.action == "create"
+    assert result[0].action == "create"
+
+
+@patch("firestore_storage.delete_expired")
+@patch("firestore_storage.save_memory")
+@patch("firestore_storage.load_memories_by_page")
+@patch("committer.call_ai")
+def test_commit_multiple_events(mock_call_ai, mock_load, mock_save, mock_delete):
+    """Issue #82: AI returning a list of events creates multiple memories."""
+    mock_load.return_value = []
+    mock_save.side_effect = ["doc-id-1", "doc-id-2"]
+    mock_delete.return_value = []
+
+    mock_call_ai.return_value = [
+        {
+            "action": "create",
+            "target": "2026-03-07",
+            "expires": "2026-04-06",
+            "title": "Middle Schoolers",
+            "time": "5:45pm",
+            "place": "Chen's home in Belmont",
+            "content": "Middle school meeting",
+            "attachments": None,
+        },
+        {
+            "action": "create",
+            "target": "2026-03-07",
+            "expires": "2026-04-06",
+            "title": "High Schoolers",
+            "time": "5:45pm",
+            "place": "David and Tina Tien's in Cambridge",
+            "content": "High school meeting",
+            "attachments": None,
+        },
+    ]
+
+    results = commit_memory_firestore(
+        message="Middle schoolers meet at Chen's, high schoolers at Tien's",
+        user_id="owner-uid",
+        today=date(2026, 3, 1),
+        page_id="test-page",
+    )
+
+    assert len(results) == 2
+    assert mock_save.call_count == 2
+    assert results[0].memory.title == "Middle Schoolers"
+    assert results[1].memory.title == "High Schoolers"
+    mock_delete.assert_called_once()

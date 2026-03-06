@@ -58,8 +58,8 @@ def test_call_ai():
         from committer import call_ai
         result = call_ai("test prompt")
 
-    assert result["action"] == "create"
-    assert result["title"] == "Meeting"
+    assert result[0]["action"] == "create"
+    assert result[0]["title"] == "Meeting"
     mock_genai.Client.assert_called_once_with(api_key="test-key")
 
 
@@ -217,7 +217,7 @@ def test_call_ai_retries_on_empty_response():
         from committer import call_ai
         result = call_ai("test prompt")
 
-    assert result["action"] == "create"
+    assert result[0]["action"] == "create"
     assert mock_client.models.generate_content.call_count == 2
 
 
@@ -243,7 +243,7 @@ def test_call_ai_retries_on_invalid_json():
         from committer import call_ai
         result = call_ai("test prompt")
 
-    assert result["action"] == "create"
+    assert result[0]["action"] == "create"
     assert mock_client.models.generate_content.call_count == 2
 
 
@@ -269,8 +269,35 @@ def test_call_ai_retries_on_missing_keys():
         from committer import call_ai
         result = call_ai("test prompt")
 
-    assert result["action"] == "create"
+    assert result[0]["action"] == "create"
     assert mock_client.models.generate_content.call_count == 2
+
+
+def test_call_ai_returns_list_for_multiple_events():
+    """call_ai returns a list when AI responds with a JSON array."""
+    mock_response = MagicMock()
+    mock_response.text = (
+        '[{"action": "create", "content": "Middle schoolers", "title": "MS Meeting"}, '
+        '{"action": "create", "content": "High schoolers", "title": "HS Meeting"}]'
+    )
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+
+    mock_genai = MagicMock()
+    mock_genai.Client.return_value = mock_client
+
+    mock_google = MagicMock()
+    mock_google.genai = mock_genai
+
+    with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}), \
+         patch.dict(sys.modules, {"google": mock_google, "google.genai": mock_genai}):
+        from committer import call_ai
+        result = call_ai("test prompt")
+
+    assert len(result) == 2
+    assert result[0]["title"] == "MS Meeting"
+    assert result[1]["title"] == "HS Meeting"
 
 
 def test_call_ai_raises_after_all_retries_exhausted():

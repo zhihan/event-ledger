@@ -256,11 +256,11 @@ class TestPageMemories:
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
             content="Test", title="Meeting", user_id=OWNER_UID, page_id="public-page",
         )
-        mock_commit.return_value = CommitResult(action="created", doc_id="m1", memory=mem)
+        mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/public-page/memories",
                            json={"message": "Team meeting"}, headers=AUTH)
         assert resp.status_code == 200
-        assert resp.json()["id"] == "m1"
+        assert resp.json()["memories"][0]["id"] == "m1"
         mock_commit.assert_called_once()
         call_kwargs = mock_commit.call_args[1]
         assert call_kwargs["message"] == "Team meeting"
@@ -511,7 +511,7 @@ class TestPageTimezone:
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
             content="Test", title="Meeting", user_id=OWNER_UID, page_id="tz-page",
         )
-        mock_commit.return_value = CommitResult(action="created", doc_id="m1", memory=mem)
+        mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/tz-page/memories",
                            json={"message": "Meeting"}, headers=AUTH)
         assert resp.status_code == 200
@@ -539,7 +539,7 @@ class TestPageTimezone:
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
             content="Test", title="Event", user_id=OWNER_UID, page_id="public-page",
         )
-        mock_commit.return_value = CommitResult(action="created", doc_id="m1", memory=mem)
+        mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/public-page/memories",
                            json={"message": "Event"}, headers=AUTH)
         assert resp.status_code == 200

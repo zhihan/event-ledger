@@ -349,12 +349,13 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
         logger.exception("create_page_memory failed slug=%s uid=%s", slug, uid)
         raise HTTPException(status_code=502, detail="Failed to process memory — the AI backend returned an invalid response. Please try again.")
     logger.info(
-        "create_page_memory slug=%s action=%s doc_id=%s", slug, result.action, result.doc_id,
+        "create_page_memory slug=%s count=%d", slug, len(result),
     )
     return {
-        "action": result.action,
-        "id": result.doc_id,
-        "memory": result.memory.to_dict(),
+        "memories": [
+            {"action": r.action, "id": r.doc_id, "memory": r.memory.to_dict()}
+            for r in result
+        ],
     }
 
 

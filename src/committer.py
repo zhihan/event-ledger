@@ -122,7 +122,7 @@ User message: {message}
 Respond in the same language as the user's message.
 When matching events, treat semantically equivalent events across languages as the same event (e.g. "work lunch" and "工作午餐" refer to the same event).
 
-Respond with a single JSON object (no markdown fences) containing:
+Respond with a JSON array (no markdown fences) of event objects, one per event in the message. For a single event, use a one-element array. Each object contains:
 - "action": "create" or "update"
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
 - "target": ISO 8601 date string for when the event occurs, or null for ongoing/recurring events with no specific date
@@ -137,8 +137,8 @@ Respond with a single JSON object (no markdown fences) containing:
 Use "update" when the user's message refers to an event that clearly matches an existing memory. Otherwise use "create"."""
 
 
-def call_ai(prompt: str) -> dict:
-    """Call Gemini and return the parsed JSON response.
+def call_ai(prompt: str) -> list[dict]:
+    """Call Gemini and return the parsed JSON response as a list of event dicts.
 
     Retries up to ``_MAX_AI_RETRIES`` times when the model returns an empty
     or unparseable response (common with complex unicode/URL inputs).
@@ -171,9 +171,18 @@ def call_ai(prompt: str) -> dict:
             logger.warning("call_ai attempt %d: invalid JSON (%s), retrying", attempt + 1, exc)
             continue
 
-        # Validate required keys
-        if "action" not in result or "content" not in result:
-            last_exc = ValueError(f"AI response missing required keys: {sorted(result.keys())}")
+        # Normalize single object to a list
+        if isinstance(result, dict):
+            result = [result]
+        elif not isinstance(result, list):
+            last_exc = ValueError(f"AI response must be a JSON object or array, got {type(result).__name__}")
+            logger.warning("call_ai attempt %d: %s, retrying", attempt + 1, last_exc)
+            continue
+
+        # Validate required keys in each item
+        invalid = [i for i, item in enumerate(result) if "action" not in item or "content" not in item]
+        if invalid:
+            last_exc = ValueError(f"AI response items {invalid} missing required keys")
             logger.warning("call_ai attempt %d: %s, retrying", attempt + 1, last_exc)
             continue
 
@@ -196,10 +205,10 @@ def commit_memory_firestore(
     today: date | None = None,
     attachment_urls: list[str] | None = None,
     page_id: str | None = None,
-) -> CommitResult:
+) -> list[CommitResult]:
     """Core function: process a message and save to Firestore.
 
-    Returns a ``CommitResult`` with the action taken, document ID, and Memory.
+    Returns a list of ``CommitResult`` (one per event found in the message).
     """
     import firestore_storage
 
@@ -217,55 +226,58 @@ def commit_memory_firestore(
 
     prompt = build_ai_request(sanitised_message, existing_memories, today,
                               attachment_urls=attachment_urls or None)
-    result = call_ai(prompt)
+    results_raw = call_ai(prompt)
 
     _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
 
-    raw_target = result.get("target")
-    if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
-        raw_target = None
-    target = date.fromisoformat(raw_target) if raw_target else None
+    commit_results: list[CommitResult] = []
+    for result in results_raw:
+        raw_target = result.get("target")
+        if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
+            raw_target = None
+        target = date.fromisoformat(raw_target) if raw_target else None
 
-    raw_expires = result.get("expires")
-    if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
-        raw_expires = None
-    expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
-    raw_attachments = result.get("attachments")
+        raw_expires = result.get("expires")
+        if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
+            raw_expires = None
+        expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
+        raw_attachments = result.get("attachments")
 
-    # Restore real URLs into AI output
-    ai_title = result.get("title") or ""
-    ai_content = result["content"]
-    if user_urls:
-        ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
+        # Restore real URLs into AI output
+        ai_title = result.get("title") or ""
+        ai_content = result["content"]
+        if user_urls:
+            ai_title, ai_content = apply_user_urls(ai_title, ai_content, user_urls)
 
-    mem = Memory(
-        target=target,
-        expires=expires,
-        content=ai_content,
-        title=ai_title or result.get("title"),
-        time=result.get("time"),
-        place=result.get("place"),
-        attachments=raw_attachments if raw_attachments else None,
-        user_id=user_id,
-        page_id=page_id,
-    )
+        mem = Memory(
+            target=target,
+            expires=expires,
+            content=ai_content,
+            title=ai_title or result.get("title"),
+            time=result.get("time"),
+            place=result.get("place"),
+            attachments=raw_attachments if raw_attachments else None,
+            user_id=user_id,
+            page_id=page_id,
+        )
 
-    doc_id = None
-    if result["action"] == "update" and result.get("update_title"):
-        if page_id:
-            found = firestore_storage.find_memory_by_title_on_page(
-                page_id, result["update_title"], today,
-            )
-        else:
-            found = firestore_storage.find_memory_by_title(
-                user_id, result["update_title"], today,
-            )
-        if found:
-            doc_id = found[0]
-    saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
+        doc_id = None
+        if result["action"] == "update" and result.get("update_title"):
+            if page_id:
+                found = firestore_storage.find_memory_by_title_on_page(
+                    page_id, result["update_title"], today,
+                )
+            else:
+                found = firestore_storage.find_memory_by_title(
+                    user_id, result["update_title"], today,
+                )
+            if found:
+                doc_id = found[0]
+        saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
+        commit_results.append(CommitResult(action=result["action"], doc_id=saved_id, memory=mem))
+
     firestore_storage.delete_expired(today)
-
-    return CommitResult(action=result["action"], doc_id=saved_id, memory=mem)
+    return commit_results
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -52,7 +52,7 @@ def test_update_not_blocked_by_utc_expiry(
     mock_save.return_value = "doc-abc"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "update",
         "update_title": "Bible Study",
         "target": "2026-03-03",
@@ -61,7 +61,7 @@ def test_update_not_blocked_by_utc_expiry(
         "time": "19:30",
         "place": "Room 2",
         "content": "Bible study moved to 7:30pm",
-    }
+    }]
 
     result = commit_memory_firestore(
         message="Move bible study to 7:30pm",
@@ -70,8 +70,8 @@ def test_update_not_blocked_by_utc_expiry(
         page_id="test-page",
     )
 
-    assert result.action == "update"
-    assert result.doc_id == "doc-abc"
+    assert result[0].action == "update"
+    assert result[0].doc_id == "doc-abc"
     # The AI should have seen the existing memory
     prompt = mock_call_ai.call_args[0][0]
     assert "Bible Study" in prompt
@@ -91,7 +91,7 @@ def test_today_passed_to_ai_prompt_matches_eastern(
     mock_save.return_value = "new-id"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": "2026-03-05",
         "expires": "2026-04-04",
@@ -99,7 +99,7 @@ def test_today_passed_to_ai_prompt_matches_eastern(
         "time": None,
         "place": None,
         "content": "Test",
-    }
+    }]
 
     commit_memory_firestore(
         message="Test event on Thursday",
@@ -151,7 +151,7 @@ def test_commit_defaults_to_legacy_tz_via_resolve(
     mock_save.return_value = "new-id"
     mock_delete.return_value = []
 
-    mock_call_ai.return_value = {
+    mock_call_ai.return_value = [{
         "action": "create",
         "target": "2026-03-05",
         "expires": "2026-04-04",
@@ -159,7 +159,7 @@ def test_commit_defaults_to_legacy_tz_via_resolve(
         "time": None,
         "place": None,
         "content": "Test",
-    }
+    }]
 
     eastern_march3 = date(2026, 3, 3)
     with patch("committer._today", return_value=eastern_march3):
