@@ -42,7 +42,7 @@ export function AddMemoryForm({ slug, onSuccess }: AddMemoryFormProps) {
         />
         <button
           type="submit"
-          className="btn btn-primary"
+          className="btn-add"
           disabled={submitting || !message.trim()}
         >
           {submitting ? "Adding..." : "Add"}

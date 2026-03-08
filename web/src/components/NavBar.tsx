@@ -14,7 +14,7 @@ export function NavBar() {
           <span className="navbar-email">
             {user.email || user.displayName || "Signed in"}
           </span>
-          <button type="button" onClick={signOut} className="btn btn-secondary">
+          <button type="button" onClick={signOut} className="btn btn-secondary btn-sm">
             Sign out
           </button>
         </div>

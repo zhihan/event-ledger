@@ -38,6 +38,29 @@ function attachmentLabel(url: string): string {
   }
 }
 
+const IconCalendar = () => (
+  <svg viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const IconOngoing = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+    <path d="M2 17l10 5 10-5" />
+    <path d="M2 12l10 5 10-5" />
+  </svg>
+);
+
+const IconChevron = () => (
+  <svg className="chevron" viewBox="0 0 24 24">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 export function MemoryCard({ memory }: { memory: MemoryItem }) {
   const title = memory.title || memory.content;
   const meta: string[] = [];
@@ -50,45 +73,48 @@ export function MemoryCard({ memory }: { memory: MemoryItem }) {
     (memory.title && memory.content) ||
     (memory.attachments && memory.attachments.length > 0);
 
-  if (!hasDetails) {
-    return (
-      <li className="memory-card">
-        <strong
-          dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(title) }}
-        />
-      </li>
-    );
-  }
+  const icon = memory.target ? <IconCalendar /> : <IconOngoing />;
 
   return (
     <li className="memory-card">
       <details>
         <summary>
-          <strong
-            dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(title) }}
-          />
+          <div className="summary-icon">{icon}</div>
+          <div className="summary-body">
+            <div
+              className="summary-title"
+              dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(title) }}
+            />
+            {meta.length > 0 && (
+              <div className="summary-meta">{meta.join(" \u00b7 ")}</div>
+            )}
+          </div>
+          {hasDetails && <IconChevron />}
         </summary>
-        {meta.length > 0 && <p>{meta.join(" \u00b7 ")}</p>}
-        {memory.title && memory.content && (
-          <div
-            dangerouslySetInnerHTML={{
-              __html: renderInlineMarkdown(memory.content),
-            }}
-          />
-        )}
-        {memory.attachments && memory.attachments.length > 0 && (
-          <div className="attachments">
-            Attachments:{" "}
-            {memory.attachments.map((url) => (
-              <a
-                key={url}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {attachmentLabel(url)}
-              </a>
-            ))}
+        {hasDetails && (
+          <div className="detail-body">
+            {meta.length > 0 && <p>{meta.join("\n")}</p>}
+            {memory.title && memory.content && (
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: renderInlineMarkdown(memory.content),
+                }}
+              />
+            )}
+            {memory.attachments && memory.attachments.length > 0 && (
+              <div className="attachments">
+                {memory.attachments.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    &#128206; {attachmentLabel(url)}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </details>

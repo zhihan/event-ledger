@@ -58,7 +58,7 @@ export function PageView() {
             </Link>
           )}
         </div>
-        <h1>
+        <h1 className="page-title">
           {page?.title}
           <span className={`badge badge-${page?.visibility}`}>
             {page?.visibility}

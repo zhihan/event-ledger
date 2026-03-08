@@ -38,9 +38,9 @@ function Section({
 }) {
   return (
     <section>
-      <h2>{title}</h2>
+      <h2 className="section-heading">{title}</h2>
       {memories.length === 0 ? (
-        <p>No events.</p>
+        <p className="placeholder">No events.</p>
       ) : (
         <ul className="memory-list">
           {memories.map((m) => (
