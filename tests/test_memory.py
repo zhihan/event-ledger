@@ -96,6 +96,24 @@ def test_from_dict_defaults():
     assert mem.user_id == "cambridge-lexington"
     assert mem.title is None
     assert mem.attachments is None
+    assert mem.visibility == "public"
+
+
+def test_visibility_members():
+    mem = Memory(
+        target=date(2026, 3, 15), expires=date(2026, 4, 15),
+        content="Private event.", visibility="members",
+    )
+    d = mem.to_dict()
+    assert d["visibility"] == "members"
+    restored = Memory.from_dict(d)
+    assert restored.visibility == "members"
+
+
+def test_visibility_default_public():
+    mem = Memory(target=None, expires=date(2026, 4, 15), content="Event.")
+    assert mem.visibility == "public"
+    assert mem.to_dict()["visibility"] == "public"
 
 
 def test_next_sunday():

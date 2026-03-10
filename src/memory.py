@@ -33,6 +33,7 @@ class Memory:
     attachments: list[str] | None = None
     user_id: str = "cambridge-lexington"
     page_id: str | None = None
+    visibility: str = "public"
 
     def to_dict(self) -> dict:
         """Serialize to a plain dict suitable for Firestore storage."""
@@ -46,6 +47,7 @@ class Memory:
             "attachments": self.attachments,
             "user_id": self.user_id,
             "page_id": self.page_id,
+            "visibility": self.visibility,
         }
         return d
 
@@ -64,6 +66,7 @@ class Memory:
             attachments=list(raw_attachments) if raw_attachments else None,
             user_id=data.get("user_id", "cambridge-lexington"),
             page_id=data.get("page_id"),
+            visibility=data.get("visibility", "public"),
         )
 
     def is_expired(self, today: date | None = None) -> bool:

@@ -323,6 +323,68 @@ class TestPageMemories:
         resp = c.get("/pages/personal-page/memories", headers=AUTH)
         assert resp.status_code == 200
 
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api.page_storage.get_page")
+    def test_members_only_memory_hidden_from_public(self, mock_get, mock_load):
+        """Members-only memories are filtered out for unauthenticated requests on public pages."""
+        mock_get.return_value = PUBLIC_PAGE
+        public_mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Public event", page_id="public-page", visibility="public",
+        )
+        members_mem = Memory(
+            target=date(2026, 3, 6), expires=date(2026, 4, 5),
+            content="Members event", page_id="public-page", visibility="members",
+        )
+        mock_load.return_value = [("m1", public_mem), ("m2", members_mem)]
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/public-page/memories")
+        assert resp.status_code == 200
+        memories = resp.json()["memories"]
+        assert len(memories) == 1
+        assert memories[0]["id"] == "m1"
+
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_members_only_memory_visible_to_owner(self, mock_get, mock_verify, mock_load):
+        """Members-only memories are visible to authenticated owners on public pages."""
+        mock_get.return_value = PUBLIC_PAGE
+        mock_verify.return_value = {"uid": OWNER_UID}
+        public_mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Public event", page_id="public-page", visibility="public",
+        )
+        members_mem = Memory(
+            target=date(2026, 3, 6), expires=date(2026, 4, 5),
+            content="Members event", page_id="public-page", visibility="members",
+        )
+        mock_load.return_value = [("m1", public_mem), ("m2", members_mem)]
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/public-page/memories", headers=AUTH)
+        assert resp.status_code == 200
+        memories = resp.json()["memories"]
+        assert len(memories) == 2
+
+    @patch("api.commit_memory_firestore")
+    @patch("api.page_storage.get_page")
+    def test_create_memory_passes_visibility(self, mock_get, mock_commit, client):
+        """POST /pages/{slug}/memories passes visibility to commit_memory_firestore."""
+        mock_get.return_value = PUBLIC_PAGE
+        mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Private meeting", page_id="public-page", visibility="members",
+        )
+        mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
+        resp = client.post("/pages/public-page/memories",
+                           json={"message": "Private meeting", "visibility": "members"},
+                           headers=AUTH)
+        assert resp.status_code == 200
+        call_kwargs = mock_commit.call_args[1]
+        assert call_kwargs["visibility"] == "members"
+
     @patch("api.firestore_storage.delete_memory")
     @patch("api.firestore_storage.get_memory")
     @patch("api.page_storage.get_page")

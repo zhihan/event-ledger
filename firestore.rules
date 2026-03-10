@@ -57,7 +57,12 @@ service cloud.firestore {
     // --- Memories ---
     match /memories/{memoryId} {
       allow read: if resource.data.page_id != null
-                  && canReadPage(resource.data.page_id);
+                  && canReadPage(resource.data.page_id)
+                  && (
+                    !("visibility" in resource.data)
+                    || resource.data.visibility != "members"
+                    || isOwner(resource.data.page_id)
+                  );
       // Legacy: allow read if user_id matches (for backward compat)
       allow read: if isSignedIn() && resource.data.user_id == uid();
       allow create: if isSignedIn()

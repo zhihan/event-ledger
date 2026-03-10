@@ -205,6 +205,7 @@ def commit_memory_firestore(
     today: date | None = None,
     attachment_urls: list[str] | None = None,
     page_id: str | None = None,
+    visibility: str = "public",
 ) -> list[CommitResult]:
     """Core function: process a message and save to Firestore.
 
@@ -259,6 +260,7 @@ def commit_memory_firestore(
             attachments=raw_attachments if raw_attachments else None,
             user_id=user_id,
             page_id=page_id,
+            visibility=visibility,
         )
 
         doc_id = None

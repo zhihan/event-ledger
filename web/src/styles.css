@@ -223,6 +223,13 @@ body::before {
   background: transparent;
 }
 
+.badge-members {
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  background: rgba(10,30,63,0.08);
+  font-size: 0.6rem;
+}
+
 /* Sections */
 section {
   margin-bottom: 2.5rem;
@@ -303,6 +310,12 @@ section {
 }
 
 .summary-body { flex: 1; }
+
+.summary-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 
 .summary-title {
   font-weight: 500;
@@ -403,6 +416,20 @@ details[open] .chevron { transform: rotate(90deg); }
 }
 .add-memory-input::placeholder { color: var(--muted); }
 .add-memory-input:disabled { color: var(--muted); }
+
+.add-memory-visibility {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 400;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  flex-shrink: 0;
+}
+.add-memory-visibility:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-add {
   background: var(--navy);

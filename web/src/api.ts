@@ -70,6 +70,7 @@ export interface MemoryItem {
   time: string | null;
   place: string | null;
   attachments: string[];
+  visibility: string;
 }
 
 export async function getMe(): Promise<UserProfile> {
@@ -128,11 +129,12 @@ export async function patchPage(
 export async function createMemory(
   slug: string,
   message: string,
+  visibility: string = "public",
 ): Promise<{ action: string; id: string; memory: MemoryItem }> {
   const resp = await apiFetch(`/api/pages/${slug}/memories`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, visibility }),
   });
   return resp.json();
 }

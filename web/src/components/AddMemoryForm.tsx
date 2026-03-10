@@ -8,6 +8,7 @@ interface AddMemoryFormProps {
 
 export function AddMemoryForm({ slug, onSuccess }: AddMemoryFormProps) {
   const [message, setMessage] = useState("");
+  const [visibility, setVisibility] = useState("public");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +20,7 @@ export function AddMemoryForm({ slug, onSuccess }: AddMemoryFormProps) {
     setSubmitting(true);
     setError(null);
     try {
-      await createMemory(slug, text);
+      await createMemory(slug, text, visibility);
       setMessage("");
       onSuccess();
     } catch (err) {
@@ -40,6 +41,16 @@ export function AddMemoryForm({ slug, onSuccess }: AddMemoryFormProps) {
           onChange={(e) => setMessage(e.target.value)}
           disabled={submitting}
         />
+        <select
+          className="add-memory-visibility"
+          value={visibility}
+          onChange={(e) => setVisibility(e.target.value)}
+          disabled={submitting}
+          aria-label="Visibility"
+        >
+          <option value="public">Public</option>
+          <option value="members">Members only</option>
+        </select>
         <button
           type="submit"
           className="btn-add"

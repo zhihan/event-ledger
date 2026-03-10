@@ -137,6 +137,7 @@ def _page_response(page: page_storage.Page) -> dict:
 class CreateMemoryRequest(BaseModel):
     message: str
     attachments: list[str] | None = None
+    visibility: str = "public"
 
 
 class CreatePageRequest(BaseModel):
@@ -344,6 +345,7 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
             today=_today(tz=page_tz),
             attachment_urls=body.attachments,
             page_id=slug,
+            visibility=body.visibility,
         )
     except Exception:
         logger.exception("create_page_memory failed slug=%s uid=%s", slug, uid)
@@ -361,20 +363,35 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
 
 @app.get("/pages/{slug}/memories")
 def list_page_memories(slug: str, authorization: str = Header(default=None)):
-    """List memories for a page. Public pages readable by anyone; personal pages require owner auth."""
+    """List memories for a page. Public pages readable by anyone; personal pages require owner auth.
+
+    Members-only memories (visibility="members") are filtered out for non-owners.
+    """
     page = page_storage.get_page(slug)
     if page is None:
         raise HTTPException(status_code=404, detail="Page not found")
 
+    is_owner = False
     if page.visibility == "personal":
         if not authorization:
             raise HTTPException(status_code=401, detail="Authentication required")
         token = _verify_firebase_token(authorization)
         if token["uid"] not in page.owner_uids:
             raise HTTPException(status_code=403, detail="Not an owner of this page")
+        is_owner = True
+    elif authorization:
+        try:
+            token = _verify_firebase_token(authorization)
+            is_owner = token["uid"] in page.owner_uids
+        except HTTPException:
+            is_owner = False
 
     page_tz = resolve_tz(page.timezone)
     pairs = firestore_storage.load_memories_by_page(slug, _today(tz=page_tz))
+
+    if not is_owner:
+        pairs = [(doc_id, mem) for doc_id, mem in pairs if mem.visibility == "public"]
+
     return {
         "memories": [
             {"id": doc_id, **mem.to_dict()}

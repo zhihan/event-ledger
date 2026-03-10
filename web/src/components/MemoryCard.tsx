@@ -81,10 +81,15 @@ export function MemoryCard({ memory }: { memory: MemoryItem }) {
         <summary>
           <div className="summary-icon">{icon}</div>
           <div className="summary-body">
-            <div
-              className="summary-title"
-              dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(title) }}
-            />
+            <div className="summary-title-row">
+              <div
+                className="summary-title"
+                dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(title) }}
+              />
+              {memory.visibility === "members" && (
+                <span className="badge badge-members">members only</span>
+              )}
+            </div>
             {meta.length > 0 && (
               <div className="summary-meta">{meta.join(" \u00b7 ")}</div>
             )}
