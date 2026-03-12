@@ -27,11 +27,11 @@ def _target_from_expires(expires: date) -> date:
     """Derive a target date from the legacy expires date.
 
     Ongoing events had expires = coming Sunday.  We convert that to the
-    Saturday of the same week (expires - 1 day).  For any other expiry
-    day, we use expires itself as a safe fallback.
+    Monday of the same week (expires - 6 days), so the event sorts near
+    the top of the week.  For any other expiry day, use expires itself.
     """
-    if expires.isoweekday() == 7:  # Sunday
-        return expires - timedelta(days=1)
+    if expires.isoweekday() == 7:  # Sunday → Monday of that week
+        return expires - timedelta(days=6)
     return expires
 
 

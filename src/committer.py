@@ -10,11 +10,18 @@ import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-def _week_end(d: date) -> date:
-    """Return the Saturday ending the current Sunday-to-Saturday week."""
+def _week_monday(d: date) -> date:
+    """Return the Monday of the current Sunday-to-Saturday week."""
     days_since_sunday = d.isoweekday() % 7  # Sun→0, Mon→1, …, Sat→6
     week_start = d - timedelta(days=days_since_sunday)
-    return week_start + timedelta(days=6)  # Saturday
+    return week_start + timedelta(days=1)  # Monday
+
+
+def _next_sunday(d: date) -> date:
+    """Return the Sunday that ends the current Sunday-to-Saturday week."""
+    days_since_sunday = d.isoweekday() % 7
+    week_start = d - timedelta(days=days_since_sunday)
+    return week_start + timedelta(days=7)  # following Sunday
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -128,8 +135,8 @@ When matching events, treat semantically equivalent events across languages as t
 Respond with a JSON array (no markdown fences) of event objects, one per event in the message. For a single event, use a one-element array. Each object contains:
 - "action": "create" or "update"
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
-- "target": ISO 8601 date string for when the event occurs; if no specific date is known, use the Saturday of the current week
-- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target; for weekly events with no specific date, use the target Saturday itself)
+- "target": ISO 8601 date string for when the event occurs; if no specific date is known, use the Monday of the current week
+- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target; for weekly events with no specific date, use the Sunday that ends the current week)
 - "title": short event name in markdown format; use [title](url) to make it a clickable link if a URL is relevant
 - "slug": ASCII-only short identifier for the filename (e.g. "work-lunch" for "工作午餐")
 - "time": time of day as a string (e.g. "10:00") or null
@@ -238,12 +245,15 @@ def commit_memory_firestore(
         raw_target = result.get("target")
         if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
             raw_target = None
-        target = date.fromisoformat(raw_target) if raw_target else _week_end(today)
+        weekly = not raw_target
+        target = date.fromisoformat(raw_target) if raw_target else _week_monday(today)
 
         raw_expires = result.get("expires")
         if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
             raw_expires = None
-        expires = date.fromisoformat(raw_expires) if raw_expires else target + timedelta(days=30)
+        expires = date.fromisoformat(raw_expires) if raw_expires else (
+            _next_sunday(today) if weekly else target + timedelta(days=30)
+        )
         raw_attachments = result.get("attachments")
 
         # Restore real URLs into AI output
