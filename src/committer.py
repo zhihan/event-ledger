@@ -22,7 +22,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 _MAX_AI_RETRIES = 2
-_DEFAULT_MODEL = "gemini-2.0-flash-lite"
+_DEFAULT_MODEL = "gemini-2.5-flash-lite"
 
 # Regex to find URLs in plain text (not inside markdown link syntax)
 _URL_RE = re.compile(r'https?://[^\s)\]>]+')
