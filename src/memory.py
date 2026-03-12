@@ -45,9 +45,14 @@ class Memory:
     def from_dict(cls, data: dict) -> Memory:
         """Deserialize from a Firestore document dict."""
         raw_attachments = data.get("attachments")
+        raw_target = data.get("target")
+        expires = _parse_date(data["expires"])
+        # Legacy documents may have target=null (ongoing events). Fall back to
+        # expires so they remain loadable until the migration script fixes them.
+        target = _parse_date(raw_target) if raw_target else expires
         return cls(
-            target=_parse_date(data["target"]),
-            expires=_parse_date(data["expires"]),
+            target=target,
+            expires=expires,
             content=data.get("content", ""),
             title=data.get("title"),
             time=data.get("time"),
