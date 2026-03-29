@@ -242,6 +242,7 @@ class TestWorkspaceInvites:
     def test_create_invite_returns_dict(self):
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value.set.return_value = None
+        mock_db.collection.return_value.document.return_value.set.return_value = None
 
         with patch("workspace_storage._get_client", return_value=mock_db):
             invite = create_workspace_invite("ws-1", "uid-alice", role="participant")
@@ -250,6 +251,18 @@ class TestWorkspaceInvites:
         assert invite["workspace_id"] == "ws-1"
         assert invite["role"] == "participant"
         assert invite["accepted_by"] is None
+
+    def test_find_invite_reads_lookup_doc_first(self):
+        mock_db = MagicMock()
+        lookup_doc = MagicMock()
+        lookup_doc.exists = True
+        lookup_doc.to_dict.return_value = {"invite_id": "inv-1", "workspace_id": "ws-1"}
+        mock_db.collection.return_value.document.return_value.get.return_value = lookup_doc
+
+        with patch("workspace_storage._get_client", return_value=mock_db):
+            invite = find_workspace_invite("inv-1")
+
+        assert invite == {"invite_id": "inv-1", "workspace_id": "ws-1"}
 
     def test_invalid_role_raises(self):
         with pytest.raises(ValueError, match="Invalid role"):

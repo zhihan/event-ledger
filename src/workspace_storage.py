@@ -10,6 +10,7 @@ from models import MemberRole, Workspace
 
 WORKSPACES_COLLECTION = "workspaces"
 WORKSPACE_INVITES_SUBCOLLECTION = "workspace_invites"
+WORKSPACE_INVITE_LOOKUP_COLLECTION = "workspace_invite_lookup"
 
 
 def _utcnow() -> datetime:
@@ -149,23 +150,36 @@ def create_workspace_invite(
      .collection(WORKSPACE_INVITES_SUBCOLLECTION)
      .document(invite_id)
      .set(invite_doc))
+    (db.collection(WORKSPACE_INVITE_LOOKUP_COLLECTION)
+     .document(invite_id)
+     .set(invite_doc))
     return invite_doc
 
 
 def find_workspace_invite(invite_id: str) -> dict | None:
-    """Find a workspace invite by ID (collection group query)."""
+    """Find a workspace invite by ID without relying on collection-group indexes."""
     db = _get_client()
-    query = (
-        db.collection_group(WORKSPACE_INVITES_SUBCOLLECTION)
-        .where("invite_id", "==", invite_id)
-        .limit(1)
-    )
-    try:
-        docs = query.get()
-    except Exception:
-        docs = list(query.stream())
-    if docs:
-        return docs[0].to_dict()
+
+    # Preferred path for newly-created invites.
+    lookup_doc = db.collection(WORKSPACE_INVITE_LOOKUP_COLLECTION).document(invite_id).get()
+    if lookup_doc.exists:
+        return lookup_doc.to_dict()
+
+    # Backward-compatible path for older invites created before the lookup
+    # collection existed. Since invite_id is also the subcollection document id,
+    # we can probe each workspace directly without requiring a Firestore index.
+    workspace_docs = db.collection(WORKSPACES_COLLECTION).stream()
+    for workspace_doc in workspace_docs:
+        workspace_id = workspace_doc.id
+        invite_doc = (
+            db.collection(WORKSPACES_COLLECTION)
+            .document(workspace_id)
+            .collection(WORKSPACE_INVITES_SUBCOLLECTION)
+            .document(invite_id)
+            .get()
+        )
+        if invite_doc.exists:
+            return invite_doc.to_dict()
     return None
 
 
@@ -192,5 +206,8 @@ def accept_workspace_invite(invite_id: str, accepting_uid: str) -> dict:
      .collection(WORKSPACE_INVITES_SUBCOLLECTION)
      .document(invite_id)
      .update({"accepted_by": accepting_uid}))
+    (db.collection(WORKSPACE_INVITE_LOOKUP_COLLECTION)
+     .document(invite_id)
+     .set({"accepted_by": accepting_uid}, merge=True))
     invite["accepted_by"] = accepting_uid
     return invite
