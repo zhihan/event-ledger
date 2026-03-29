@@ -288,7 +288,7 @@ export async function getOccurrenceCheckIns(occurrenceId: string): Promise<Check
 }
 
 export async function deleteCheckIn(checkInId: string): Promise<void> {
-  await apiFetch(`/v2/check-ins/${checkInId}/delete`, { method: "POST" });
+  await apiFetch(`/v2/check-ins/${checkInId}`, { method: "DELETE" });
 }
 
 // --- Cohorts (Phase 7) ---
