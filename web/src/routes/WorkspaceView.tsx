@@ -150,11 +150,6 @@ export function WorkspaceView() {
         </div>
         <h1 className="page-title">
           {workspace?.title}
-          {workspace && (
-            <span className={`badge badge-${workspace.type}`}>
-              {workspace.type}
-            </span>
-          )}
         </h1>
         {workspace && (
           <p className="page-meta-tz">{workspace.timezone}</p>

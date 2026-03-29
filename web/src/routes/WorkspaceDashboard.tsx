@@ -9,12 +9,6 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { TimezoneSelect } from "../components/TimezoneSelect";
 
-const WORKSPACE_TYPES = [
-  { value: "meeting", label: "Meeting" },
-  { value: "reminder", label: "Reminder" },
-  { value: "study", label: "Study" },
-];
-
 export function WorkspaceDashboard() {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,7 +16,6 @@ export function WorkspaceDashboard() {
 
   const [showForm, setShowForm] = useState(false);
   const [formTitle, setFormTitle] = useState("");
-  const [formType, setFormType] = useState("meeting");
   const [formTimezone, setFormTimezone] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
@@ -50,10 +43,9 @@ export function WorkspaceDashboard() {
     setFormSubmitting(true);
     setFormError(null);
     try {
-      await createWorkspace(formTitle.trim(), formType, formTimezone);
+      await createWorkspace(formTitle.trim(), "shared", formTimezone);
       setShowForm(false);
       setFormTitle("");
-      setFormType("meeting");
       await load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create workspace");
@@ -95,22 +87,6 @@ export function WorkspaceDashboard() {
                 autoFocus
                 disabled={formSubmitting}
               />
-            </div>
-            <div className="form-field">
-              <label>Type</label>
-              <div className="visibility-toggle">
-                {WORKSPACE_TYPES.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    className={`btn btn-sm ${formType === t.value ? "btn-primary" : "btn-secondary"}`}
-                    onClick={() => setFormType(t.value)}
-                    disabled={formSubmitting}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
             </div>
             <div className="form-field">
               <label htmlFor="ws-tz">Timezone</label>
@@ -160,12 +136,10 @@ export function WorkspaceDashboard() {
 }
 
 function WorkspaceCard({ workspace }: { workspace: WorkspaceSummary }) {
-  const typeLabel = workspace.type.charAt(0).toUpperCase() + workspace.type.slice(1);
   return (
     <li className="page-card workspace-card">
       <Link to={`/w/${workspace.workspace_id}`}>
         <strong>{workspace.title}</strong>
-        <span className={`badge badge-${workspace.type}`}>{typeLabel}</span>
       </Link>
       <p className="page-meta-tz">{workspace.timezone}</p>
     </li>

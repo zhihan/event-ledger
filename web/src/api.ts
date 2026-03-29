@@ -48,7 +48,6 @@ export class ApiError extends Error {
 
 export interface WorkspaceSummary {
   workspace_id: string;
-  type: string;
   title: string;
   timezone: string;
   owner_uids: string[];
@@ -116,7 +115,7 @@ export interface CheckInSummary {
 
 export async function createWorkspace(
   title: string,
-  type: string = "meeting",
+  type: string = "shared",
   timezone?: string,
 ): Promise<WorkspaceSummary> {
   const resp = await apiFetch("/v2/workspaces", {
