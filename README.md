@@ -1,181 +1,210 @@
 # Event Ledger
 
-A family events board. Add events in plain language — an AI extracts dates, times, and locations automatically. View upcoming events on the web, grouped by "This Week" and "Upcoming."
+Event Ledger is a Firebase- and Firestore-backed scheduling app with two active product layers in the same repository:
 
-**Homepage:** https://living-memories-488001.web.app
+- `v1` legacy pages and memories: AI-assisted event capture on shared pages
+- `v2` workspaces, recurring series, occurrences, check-ins, notifications, and assistant actions
 
-## Using Event Ledger
+The current web app is deployed at `https://living-memories-488001.web.app`.
 
-### Web App
+## Current Architecture
 
-Visit https://living-memories-488001.web.app and sign in with Google. You can create pages, add events, and invite collaborators.
+### Backend
 
-### HTTP API
+- `src/api.py` exposes the legacy page and memory API.
+- `src/api_v2.py` exposes the newer workspace, series, occurrence, check-in, notification, cohort, ICS, and assistant APIs.
+- Firestore is the primary datastore for both models.
+- Firebase Auth provides user authentication for authenticated routes.
+- Gemini is used for natural-language parsing in the legacy committer flow and for the organizer assistant.
 
-The API is available at `https://living-memories-488001.web.app/api`. All authenticated endpoints require a Firebase ID token in the `Authorization: Bearer <token>` header.
+### Frontend
 
-#### Pages
+- `web/` is the primary React SPA.
+- `client/admin.html` is a legacy admin page kept for compatibility.
+- The React app already routes primarily around workspaces and recurring schedules, while still retaining legacy page routes.
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/pages` | POST | Yes | Create a new page |
-| `/pages/{slug}` | GET | No | Get page metadata |
-| `/pages/{slug}` | PATCH | Yes | Rename or update a page |
-| `/pages/{slug}` | DELETE | Yes | Soft-delete a page (restorable for 30 days) |
-| `/pages/{slug}/restore` | POST | Yes | Restore a soft-deleted page |
-| `/pages/{slug}/owners/{uid}` | DELETE | Yes | Remove a co-owner from a page |
+### Domain Models
 
-#### Memories (events)
+Legacy domain:
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/pages/{slug}/memories` | POST | Yes | Add an event — pass `{"message": "..."}` in natural language |
-| `/pages/{slug}/memories` | GET | No | List all events on a page |
-| `/pages/{slug}/memories/{id}` | DELETE | Yes | Delete an event |
+- `Page`
+- `Memory`
 
-#### Invites & Users
+Current pivot domain:
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/pages/{slug}/invites` | POST | Yes | Create an invite link for a page |
-| `/invites/{id}/accept` | POST | Yes | Accept an invite |
-| `/users/me` | GET | Yes | Get current user info |
-| `/users/me/pages` | GET | Yes | List pages you own |
+- `Workspace`
+- `Series`
+- `Occurrence`
+- `CheckIn`
+- `NotificationRule`
+- `DeliveryLog`
+- study/cohort records
 
-#### Authentication
+## Main User Flows
 
-Authenticated endpoints require a Firebase ID token passed as `Authorization: Bearer <token>`. The easiest way to get a token is with the `login` CLI:
+### Legacy page and memory flow
 
-```bash
-login              # opens browser, sign in with Google — stores credentials in system keyring
-login token        # prints a fresh ID token to stdout
-login whoami       # shows the logged-in email
-login logout       # clears stored credentials
-```
+1. Create a page.
+2. Send natural language to `POST /pages/{slug}/memories`.
+3. The committer extracts structured memory entries with Gemini.
+4. The API stores resulting `Memory` documents in Firestore.
 
-Then use the token in API calls:
+### Workspace and recurrence flow
 
-```bash
-curl -H "Authorization: Bearer $(login token)" \
-  https://living-memories-488001.web.app/api/users/me
-```
+1. Create a workspace.
+2. Create one or more recurring series in that workspace.
+3. Generate occurrences for a date window.
+4. Edit, reschedule, complete, or cancel individual occurrences.
+5. Record participant check-ins and configure notification rules.
 
-ID tokens expire after 1 hour; `login token` automatically refreshes them using the stored refresh token.
+### Organizer assistant flow
 
-#### Examples
+1. Send a message to the assistant endpoint for a workspace.
+2. The assistant proposes a structured action.
+3. The proposed action is stored as a pending action.
+4. The user confirms or cancels it.
+5. Confirmation executes the action against the workspace data.
 
-```bash
-# Add an event
-curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
-  -H "Authorization: Bearer $(login token)" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
-
-# List events on a page (no auth required)
-curl https://living-memories-488001.web.app/api/pages/my-page/memories
-```
-
-### Agent Integration
-
-You can connect any AI agent (Claude, GPT, custom tools) to Event Ledger via the HTTP API. The agent only needs to make standard HTTP requests — no SDK required.
-
-**Setup steps:**
-
-1. **Install the CLI** and authenticate:
-   ```bash
-   pip install .
-   login          # opens browser, sign in with Google
-   ```
-
-2. **Create a page** for your agent to write to:
-   ```bash
-   curl -X POST https://living-memories-488001.web.app/api/pages \
-     -H "Authorization: Bearer $(login token)" \
-     -H "Content-Type: application/json" \
-     -d '{"name": "My Agent Page"}'
-   ```
-
-3. **Give your agent the token and page slug.** Your agent needs:
-   - The API base URL: `https://living-memories-488001.web.app/api`
-   - A valid Bearer token (from `login token`)
-   - The page slug to write to
-
-4. **Have your agent call the API** to add events in natural language:
-   ```bash
-   POST /pages/{slug}/memories
-   Authorization: Bearer <token>
-   Content-Type: application/json
-
-   {"message": "Dentist appointment March 15 at 2pm"}
-   ```
-
-   The API uses AI to extract structured fields (date, time, location) automatically. The response includes the parsed memory:
-   ```json
-   {
-     "action": "created",
-     "id": "abc123",
-     "memory": {
-       "title": "Dentist appointment",
-       "target": "2026-03-15",
-       "time": "14:00",
-       "place": null,
-       "expires": "2026-03-16"
-     }
-   }
-   ```
-
-**Token refresh:** ID tokens expire after 1 hour. If your agent runs long, call `login token` periodically to get a fresh token — it auto-refreshes using the stored keyring credential.
-
-**Reading events:** `GET /pages/{slug}/memories` returns all events on a page (no auth needed for public pages), so your agent can check for duplicates before adding.
-
----
-
-## Development
+## Local Development
 
 ### Setup
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest              # run tests
 ```
 
-### Environment Variables
+### Python tests
+
+```bash
+.venv/bin/pytest
+```
+
+Run a single test:
+
+```bash
+.venv/bin/pytest tests/test_api_v2.py::TestSeriesEndpoints::test_create_series
+```
+
+### Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `GOOGLE_CLOUD_PROJECT` | Yes | GCP project ID |
-| `LIVING_MEMORY_FIRESTORE_DATABASE` | No | Firestore database name (default: `(default)`) |
+| `GEMINI_API_KEY` | Required for AI-backed flows | Gemini API key |
+| `GOOGLE_CLOUD_PROJECT` | Usually required outside tests | GCP project ID |
+| `LIVING_MEMORY_FIRESTORE_DATABASE` | Optional | Firestore database name |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram webhook and bot integration |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | Optional | Email notification delivery |
+| `FROM_EMAIL` | Optional | Sender address for email notifications |
+| `APP_BASE_URL` | Optional | Base URL used in links and ICS output |
 
-### Running the API Locally
+### Run the API locally
 
 ```bash
 GEMINI_API_KEY=... \
   .venv/bin/uvicorn api:app --app-dir src --reload
 ```
 
-### Project Structure
+The app accepts both direct paths like `/pages/...` and Firebase Hosting rewritten paths like `/api/pages/...`.
 
-- `web/` — React SPA (Firebase Auth, Firebase Hosting)
-- `client/` — Legacy static HTML client (reads Firestore directly)
-- `src/` — Python backend
-  - `api.py` — FastAPI app (Cloud Run)
-  - `committer.py` — AI-powered memory creation/deduplication
-  - `memory.py` — `Memory` dataclass
-  - `firestore_storage.py` — Firestore CRUD for memories
-  - `page_storage.py` — Firestore CRUD for pages, invites, users
-  - `publisher.py` — Static site generator
-  - `login.py` — CLI login: browser OAuth, keyring storage, token refresh
-  - `cleanup.py` — Expired memory removal
-  - `storage.py` — GCS attachment helpers
-- `tests/` — Pytest suite (Firestore mocked)
+### Run the React app locally
 
-### Deploy
+```bash
+cd web
+npm install
+npm run dev
+```
 
-- **Web App (Firebase Hosting)** — `.github/workflows/publish.yml`
-- **Cloud Run API** — `./scripts/deploy_cloud_run.sh` or `.github/workflows/deploy-api.yml`
+## Useful Commands
 
-### Logging
+### Login CLI
 
-The API emits structured logs viewable in Cloud Run's **Logs Explorer**. Each request logs `method`, `path`, `status_code`, and `duration_ms`. Cloud Trace correlation is included when the `x-cloud-trace-context` header is present.
+```bash
+login
+login whoami
+login token
+login logout
+```
+
+### Committer
+
+```bash
+GEMINI_API_KEY=... .venv/bin/python -m committer \
+  --message "Team meeting next Thursday at 10am in Room A"
+```
+
+### Cleanup
+
+```bash
+.venv/bin/python -m cleanup
+```
+
+### Publisher
+
+The static publisher is still present for the legacy memory model:
+
+```bash
+.venv/bin/python -m publisher --output-dir site/
+```
+
+## API Overview
+
+Authenticated routes require a Firebase ID token in `Authorization: Bearer <token>`.
+
+### Legacy API groups
+
+- `/users/me`
+- `/users/me/pages`
+- `/pages`
+- `/pages/{slug}`
+- `/pages/{slug}/invites`
+- `/invites/{id}/accept`
+- `/pages/{slug}/memories`
+- `/pages/{slug}/memories/stream`
+
+### V2 API groups
+
+- `/v2/workspaces`
+- `/v2/workspaces/{workspace_id}/members`
+- `/v2/workspaces/{workspace_id}/series`
+- `/v2/workspaces/{workspace_id}/occurrences`
+- `/v2/series/{series_id}`
+- `/v2/series/{series_id}/occurrences`
+- `/v2/occurrences/{occurrence_id}`
+- `/v2/occurrences/{occurrence_id}/check-ins`
+- `/v2/workspaces/{workspace_id}/notification-rules`
+- `/v2/workspaces/{workspace_id}/cohorts`
+- `/v2/workspaces/{workspace_id}/assistant`
+- `/v2/assistant/actions/{action_id}/confirm`
+- `/v2/assistant/actions/{action_id}/cancel`
+
+### Example: create a legacy memory
+
+```bash
+curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
+  -H "Authorization: Bearer $(login token)" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
+```
+
+### Example: create a workspace
+
+```bash
+curl -X POST https://living-memories-488001.web.app/v2/workspaces \
+  -H "Authorization: Bearer $(login token)" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Weekly Standup", "type": "shared", "timezone": "America/New_York"}'
+```
+
+## Repository Layout
+
+- `src/` Python backend
+- `web/` React SPA
+- `client/` legacy static admin UI
+- `tests/` pytest suite
+- `docs/design/` retained product and design docs for the workspace/series pivot
+- `scripts/` operational and migration scripts
+
+## Notes on Repository State
+
+This repo is in an intentional transition state. The legacy page/memory stack is still implemented and tested, while the newer workspace/series stack is the active direction of the product and frontend. Documentation in this repository is aligned to that hybrid reality rather than pretending the migration is still only planned.
