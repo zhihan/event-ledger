@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import { getMe } from "../api";
 
 export function SignIn() {
   const { user, loading, signIn } = useAuth();
@@ -11,10 +10,7 @@ export function SignIn() {
 
   useEffect(() => {
     if (!loading && user) {
-      // Ensure user profile exists in backend, then redirect back
-      getMe()
-        .then(() => navigate(redirect, { replace: true }))
-        .catch(() => navigate(redirect, { replace: true }));
+      navigate(redirect, { replace: true });
     }
   }, [user, loading, navigate, redirect]);
 
