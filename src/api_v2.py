@@ -683,13 +683,13 @@ def delete_notification_rule(
     token: dict = Depends(_require_token),
 ) -> None:
     import series_storage as _ss
-    from firestore_storage import _get_client
+    from db import get_client
     rule = _ss.get_notification_rule(rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail='NotificationRule not found')
     ws = _get_workspace_or_404(rule.workspace_id)
     _require_organizer(ws, token['uid'])
-    db = _get_client()
+    db = get_client()
     db.collection(_ss.NOTIFICATION_RULES_COLLECTION).document(rule_id).delete()
 
 

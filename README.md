@@ -1,36 +1,25 @@
 # Event Ledger
 
-Event Ledger is a Firebase- and Firestore-backed scheduling app with two active product layers in the same repository:
-
-- `v1` legacy pages and memories: AI-assisted event capture on shared pages
-- `v2` workspaces, recurring series, occurrences, check-ins, notifications, and assistant actions
+Event Ledger is a Firebase- and Firestore-backed recurring-schedule platform with workspaces, series, occurrences, check-ins, notifications, and an organizer assistant.
 
 The current web app is deployed at `https://living-memories-488001.web.app`.
 
-## Current Architecture
+## Architecture
 
 ### Backend
 
-- `src/api.py` exposes the legacy page and memory API.
-- `src/api_v2.py` exposes the newer workspace, series, occurrence, check-in, notification, cohort, ICS, and assistant APIs.
-- Firestore is the primary datastore for both models.
+- `src/api.py` is the main FastAPI entry point (health check, middleware, mounts the v2 router).
+- `src/api_v2.py` exposes the workspace, series, occurrence, check-in, notification, cohort, ICS, Telegram webhook, and assistant APIs.
+- `src/db.py` provides the shared Firestore client factory.
+- Firestore is the primary datastore.
 - Firebase Auth provides user authentication for authenticated routes.
-- Gemini is used for natural-language parsing in the legacy committer flow and for the organizer assistant.
+- Gemini powers the organizer assistant.
 
 ### Frontend
 
-- `web/` is the primary React SPA.
-- `client/admin.html` is a legacy admin page kept for compatibility.
-- The React app already routes primarily around workspaces and recurring schedules, while still retaining legacy page routes.
+- `web/` is the primary React SPA, organized around workspaces and recurring schedules.
 
 ### Domain Models
-
-Legacy domain:
-
-- `Page`
-- `Memory`
-
-Current pivot domain:
 
 - `Workspace`
 - `Series`
@@ -38,16 +27,9 @@ Current pivot domain:
 - `CheckIn`
 - `NotificationRule`
 - `DeliveryLog`
-- study/cohort records
+- Study/cohort records
 
 ## Main User Flows
-
-### Legacy page and memory flow
-
-1. Create a page.
-2. Send natural language to `POST /pages/{slug}/memories`.
-3. The committer extracts structured memory entries with Gemini.
-4. The API stores resulting `Memory` documents in Firestore.
 
 ### Workspace and recurrence flow
 
@@ -105,8 +87,6 @@ GEMINI_API_KEY=... \
   .venv/bin/uvicorn api:app --app-dir src --reload
 ```
 
-The app accepts both direct paths like `/pages/...` and Firebase Hosting rewritten paths like `/api/pages/...`.
-
 ### Run the React app locally
 
 ```bash
@@ -126,43 +106,11 @@ login token
 login logout
 ```
 
-### Committer
-
-```bash
-GEMINI_API_KEY=... .venv/bin/python -m committer \
-  --message "Team meeting next Thursday at 10am in Room A"
-```
-
-### Cleanup
-
-```bash
-.venv/bin/python -m cleanup
-```
-
-### Publisher
-
-The static publisher is still present for the legacy memory model:
-
-```bash
-.venv/bin/python -m publisher --output-dir site/
-```
-
 ## API Overview
 
 Authenticated routes require a Firebase ID token in `Authorization: Bearer <token>`.
 
-### Legacy API groups
-
-- `/users/me`
-- `/users/me/pages`
-- `/pages`
-- `/pages/{slug}`
-- `/pages/{slug}/invites`
-- `/invites/{id}/accept`
-- `/pages/{slug}/memories`
-- `/pages/{slug}/memories/stream`
-
-### V2 API groups
+### API groups
 
 - `/v2/workspaces`
 - `/v2/workspaces/{workspace_id}/members`
@@ -178,15 +126,6 @@ Authenticated routes require a Firebase ID token in `Authorization: Bearer <toke
 - `/v2/assistant/actions/{action_id}/confirm`
 - `/v2/assistant/actions/{action_id}/cancel`
 
-### Example: create a legacy memory
-
-```bash
-curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
-  -H "Authorization: Bearer $(login token)" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
-```
-
 ### Example: create a workspace
 
 ```bash
@@ -200,11 +139,6 @@ curl -X POST https://living-memories-488001.web.app/v2/workspaces \
 
 - `src/` Python backend
 - `web/` React SPA
-- `client/` legacy static admin UI
 - `tests/` pytest suite
-- `docs/design/` retained product and design docs for the workspace/series pivot
-- `scripts/` operational and migration scripts
-
-## Notes on Repository State
-
-This repo is in an intentional transition state. The legacy page/memory stack is still implemented and tested, while the newer workspace/series stack is the active direction of the product and frontend. Documentation in this repository is aligned to that hybrid reality rather than pretending the migration is still only planned.
+- `docs/design/` product and design docs for the workspace/series platform
+- `scripts/` operational scripts

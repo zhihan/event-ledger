@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Sequence
 
-from firestore_storage import _get_client
+from db import get_client as _get_client
 from models import CheckIn, DeliveryLog, NotificationRule, Occurrence, Series
 
 SERIES_COLLECTION = "series"

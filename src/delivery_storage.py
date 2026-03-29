@@ -27,7 +27,7 @@ def has_been_delivered(
 
     Prevents duplicate notifications when the scheduler runs multiple times.
     """
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     docs = (
         db.collection(series_storage.DELIVERY_LOGS_COLLECTION)
@@ -48,7 +48,7 @@ def list_failed_logs_for_retry(
     limit: int = 100,
 ) -> list[DeliveryLog]:
     """Return failed DeliveryLogs created within the last max_age_hours."""
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     cutoff = _utcnow() - timedelta(hours=max_age_hours)
     docs = (
@@ -76,7 +76,7 @@ def list_delivery_logs_for_workspace(
     limit: int = 200,
 ) -> list[DeliveryLog]:
     """Return recent DeliveryLogs for a workspace (newest first)."""
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     docs = (
         db.collection(series_storage.DELIVERY_LOGS_COLLECTION)

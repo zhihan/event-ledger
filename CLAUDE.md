@@ -4,28 +4,23 @@ This file gives repo-specific guidance for coding agents working in this reposit
 
 ## Project Overview
 
-Event Ledger is no longer just a page-based family events board. The repository currently contains two active layers:
-
-- legacy `Page` and `Memory` flows for AI-assisted event capture
-- newer `Workspace`, `Series`, `Occurrence`, `CheckIn`, notification, study, and assistant flows for a recurring-schedule platform
-
-Do not assume the repo is fully migrated to the newer model, and do not assume the older page/memory model is dead. Both are present in production code, tests, and frontend routes.
+Event Ledger is a recurring-schedule platform built on Firebase and Firestore. The core domain includes `Workspace`, `Series`, `Occurrence`, `CheckIn`, notification, study/cohort, and assistant flows.
 
 ## Primary Runtime Surfaces
 
 - `src/api.py`
-  Legacy FastAPI surface for pages, memories, invites, and users.
+  Main FastAPI entry point: health check, middleware, mounts the v2 router.
 - `src/api_v2.py`
-  Newer FastAPI surface for workspaces, membership, recurring series, occurrences, check-ins, notifications, cohorts, ICS export, Telegram webhook handling, and assistant actions.
+  FastAPI surface for workspaces, membership, recurring series, occurrences, check-ins, notifications, cohorts, ICS export, Telegram webhook handling, and assistant actions.
 - `web/`
-  Primary React SPA. It already favors workspace-centric routes but still keeps legacy page routes.
-- `client/admin.html`
-  Legacy admin UI retained for compatibility and manual operations.
+  Primary React SPA with workspace-centric routes.
 
 ## Core Backend Modules
 
 - `src/models.py`
   Canonical dataclasses for `Workspace`, `Series`, `Occurrence`, `CheckIn`, `NotificationRule`, and `DeliveryLog`.
+- `src/db.py`
+  Shared Firestore client factory.
 - `src/recurrence.py`
   Pure recurrence engine for generating UTC occurrence timestamps from schedule rules.
 - `src/occurrence_service.py`
@@ -34,30 +29,17 @@ Do not assume the repo is fully migrated to the newer model, and do not assume t
   Organizer assistant orchestration.
 - `src/assistant_actions.py`
   Pending-action storage plus confirm/cancel/execute flow.
-- `src/committer.py`
-  Legacy Gemini-backed natural-language to `Memory` extraction flow.
 
 ## Storage Modules
 
-- `src/firestore_storage.py`
-  Legacy memory storage.
-- `src/page_storage.py`
-  Legacy page, invite, user, and audit-log storage.
 - `src/workspace_storage.py`
   Workspace and membership storage.
 - `src/series_storage.py`
   Series, occurrence, check-in, notification rule, and delivery log storage.
 - `src/study_storage.py`
   Cohort, badge, and streak snapshot storage.
-
-## Product Reality
-
-When documenting or changing behavior, reflect the current hybrid state:
-
-- `v1` page/memory flows still exist and are tested.
-- `v2` workspace/series flows are the active product direction.
-- The React app already exposes workspace-first navigation.
-- Some integrations are intentionally incomplete or stubbed, especially external channels and some notification paths.
+- `src/delivery_storage.py`
+  Delivery log queries for the notification scheduler.
 
 ## Development
 

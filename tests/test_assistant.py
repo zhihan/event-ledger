@@ -247,7 +247,7 @@ class TestFirestoreHelpers:
         mock_doc_ref = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
-        with patch("firestore_storage._get_client", return_value=mock_db):
+        with patch("db.get_client", return_value=mock_db):
             from assistant_actions import save_pending_action
             action_id = save_pending_action(action)
 
@@ -260,7 +260,7 @@ class TestFirestoreHelpers:
         mock_doc.exists = False
         mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
 
-        with patch("firestore_storage._get_client", return_value=mock_db):
+        with patch("db.get_client", return_value=mock_db):
             from assistant_actions import get_pending_action
             result = get_pending_action("nonexistent-id")
 
@@ -275,7 +275,7 @@ class TestFirestoreHelpers:
         # Firestore timestamps come back as datetime objects; simulate that:
         mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
 
-        with patch("firestore_storage._get_client", return_value=mock_db):
+        with patch("db.get_client", return_value=mock_db):
             from assistant_actions import get_pending_action
             result = get_pending_action(action.action_id)
 
@@ -289,7 +289,7 @@ class TestFirestoreHelpers:
         mock_doc.to_dict.return_value = action.to_dict()
         mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
 
-        with patch("firestore_storage._get_client", return_value=mock_db):
+        with patch("db.get_client", return_value=mock_db):
             from assistant_actions import get_pending_action
             result = get_pending_action(action.action_id)
 
@@ -301,7 +301,7 @@ class TestFirestoreHelpers:
         mock_doc_ref = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
-        with patch("firestore_storage._get_client", return_value=mock_db):
+        with patch("db.get_client", return_value=mock_db):
             from assistant_actions import update_pending_action_status
             update_pending_action_status("some-id", "executed", result={"ok": True})
 

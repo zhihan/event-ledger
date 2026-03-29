@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from firestore_storage import _get_client
+from db import get_client as _get_client
 from models import MemberRole, Workspace
 
 WORKSPACES_COLLECTION = "workspaces"

@@ -72,7 +72,7 @@ def run_scheduler(lookahead_minutes: int | None = None) -> dict[str, int]:
         lookahead_minutes = int(os.environ.get("NOTIFICATION_LOOKAHEAD_MINUTES", 60))
     now = _utcnow()
     summary = {"dispatched": 0, "skipped": 0, "failed": 0}
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     workspace_docs = db.collection(workspace_storage.WORKSPACES_COLLECTION).stream()
     for ws_doc in workspace_docs:

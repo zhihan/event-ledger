@@ -14,9 +14,9 @@ for mod_name in ['firebase_admin', 'firebase_admin.auth', 'google', 'google.clou
             m.initialize_app = lambda: None
         sys.modules[mod_name] = m
 
-fs_stub = types.ModuleType('firestore_storage')
-fs_stub._get_client = MagicMock()
-sys.modules.setdefault('firestore_storage', fs_stub)
+db_stub = types.ModuleType('db')
+db_stub.get_client = MagicMock()
+sys.modules.setdefault('db', db_stub)
 
 from models import NotificationRule, Occurrence, OccurrenceOverrides, Series, ScheduleRule, Workspace, DeliveryLog
 
@@ -121,7 +121,7 @@ class TestRunScheduler:
         ws = _ws()
         s = _series()
         with (
-            patch('firestore_storage._get_client', return_value=self._db_mock('ws1')),
+            patch('db.get_client', return_value=self._db_mock('ws1')),
             patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
             patch('workspace_storage.get_workspace', return_value=ws),
             patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),
@@ -140,7 +140,7 @@ class TestRunScheduler:
         ws = _ws()
         s = _series()
         with (
-            patch('firestore_storage._get_client', return_value=self._db_mock('ws1')),
+            patch('db.get_client', return_value=self._db_mock('ws1')),
             patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
             patch('workspace_storage.get_workspace', return_value=ws),
             patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),
@@ -160,7 +160,7 @@ class TestRunScheduler:
         ws = _ws()
         s = _series()
         with (
-            patch('firestore_storage._get_client', return_value=self._db_mock('ws1')),
+            patch('db.get_client', return_value=self._db_mock('ws1')),
             patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
             patch('workspace_storage.get_workspace', return_value=ws),
             patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),

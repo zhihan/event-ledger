@@ -88,7 +88,7 @@ class PendingAction:
 
 def save_pending_action(action: PendingAction) -> str:
     """Persist a PendingAction to Firestore and return the action_id."""
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     db.collection(PENDING_ACTIONS_COLLECTION).document(action.action_id).set(
         action.to_dict()
@@ -98,7 +98,7 @@ def save_pending_action(action: PendingAction) -> str:
 
 def get_pending_action(action_id: str) -> "PendingAction | None":
     """Fetch a PendingAction from Firestore, or None if not found / expired."""
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     doc = db.collection(PENDING_ACTIONS_COLLECTION).document(action_id).get()
     if not doc.exists:
@@ -122,7 +122,7 @@ def update_pending_action_status(
     error: str | None = None,
 ) -> None:
     """Update status fields on an existing PendingAction document."""
-    from firestore_storage import _get_client
+    from db import get_client as _get_client
     db = _get_client()
     updates: dict[str, Any] = {"status": status}
     if result is not None:

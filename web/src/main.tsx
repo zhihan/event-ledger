@@ -11,10 +11,6 @@ import { SeriesView } from "./routes/SeriesView";
 import { OccurrenceView } from "./routes/OccurrenceView";
 import { OccurrenceSummaryPage } from "./routes/OccurrenceSummaryPage";
 import { TeacherDashboard } from "./routes/TeacherDashboard";
-// Legacy routes kept for compatibility during migration
-import { Dashboard } from "./routes/Dashboard";
-import { PageView } from "./routes/PageView";
-import { PageSettings } from "./routes/PageSettings";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -71,31 +67,6 @@ createRoot(document.getElementById("root")!).render(
               }
             />
 
-            {/* Legacy page routes — kept during migration */}
-            <Route
-              path="/pages"
-              element={
-                <RequireAuth>
-                  <Dashboard />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/p/:slug"
-              element={
-                <RequireAuth>
-                  <PageView />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/p/:slug/settings"
-              element={
-                <RequireAuth>
-                  <PageSettings />
-                </RequireAuth>
-              }
-            />
           </Route>
         </Routes>
       </AuthProvider>
