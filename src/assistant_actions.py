@@ -26,6 +26,7 @@ ActionType = Literal[
     "reschedule_occurrence",
     "draft_material",
     "generate_reminder_text",
+    "update_occurrence_notes",
 ]
 
 ActionStatus = Literal["pending", "confirmed", "cancelled", "executed", "failed"]
@@ -288,6 +289,49 @@ def execute_generate_reminder_text(action: PendingAction) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# UpdateOccurrenceNotesAction
+# ---------------------------------------------------------------------------
+
+def build_update_occurrence_notes_action(
+    workspace_id: str, uid: str, payload: dict
+) -> PendingAction:
+    occ_id = payload.get("occurrence_id", "?")
+    notes_preview = (payload.get("notes") or "")[:80]
+    summary = f'Update agenda/notes for occurrence {occ_id}: "{notes_preview}"'
+    return PendingAction(
+        action_id=str(uuid.uuid4()),
+        workspace_id=workspace_id,
+        requested_by_uid=uid,
+        action_type="update_occurrence_notes",
+        preview_summary=summary,
+        payload=payload,
+    )
+
+
+def execute_update_occurrence_notes(action: PendingAction) -> dict:
+    import series_storage
+
+    payload = action.payload
+    occ_id = payload["occurrence_id"]
+    notes = payload.get("notes", "")
+
+    occ = series_storage.get_occurrence(occ_id)
+    if occ is None:
+        raise ValueError(f"Occurrence not found: {occ_id}")
+
+    overrides = dict(occ.overrides) if occ.overrides else {}
+    overrides["notes"] = notes
+    series_storage.update_occurrence(occ_id, {"overrides": overrides})
+
+    logger.info(
+        "Updated notes for occurrence %s via assistant action %s",
+        occ_id,
+        action.action_id,
+    )
+    return {"updated": "occurrence_notes", "occurrence_id": occ_id, "notes": notes}
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -298,6 +342,7 @@ def execute_action(action: PendingAction) -> dict:
         "reschedule_occurrence": execute_reschedule_occurrence,
         "draft_material": execute_draft_material,
         "generate_reminder_text": execute_generate_reminder_text,
+        "update_occurrence_notes": execute_update_occurrence_notes,
     }
     fn = dispatch.get(action.action_type)
     if fn is None:

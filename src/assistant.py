@@ -24,6 +24,7 @@ from assistant_actions import (
     build_draft_material_action,
     build_generate_reminder_text_action,
     build_reschedule_occurrence_action,
+    build_update_occurrence_notes_action,
     save_pending_action,
 )
 
@@ -40,11 +41,12 @@ _SYSTEM_PROMPT = """You are an AI assistant for a meeting organizer. Help organi
 meetings, schedules, and materials through natural conversation.
 
 Available actions:
-  create_series          — create a new recurring meeting series
-  reschedule_occurrence  — reschedule a single meeting occurrence
-  draft_material         — draft meeting material (agenda, notes, announcement)
-  generate_reminder_text — generate a shareable reminder for participants
-  general_question       — answer without performing any state change
+  create_series            — create a new recurring meeting series
+  reschedule_occurrence    — reschedule a single meeting occurrence
+  update_occurrence_notes  — update the agenda/notes for a specific occurrence
+  draft_material           — draft meeting material (agenda, notes, announcement)
+  generate_reminder_text   — generate a shareable reminder for participants
+  general_question         — answer without performing any state change
 
 For each message:
   1. Determine the INTENT (one of the five above).
@@ -65,6 +67,7 @@ Respond with a single JSON object (no markdown fences):
       // create_series: title, kind, description, schedule_rule{frequency,weekdays,interval},
       //   default_time, default_duration_minutes, default_location, default_online_link
       // reschedule_occurrence: occurrence_id, new_scheduled_for (ISO 8601 UTC)
+      // update_occurrence_notes: occurrence_id, notes (the full agenda/notes text)
       // draft_material: title, material_kind, draft_text
       // generate_reminder_text: occurrence_id, series_id, reminder_text
     }
@@ -144,6 +147,7 @@ _ACTION_BUILDERS = {
     "reschedule_occurrence": build_reschedule_occurrence_action,
     "draft_material": build_draft_material_action,
     "generate_reminder_text": build_generate_reminder_text_action,
+    "update_occurrence_notes": build_update_occurrence_notes_action,
 }
 
 
