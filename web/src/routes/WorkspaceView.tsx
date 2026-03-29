@@ -173,7 +173,16 @@ export function WorkspaceView() {
   async function handleRemoveMember(uid: string) {
     if (!workspaceId) return;
     const isSelf = uid === user?.uid;
-    if (isSelf && !window.confirm("Leave this workspace? You will lose access.")) return;
+    if (isSelf) {
+      const otherOrganizers = members && Object.entries(members).some(
+        ([id, r]) => id !== uid && r === "organizer",
+      );
+      if (!otherOrganizers) {
+        alert("You are the only organizer. Add another organizer before leaving.");
+        return;
+      }
+      if (!window.confirm("Leave this workspace? You will lose access.")) return;
+    }
     setRemovingUid(uid);
     try {
       await removeMember(workspaceId, uid);
