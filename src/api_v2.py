@@ -649,11 +649,11 @@ def update_check_in(
     return ci.to_dict()
 
 
-@router.delete("/check-ins/{check_in_id}", status_code=204)
+@router.post("/check-ins/{check_in_id}/delete", status_code=200)
 def delete_check_in(
     check_in_id: str,
     token: dict = Depends(_require_token),
-) -> None:
+) -> dict:
     """Delete a check-in. Only the owner or an organizer can delete."""
     ci = series_storage.get_check_in(check_in_id)
     if ci is None:
@@ -663,6 +663,7 @@ def delete_check_in(
     if uid != ci.user_id:
         _require_role(ws, uid, "organizer", "teacher")
     series_storage.delete_check_in(check_in_id)
+    return {"deleted": True}
 
 
 # ---------------------------------------------------------------------------
