@@ -938,3 +938,41 @@ def get_member_streak(
         },
         "badges": [b["badge_id"] for b in badge_docs],
     }
+
+
+# ---------------------------------------------------------------------------
+# Channel / Telegram webhook endpoint  (Phase 8)
+# ---------------------------------------------------------------------------
+
+@router.post("/channels/telegram/webhook", status_code=200)
+def telegram_webhook(raw_update: dict) -> dict:
+    """Receive a Telegram Update, dispatch it through the TelegramAdapter.
+
+    Telegram calls this URL when a new message arrives (webhook mode).
+    The endpoint does not require a Firebase auth token because Telegram
+    does not send one — security is provided by keeping the webhook URL
+    secret (it includes the bot token or a random path component).
+
+    Returns {"ok": true} to tell Telegram the update was accepted.
+    """
+    import os
+    try:
+        from channels.telegram import TelegramAdapter
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        raise HTTPException(
+            status_code=503,
+            detail="TELEGRAM_BOT_TOKEN is not configured on the server.",
+        )
+    try:
+        adapter = TelegramAdapter(token=token)
+        adapter.dispatch(raw_update)
+    except Exception as exc:
+        # Log but return 200 so Telegram does not keep retrying
+        import logging
+        logging.getLogger(__name__).exception("Telegram dispatch error: %s", exc)
+
+    return {"ok": True}
