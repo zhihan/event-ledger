@@ -1798,7 +1798,7 @@ details[open] .chevron { transform: rotate(90deg); }
 }
 
 .chat-msg-user .chat-msg-text {
-  background: var(--accent);
+  background: #4a6fa5;
   color: #fff;
   padding: 0.25rem 0.5rem;
   border-radius: 0.6rem 0.6rem 0.15rem 0.6rem;
