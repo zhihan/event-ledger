@@ -287,6 +287,10 @@ export async function getOccurrenceCheckIns(occurrenceId: string): Promise<Check
   return (data.check_ins ?? []) as CheckInSummary[];
 }
 
+export async function deleteCheckIn(checkInId: string): Promise<void> {
+  await apiFetch(`/v2/check-ins/${checkInId}`, { method: "DELETE" });
+}
+
 // --- Cohorts (Phase 7) ---
 
 export interface StreakInfo {

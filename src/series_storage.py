@@ -196,6 +196,12 @@ def get_check_in(check_in_id: str) -> CheckIn | None:
     return CheckIn.from_dict(doc.to_dict())
 
 
+def delete_check_in(check_in_id: str) -> None:
+    """Delete a CheckIn by ID."""
+    db = _get_client()
+    db.collection(CHECK_INS_COLLECTION).document(check_in_id).delete()
+
+
 def list_check_ins_for_occurrence(occurrence_id: str) -> list[CheckIn]:
     """Return all CheckIns for a specific Occurrence."""
     db = _get_client()

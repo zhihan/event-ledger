@@ -6,6 +6,7 @@ import {
   getOccurrenceCheckIns,
   patchOccurrence,
   createCheckIn,
+  deleteCheckIn,
   type OccurrenceSummary,
   type SeriesSummary,
   type CheckInSummary,
@@ -139,6 +140,15 @@ export function OccurrenceView() {
       alert(err instanceof Error ? err.message : "Failed to check in");
     } finally {
       setCheckingIn(false);
+    }
+  }
+
+  async function handleRemoveCheckIn(checkInId: string) {
+    try {
+      await deleteCheckIn(checkInId);
+      setCheckIns((prev) => prev?.filter((ci) => ci.check_in_id !== checkInId) ?? null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove check-in");
     }
   }
 
@@ -369,6 +379,15 @@ export function OccurrenceView() {
                   </span>
                 )}
                 {ci.note && <span className="checkin-note">{ci.note}</span>}
+                {ci.user_id === user?.uid && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => handleRemoveCheckIn(ci.check_in_id)}
+                  >
+                    Remove
+                  </button>
+                )}
               </li>
             ))}
           </ul>
