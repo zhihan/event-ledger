@@ -984,6 +984,7 @@ def telegram_webhook(raw_update: dict) -> dict:
 class AssistantMessageRequest(BaseModel):
     message: str
     workspace_context: dict | None = None
+    history: list[dict] | None = None
 
 
 @router.post('/workspaces/{workspace_id}/assistant')
@@ -1006,6 +1007,7 @@ def assistant_chat(
             workspace_id=workspace_id,
             uid=uid,
             workspace_context=body.workspace_context,
+            history=body.history,
         ):
             yield f"data: {_json.dumps(event)}\n\n"
         yield "data: [DONE]\n\n"

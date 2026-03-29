@@ -4,13 +4,17 @@ import {
   getSeries,
   getSeriesOccurrences,
   patchSeries,
+  patchOccurrence,
   generateOccurrences,
+  getWorkspace,
   type SeriesSummary,
   type OccurrenceSummary,
   type ScheduleRule,
+  type WorkspaceSummary,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { AssistantChat } from "../AssistantChat";
 
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -54,6 +58,7 @@ export function SeriesView() {
   }>();
 
   const [series, setSeries] = useState<SeriesSummary | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -71,23 +76,33 @@ export function SeriesView() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // Next meeting agenda
+  const [editingAgenda, setEditingAgenda] = useState(false);
+  const [agendaText, setAgendaText] = useState("");
+  const [agendaSaving, setAgendaSaving] = useState(false);
+
+  // Assistant
+  const [showAssistant, setShowAssistant] = useState(false);
+
   const load = useCallback(async () => {
-    if (!seriesId) return;
+    if (!seriesId || !workspaceId) return;
     setLoading(true);
     setError(null);
     try {
-      const [s, occ] = await Promise.all([
+      const [s, occ, ws] = await Promise.all([
         getSeries(seriesId),
         getSeriesOccurrences(seriesId),
+        getWorkspace(workspaceId),
       ]);
       setSeries(s);
       setOccurrences(occ);
+      setWorkspace(ws);
     } catch (err) {
       setError(err as Error);
     } finally {
       setLoading(false);
     }
-  }, [seriesId]);
+  }, [seriesId, workspaceId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -137,6 +152,23 @@ export function SeriesView() {
       setGenerateError(err instanceof Error ? err.message : "Failed to generate");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleSaveAgenda(occurrenceId: string) {
+    setAgendaSaving(true);
+    try {
+      const updated = await patchOccurrence(occurrenceId, {
+        overrides: { notes: agendaText.trim() || null },
+      });
+      setOccurrences((prev) =>
+        prev?.map((o) => (o.occurrence_id === occurrenceId ? updated : o)) ?? null,
+      );
+      setEditingAgenda(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save agenda");
+    } finally {
+      setAgendaSaving(false);
     }
   }
 
@@ -333,6 +365,109 @@ export function SeriesView() {
               Generate schedule
             </button>
           </p>
+        )}
+      </section>
+
+      {/* Next Meeting Agenda */}
+      {upcoming.length > 0 && (() => {
+        const next = upcoming[0];
+        const nextNotes = next.overrides?.notes;
+        return (
+          <section className="section">
+            <div className="section-header">
+              <h2>Next Meeting</h2>
+              {!editingAgenda && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setAgendaText(nextNotes ?? "");
+                    setEditingAgenda(true);
+                  }}
+                >
+                  {nextNotes ? "Edit agenda" : "Add agenda"}
+                </button>
+              )}
+            </div>
+            <p className="series-meta">
+              {formatDate(next.scheduled_for)} — {next.overrides?.title ?? series?.title}
+            </p>
+            {editingAgenda ? (
+              <div className="next-meeting-edit">
+                <textarea
+                  className="form-input form-textarea"
+                  value={agendaText}
+                  onChange={(e) => setAgendaText(e.target.value)}
+                  rows={4}
+                  placeholder="e.g. Chapter 5: Romans, Discussion questions..."
+                  disabled={agendaSaving}
+                />
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => handleSaveAgenda(next.occurrence_id)}
+                    disabled={agendaSaving}
+                  >
+                    {agendaSaving ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setEditingAgenda(false)}
+                    disabled={agendaSaving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : nextNotes ? (
+              <p className="occurrence-notes">{nextNotes}</p>
+            ) : (
+              <p className="placeholder-sm">No agenda set for the next meeting.</p>
+            )}
+          </section>
+        );
+      })()}
+
+      {/* AI Assistant */}
+      <section className="section">
+        <div className="section-header">
+          <h2>AI Assistant</h2>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowAssistant((v) => !v)}
+          >
+            {showAssistant ? "Hide Assistant" : "Open Assistant"}
+          </button>
+        </div>
+        {showAssistant && workspaceId && (
+          <AssistantChat
+            workspaceId={workspaceId}
+            context={{
+              series: series ? {
+                series_id: series.series_id,
+                title: series.title,
+                description: series.description,
+                schedule_rule: series.schedule_rule,
+                default_time: series.default_time,
+                default_duration_minutes: series.default_duration_minutes,
+                default_location: series.default_location,
+                default_online_link: series.default_online_link,
+              } : undefined,
+              workspace: workspace ? {
+                workspace_id: workspace.workspace_id,
+                title: workspace.title,
+                timezone: workspace.timezone,
+              } : undefined,
+              upcoming_count: upcoming.length,
+              next_meeting: upcoming[0] ? {
+                occurrence_id: upcoming[0].occurrence_id,
+                scheduled_for: upcoming[0].scheduled_for,
+                notes: upcoming[0].overrides?.notes,
+              } : undefined,
+            }}
+          />
         )}
       </section>
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { auth } from "./firebase";
 
 const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "";
@@ -49,21 +49,31 @@ async function cancelAction(actionId: string): Promise<void> {
 
 interface Props {
   workspaceId: string;
+  context?: Record<string, unknown>;
 }
 
-export function AssistantChat({ workspaceId }: Props) {
+export function AssistantChat({ workspaceId, context }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }, 30);
+  }, []);
 
   const appendMessage = useCallback((msg: Omit<ChatMessage, "id">) => {
     setMessages((prev) => [...prev, { ...msg, id: crypto.randomUUID() }]);
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-    }, 50);
-  }, []);
+    scrollToBottom();
+  }, [scrollToBottom]);
 
   const updateLastAssistantMessage = useCallback(
     (updater: (prev: ChatMessage) => ChatMessage) => {
@@ -75,8 +85,9 @@ export function AssistantChat({ workspaceId }: Props) {
         updated[realIdx] = updater(updated[realIdx]);
         return updated;
       });
+      scrollToBottom();
     },
-    []
+    [scrollToBottom]
   );
 
   async function handleSend() {
@@ -86,6 +97,11 @@ export function AssistantChat({ workspaceId }: Props) {
     setInput("");
     setError(null);
     setLoading(true);
+
+    // Build history from existing messages (exclude empty assistant placeholders)
+    const history = messages
+      .filter((m) => m.text)
+      .map((m) => ({ role: m.role, text: m.text }));
 
     appendMessage({ role: "user", text: trimmed });
     appendMessage({ role: "assistant", text: "" });
@@ -98,7 +114,11 @@ export function AssistantChat({ workspaceId }: Props) {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({
+          message: trimmed,
+          workspace_context: context,
+          history,
+        }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -153,6 +173,7 @@ export function AssistantChat({ workspaceId }: Props) {
       });
     } finally {
       setLoading(false);
+      inputRef.current?.focus();
     }
   }
 
@@ -166,7 +187,7 @@ export function AssistantChat({ workspaceId }: Props) {
       );
       appendMessage({
         role: "assistant",
-        text: `Action executed successfully.\n${JSON.stringify(result.result, null, 2)}`,
+        text: `Done. ${JSON.stringify(result.result, null, 2)}`,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to confirm action");
@@ -181,93 +202,67 @@ export function AssistantChat({ workspaceId }: Props) {
           m.proposal?.action_id === actionId ? { ...m, proposal: undefined } : m
         )
       );
-      appendMessage({ role: "assistant", text: "Action cancelled." });
+      appendMessage({ role: "assistant", text: "Cancelled." });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel action");
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleSend();
     }
   }
 
   return (
-    <div className="assistant-chat">
-      <div className="assistant-chat-header">
-        <span className="assistant-chat-title">AI Assistant</span>
-        <span className="assistant-chat-subtitle">
-          Ask me to create meetings, draft materials, or generate reminders.
-        </span>
-      </div>
-
-      <div className="assistant-chat-messages" ref={scrollRef}>
+    <div className="chat">
+      <div className="chat-messages" ref={scrollRef}>
         {messages.length === 0 && (
-          <p className="assistant-chat-empty">
-            Try: "Create a weekly standup every Monday at 9am" or "Draft an agenda for tomorrow."
-          </p>
+          <p className="chat-empty">Ask anything about this schedule.</p>
         )}
-
         {messages.map((msg) => (
-          <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
-            <div className="assistant-message-bubble">
-              {msg.text && (
-                <p className="assistant-message-text" style={{ whiteSpace: "pre-wrap" }}>
-                  {msg.text}
-                </p>
-              )}
-              {msg.proposal && (
-                <div className="assistant-proposal">
-                  <p className="assistant-proposal-summary">
-                    <strong>Proposed action:</strong> {msg.proposal.preview_summary}
-                  </p>
-                  <div className="assistant-proposal-actions">
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleConfirm(msg.proposal!.action_id)}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => handleCancel(msg.proposal!.action_id)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div key={msg.id} className={`chat-msg chat-msg-${msg.role}`}>
+            {msg.text && <span className="chat-msg-text">{msg.text}</span>}
+            {msg.proposal && (
+              <span className="chat-proposal">
+                <span className="chat-proposal-text">{msg.proposal.preview_summary}</span>
+                <button
+                  className="btn btn-primary btn-xs"
+                  onClick={() => handleConfirm(msg.proposal!.action_id)}
+                >
+                  Confirm
+                </button>
+                <button
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => handleCancel(msg.proposal!.action_id)}
+                >
+                  Cancel
+                </button>
+              </span>
+            )}
           </div>
         ))}
-
         {loading && (
-          <div className="assistant-message assistant-message-assistant">
-            <div className="assistant-message-bubble assistant-thinking">
-              <span className="dot" />
-              <span className="dot" />
-              <span className="dot" />
-            </div>
+          <div className="chat-msg chat-msg-assistant">
+            <span className="chat-dots"><span /><span /><span /></span>
           </div>
         )}
       </div>
-
-      {error && <p className="assistant-chat-error">{error}</p>}
-
-      <div className="assistant-chat-input-row">
-        <textarea
-          className="assistant-chat-input"
+      {error && <p className="chat-error">{error}</p>}
+      <div className="chat-input-row">
+        <input
+          ref={inputRef}
+          className="chat-input"
+          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the assistant\u2026"
-          rows={2}
+          placeholder="Message…"
           disabled={loading}
         />
         <button
-          className="btn btn-primary btn-sm assistant-chat-send"
+          className="btn btn-primary btn-xs chat-send"
           onClick={handleSend}
           disabled={loading || !input.trim()}
         >

@@ -73,11 +73,25 @@ Respond with a single JSON object (no markdown fences):
 """
 
 
-def _build_prompt(message: str, workspace_context: dict[str, Any] | None) -> str:
+def _build_prompt(
+    message: str,
+    workspace_context: dict[str, Any] | None,
+    history: list[dict[str, str]] | None = None,
+) -> str:
     ctx = ""
     if workspace_context:
         ctx = "\nWorkspace context:\n" + json.dumps(workspace_context, indent=2, default=str) + "\n"
-    return _SYSTEM_PROMPT + ctx + f"\nUser message: {message}"
+    conv = ""
+    if history:
+        for turn in history:
+            role = turn.get("role", "user")
+            text = turn.get("text", "")
+            if role == "user":
+                conv += f"\nUser: {text}"
+            else:
+                conv += f"\nAssistant: {text}"
+        conv += "\n"
+    return _SYSTEM_PROMPT + ctx + conv + f"\nUser: {message}"
 
 
 # ---------------------------------------------------------------------------
@@ -155,11 +169,12 @@ def run_assistant_stream(
     workspace_id: str,
     uid: str,
     workspace_context: dict[str, Any] | None = None,
+    history: list[dict[str, str]] | None = None,
 ) -> Generator[dict, None, None]:
     """Stream assistant events for an organizer message."""
     yield {"type": "status", "message": "Thinking\u2026"}
 
-    prompt = _build_prompt(message, workspace_context)
+    prompt = _build_prompt(message, workspace_context, history)
     try:
         ai_result = _call_ai(prompt)
     except Exception as exc:
