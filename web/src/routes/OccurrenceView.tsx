@@ -79,11 +79,11 @@ export function OccurrenceView() {
 
   function startEdit() {
     if (!occurrence) return;
-    setEditTitle(occurrence.overrides.title ?? "");
-    setEditLocation(occurrence.overrides.location ?? "");
-    setEditLink(occurrence.overrides.online_link ?? "");
-    setEditNotes(occurrence.overrides.notes ?? "");
-    setEditDuration(occurrence.overrides.duration_minutes?.toString() ?? "");
+    setEditTitle(occurrence.overrides?.title ?? "");
+    setEditLocation(occurrence.overrides?.location ?? "");
+    setEditLink(occurrence.overrides?.online_link ?? "");
+    setEditNotes(occurrence.overrides?.notes ?? "");
+    setEditDuration(occurrence.overrides?.duration_minutes?.toString() ?? "");
     setEditing(true);
     setEditError(null);
   }
@@ -140,11 +140,11 @@ export function OccurrenceView() {
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
   const occ = occurrence!;
-  const effectiveTitle = occ.overrides.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.overrides.location ?? series?.default_location;
-  const effectiveLink = occ.overrides.online_link ?? series?.default_online_link;
-  const effectiveNotes = occ.overrides.notes;
-  const effectiveDuration = occ.overrides.duration_minutes ?? series?.default_duration_minutes;
+  const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
+  const effectiveLocation = occ.overrides?.location ?? series?.default_location;
+  const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
+  const effectiveNotes = occ.overrides?.notes;
+  const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
 
   const alreadyCheckedIn = checkIns?.some((ci) => ci.user_id === user?.uid);
 

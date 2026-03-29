@@ -57,11 +57,11 @@ export function OccurrenceSummaryPage() {
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
   const occ = occurrence!;
-  const effectiveTitle = occ.overrides.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.overrides.location ?? series?.default_location;
-  const effectiveLink = occ.overrides.online_link ?? series?.default_online_link;
-  const effectiveNotes = occ.overrides.notes;
-  const effectiveDuration = occ.overrides.duration_minutes ?? series?.default_duration_minutes;
+  const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
+  const effectiveLocation = occ.overrides?.location ?? series?.default_location;
+  const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
+  const effectiveNotes = occ.overrides?.notes;
+  const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
 
   const isCancelled = occ.status === "cancelled" || occ.status === "skipped";
 
