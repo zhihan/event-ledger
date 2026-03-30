@@ -674,26 +674,20 @@ details[open] .chevron { transform: rotate(90deg); }
   min-width: 0;
 }
 
-.upcoming-edit-btn {
-  opacity: 0;
-  transition: opacity 0.15s;
+.upcoming-location-clickable {
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 0.1rem 0.3rem;
 }
 
-.upcoming-row:hover .upcoming-edit-btn {
-  opacity: 1;
+.upcoming-location-clickable:hover {
+  background: var(--surface-raised);
 }
 
-.upcoming-location-edit {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+.upcoming-location-input {
   flex: 1;
   min-width: 0;
-}
-
-.upcoming-location-edit .form-input-sm {
-  flex: 1;
-  padding: 0.2rem 0.4rem;
+  padding: 0.15rem 0.35rem;
   font-size: 0.82rem;
 }
 

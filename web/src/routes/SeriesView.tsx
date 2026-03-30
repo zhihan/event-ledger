@@ -72,6 +72,8 @@ export function SeriesView() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [editExtendDate, setEditExtendDate] = useState("");
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [editingLocationValue, setEditingLocationValue] = useState("");
   const [generating, setGenerating] = useState(false);
 
   // Next meeting agenda
@@ -536,14 +538,54 @@ export function SeriesView() {
           <div className="upcoming-list">
             <h3 className="upcoming-list-heading">Upcoming</h3>
             {upcoming.slice(1, 11).map((o) => (
-              <Link
-                key={o.occurrence_id}
-                to={`/occurrences/${o.occurrence_id}`}
-                className="upcoming-row"
-              >
-                <span className="upcoming-date">{formatDate(o.scheduled_for)}</span>
-                {o.location && <span className="upcoming-location">{o.location}</span>}
-              </Link>
+              <div key={o.occurrence_id} className="upcoming-row">
+                <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
+                  {formatDate(o.scheduled_for)}
+                </Link>
+                {editingLocationId === o.occurrence_id ? (
+                  <input
+                    type="text"
+                    className="form-input form-input-sm upcoming-location-input"
+                    value={editingLocationValue}
+                    onChange={(e) => setEditingLocationValue(e.target.value)}
+                    autoFocus
+                    placeholder="Location"
+                    onBlur={async () => {
+                      const newLoc = editingLocationValue.trim();
+                      if (newLoc === (o.location ?? "")) {
+                        setEditingLocationId(null);
+                        return;
+                      }
+                      try {
+                        const updated = await patchOccurrence(o.occurrence_id, {
+                          location: newLoc || null,
+                        });
+                        setOccurrences((prev) =>
+                          prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
+                        );
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to save");
+                      }
+                      setEditingLocationId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setEditingLocationId(null);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="upcoming-location upcoming-location-clickable"
+                    onClick={() => {
+                      setEditingLocationId(o.occurrence_id);
+                      setEditingLocationValue(o.location ?? "");
+                    }}
+                    title="Click to edit"
+                  >
+                    {o.location || "—"}
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         )}
