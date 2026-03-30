@@ -632,6 +632,46 @@ details[open] .chevron { transform: rotate(90deg); }
   margin-top: 0.2rem;
 }
 
+.upcoming-list {
+  margin-top: 0.75rem;
+}
+
+.upcoming-list-heading {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.35rem;
+}
+
+.upcoming-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.upcoming-row:last-child {
+  border-bottom: none;
+}
+
+.upcoming-row:hover {
+  background: var(--surface-raised);
+}
+
+.upcoming-date {
+  min-width: 10rem;
+}
+
+.upcoming-location {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .rotation-row {
   display: flex;
   align-items: center;

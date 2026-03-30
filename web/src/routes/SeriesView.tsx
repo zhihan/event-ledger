@@ -531,6 +531,22 @@ export function SeriesView() {
             </button>
           </p>
         )}
+
+        {upcoming.length > 1 && (
+          <div className="upcoming-list">
+            <h3 className="upcoming-list-heading">Upcoming</h3>
+            {upcoming.slice(1, 11).map((o) => (
+              <Link
+                key={o.occurrence_id}
+                to={`/occurrences/${o.occurrence_id}`}
+                className="upcoming-row"
+              >
+                <span className="upcoming-date">{formatDate(o.scheduled_for)}</span>
+                {o.location && <span className="upcoming-location">{o.location}</span>}
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
 
