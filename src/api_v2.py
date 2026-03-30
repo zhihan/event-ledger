@@ -537,6 +537,9 @@ def update_series(
     ):
         from occurrence_service import apply_rotation
         apply_rotation(series_id)
+    if "check_in_weekdays" in updates:
+        from occurrence_service import apply_check_in_days
+        apply_check_in_days(series_id, ws.timezone)
     return updated.to_dict()
 
 

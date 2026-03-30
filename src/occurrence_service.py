@@ -278,6 +278,43 @@ def apply_rotation(series_id: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Re-apply check-in days to upcoming occurrences
+# ---------------------------------------------------------------------------
+
+def apply_check_in_days(series_id: str, workspace_timezone: str) -> int:
+    """Re-evaluate enable_check_in on all future 'scheduled' occurrences
+    based on the series' check_in_weekdays.  Returns the count updated."""
+    series = get_series(series_id)
+    if series is None:
+        raise ValueError(f"Series not found: {series_id}")
+
+    check_in_days = set(series.check_in_weekdays or [])
+    tz = ZoneInfo(workspace_timezone)
+
+    existing = list_occurrences_for_series(series_id)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    future = [
+        o for o in existing
+        if o.status == "scheduled" and o.scheduled_for >= now_iso
+    ]
+
+    updated = 0
+    for occ in future:
+        try:
+            utc_dt = datetime.fromisoformat(occ.scheduled_for)
+        except ValueError:
+            continue
+        if utc_dt.tzinfo is None:
+            utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+        local_weekday = utc_dt.astimezone(tz).isoweekday()
+        should_enable = local_weekday in check_in_days
+        if occ.enable_check_in != should_enable:
+            update_occurrence(occ.occurrence_id, {"enable_check_in": should_enable})
+            updated += 1
+    return updated
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
