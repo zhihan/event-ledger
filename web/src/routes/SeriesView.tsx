@@ -669,7 +669,11 @@ export function SeriesView() {
             checkInMap.get(ci.occurrence_id)!.add(ci.user_id);
           }
           // Get all members (non-organizer) as rows
-          const members = Object.entries(report.members)
+          const allEntries = Object.entries(report.members);
+          const nonOrganizers = allEntries.filter(([, role]) => role !== "organizer");
+          // Solo self-study: show the organizer. Group: show only non-organizers.
+          const visibleEntries = nonOrganizers.length > 0 ? nonOrganizers : allEntries;
+          const members = visibleEntries
             .map(([uid, role]) => ({
               uid,
               role,
