@@ -7,7 +7,6 @@ import {
   createWorkspaceInvite,
   removeMember,
   createSeries,
-  generateOccurrences,
   patchWorkspace,
   type WorkspaceSummary,
   type SeriesSummary,
@@ -64,7 +63,6 @@ export function WorkspaceView() {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
 
@@ -152,20 +150,6 @@ export function WorkspaceView() {
       setFormError(err instanceof Error ? err.message : "Failed to create series");
     } finally {
       setFormSubmitting(false);
-    }
-  }
-
-  async function handleGenerate(seriesId: string) {
-    setGeneratingId(seriesId);
-    try {
-      const end = new Date();
-      end.setDate(end.getDate() + 60);
-      await generateOccurrences(seriesId, end.toISOString().slice(0, 10));
-      navigate(`/w/${workspaceId}/series/${seriesId}`);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to generate occurrences");
-    } finally {
-      setGeneratingId(null);
     }
   }
 
@@ -477,14 +461,6 @@ export function WorkspaceView() {
                   >
                     View schedule
                   </Link>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleGenerate(s.series_id)}
-                    disabled={generatingId === s.series_id}
-                  >
-                    {generatingId === s.series_id ? "Generating..." : "Generate occurrences"}
-                  </button>
                 </div>
               </li>
             ))}
