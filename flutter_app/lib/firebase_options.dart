@@ -2,12 +2,6 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 
-/// Firebase configuration for the `living-memories-488001` project.
-///
-/// Replace the placeholder values below with actual keys from:
-///   flutterfire configure --project=living-memories-488001
-///
-/// Or run `flutterfire configure` to regenerate this file automatically.
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     switch (defaultTargetPlatform) {
@@ -22,19 +16,19 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Replace with actual values from flutterfire configure
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
+    apiKey: 'AIzaSyARzrUX4Myy-DpI3i-Q2x2TcW9U0URhy3U',
+    appId: '1:404986156809:ios:287844fc3147f4172965d8',
+    messagingSenderId: '404986156809',
     projectId: 'living-memories-488001',
+    storageBucket: 'living-memories-488001.firebasestorage.app',
     iosBundleId: 'net.cicmusic.meeting-assistant',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'YOUR_ANDROID_API_KEY',
     appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
+    messagingSenderId: '404986156809',
     projectId: 'living-memories-488001',
   );
 }

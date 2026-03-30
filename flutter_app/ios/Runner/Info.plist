@@ -6,6 +6,19 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.404986156809-kd9f7aae71eehmrtqb92oknjo29opb2b</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>404986156809-kd9f7aae71eehmrtqb92oknjo29opb2b.apps.googleusercontent.com</string>
 	<key>CFBundleDisplayName</key>
 	<string>Event Ledger</string>
 	<key>CFBundleExecutable</key>
