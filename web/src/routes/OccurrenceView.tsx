@@ -7,6 +7,7 @@ import {
   patchOccurrence,
   createCheckIn,
   getOccurrenceCheckIns,
+  getMyOccurrenceCheckIn,
   deleteCheckIn,
   type OccurrenceSummary,
   type SeriesSummary,
@@ -67,11 +68,19 @@ export function OccurrenceView() {
     setError(null);
     try {
       const occ = await getOccurrence(occurrenceId);
-      const [s, ws, cis] = await Promise.all([
+      const [s, ws] = await Promise.all([
         getSeries(occ.series_id),
         getWorkspace(occ.workspace_id),
-        getOccurrenceCheckIns(occurrenceId),
       ]);
+      const role = user?.uid ? ws.member_roles[user.uid] : undefined;
+      const isManager = role === "organizer" || role === "teacher";
+      let cis: CheckInSummary[];
+      if (isManager) {
+        cis = await getOccurrenceCheckIns(occurrenceId);
+      } else {
+        const myCheckIn = await getMyOccurrenceCheckIn(occurrenceId);
+        cis = myCheckIn ? [myCheckIn] : [];
+      }
       setOccurrence(occ);
       setSeries(s);
       setWorkspace(ws);
@@ -81,7 +90,7 @@ export function OccurrenceView() {
     } finally {
       setLoading(false);
     }
-  }, [occurrenceId]);
+  }, [occurrenceId, user?.uid]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -167,8 +176,9 @@ export function OccurrenceView() {
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
-  const isOrganizer = user?.uid && workspace?.member_roles[user.uid] === "organizer";
-  const isMeetingDay = !!(effectiveLocation || effectiveLink);
+  const role = user?.uid ? workspace?.member_roles[user.uid] : undefined;
+  const isManager = role === "organizer" || role === "teacher";
+  const isPracticeDay = series?.kind === "study_assignment";
   const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
 
@@ -182,7 +192,7 @@ export function OccurrenceView() {
           >
             &larr; Series
           </Link>
-          {!editing && isOrganizer && (
+          {!editing && isManager && (
             <div className="header-actions">
               <button
                 type="button"
@@ -206,8 +216,8 @@ export function OccurrenceView() {
         </p>
       </div>
 
-      {/* Status & Actions (organizer only) */}
-      {isOrganizer && (
+      {/* Status & Actions (manager only) */}
+      {isManager && (
         <section className="section">
           <div className="section-header">
             <h2>Status</h2>
@@ -372,7 +382,7 @@ export function OccurrenceView() {
 
 
       {/* Check-in section — shown on practice/study days (no location and no online link) */}
-      {!isMeetingDay && (
+      {isPracticeDay && (
         <section className="section">
           <div className="section-header">
             <h2>Practice Check-in</h2>
@@ -402,7 +412,7 @@ export function OccurrenceView() {
       )}
 
       {/* Organizer: check-in report */}
-      {isOrganizer && checkIns.length > 0 && (
+      {isManager && checkIns.length > 0 && (
         <section className="section">
           <div className="section-header">
             <h2>Check-ins ({checkIns.length})</h2>

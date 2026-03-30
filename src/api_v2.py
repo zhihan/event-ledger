@@ -28,6 +28,7 @@ Route overview:
 
   POST   /v2/occurrences/{occurrence_id}/check-ins
   GET    /v2/occurrences/{occurrence_id}/check-ins
+  GET    /v2/occurrences/{occurrence_id}/my-check-in
   PATCH  /v2/check-ins/{check_in_id}
 """
 
@@ -698,9 +699,28 @@ def list_check_ins(
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
     ws = _get_workspace_or_404(occ.workspace_id)
-    _require_member(ws, token["uid"])
+    _require_role(ws, token["uid"], "organizer", "teacher")
     check_ins = series_storage.list_check_ins_for_occurrence(occurrence_id)
     return {"occurrence_id": occurrence_id, "check_ins": [ci.to_dict() for ci in check_ins]}
+
+
+@router.get("/occurrences/{occurrence_id}/my-check-in")
+def get_my_check_in(
+    occurrence_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Return the calling user's check-in for an occurrence, if present."""
+    occ = series_storage.get_occurrence(occurrence_id)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Occurrence not found")
+    ws = _get_workspace_or_404(occ.workspace_id)
+    uid = token["uid"]
+    _require_member(ws, uid)
+    check_in = series_storage.get_check_in_for_user(occurrence_id, uid)
+    return {
+        "occurrence_id": occurrence_id,
+        "check_in": check_in.to_dict() if check_in is not None else None,
+    }
 
 
 @router.patch("/check-ins/{check_in_id}")

@@ -286,6 +286,14 @@ export async function getOccurrenceCheckIns(occurrenceId: string): Promise<Check
   return (data.check_ins ?? []) as CheckInSummary[];
 }
 
+export async function getMyOccurrenceCheckIn(
+  occurrenceId: string,
+): Promise<CheckInSummary | null> {
+  const resp = await apiFetch(`/v2/occurrences/${occurrenceId}/my-check-in`);
+  const data = await resp.json();
+  return (data.check_in ?? null) as CheckInSummary | null;
+}
+
 export async function deleteCheckIn(checkInId: string): Promise<void> {
   await apiFetch(`/v2/check-ins/${checkInId}`, { method: "DELETE" });
 }
