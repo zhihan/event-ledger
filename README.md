@@ -9,7 +9,7 @@ The current web app is deployed at `https://living-memories-488001.web.app`.
 ### Backend
 
 - `src/api.py` is the main FastAPI entry point (health check, middleware, mounts the v2 router).
-- `src/api_v2.py` exposes the workspace, series, occurrence, check-in, notification, cohort, ICS, Telegram webhook, and assistant APIs.
+- `src/api_v2.py` exposes the workspace, series, occurrence, check-in, notification, ICS, Telegram webhook, and assistant APIs.
 - `src/db.py` provides the shared Firestore client factory.
 - Firestore is the primary datastore.
 - Firebase Auth provides user authentication for authenticated routes.
@@ -27,7 +27,7 @@ The current web app is deployed at `https://living-memories-488001.web.app`.
 - `CheckIn`
 - `NotificationRule`
 - `DeliveryLog`
-- Study/cohort records
+- `study_assignment` series for practice-oriented check-ins
 
 ## Main User Flows
 
@@ -120,8 +120,8 @@ Authenticated routes require a Firebase ID token in `Authorization: Bearer <toke
 - `/v2/series/{series_id}/occurrences`
 - `/v2/occurrences/{occurrence_id}`
 - `/v2/occurrences/{occurrence_id}/check-ins`
+- `/v2/occurrences/{occurrence_id}/my-check-in`
 - `/v2/workspaces/{workspace_id}/notification-rules`
-- `/v2/workspaces/{workspace_id}/cohorts`
 - `/v2/workspaces/{workspace_id}/assistant`
 - `/v2/assistant/actions/{action_id}/confirm`
 - `/v2/assistant/actions/{action_id}/cancel`

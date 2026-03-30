@@ -56,6 +56,15 @@ def participant_client():
 
 
 @pytest.fixture
+def teacher_client():
+    from api import app
+    from api_v2 import _require_token
+    app.dependency_overrides[_require_token] = _fake_verify("uid-teacher")
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def outsider_client():
     from api import app
     from api_v2 import _require_token
@@ -74,6 +83,7 @@ def _make_workspace(**kwargs) -> Workspace:
         member_roles={
             ORGANIZER_UID: "organizer",
             PARTICIPANT_UID: "participant",
+            "uid-teacher": "teacher",
         },
     )
     defaults.update(kwargs)
@@ -421,7 +431,7 @@ class TestCheckInEndpoints:
             )
         assert resp.status_code == 403
 
-    def test_list_check_ins(self, participant_client):
+    def test_manager_can_list_check_ins(self, organizer_client):
         ws = _make_workspace()
         occ = _make_occurrence()
         ci = CheckIn(
@@ -429,6 +439,40 @@ class TestCheckInEndpoints:
             workspace_id="ws-1", user_id=PARTICIPANT_UID,
         )
         with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_check_ins_for_occurrence", return_value=[ci]):
-            resp = participant_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
+            resp = organizer_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
         assert resp.status_code == 200
         assert len(resp.json()["check_ins"]) == 1
+
+    def test_participant_cannot_list_check_ins(self, participant_client):
+        ws = _make_workspace()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws):
+            resp = participant_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
+        assert resp.status_code == 403
+
+    def test_teacher_can_list_check_ins(self, teacher_client):
+        ws = _make_workspace()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_check_ins_for_occurrence", return_value=[]):
+            resp = teacher_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
+        assert resp.status_code == 200
+
+    def test_member_can_get_own_check_in(self, participant_client):
+        ws = _make_workspace()
+        occ = _make_occurrence()
+        ci = CheckIn(
+            check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
+            workspace_id="ws-1", user_id=PARTICIPANT_UID, status="confirmed",
+        )
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.get_check_in_for_user", return_value=ci):
+            resp = participant_client.get("/v2/occurrences/occ-1/my-check-in", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["check_in"]["check_in_id"] == "ci-1"
+
+    def test_member_gets_null_when_no_own_check_in(self, participant_client):
+        ws = _make_workspace()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.get_check_in_for_user", return_value=None):
+            resp = participant_client.get("/v2/occurrences/occ-1/my-check-in", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["check_in"] is None
