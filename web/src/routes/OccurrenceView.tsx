@@ -218,7 +218,17 @@ export function OccurrenceView() {
       {/* Location & Link */}
       {(effectiveLocation || effectiveLink) && (
         <section className="section">
-          <div className="section-header"><h2>Location</h2></div>
+          <div className="section-header">
+            <h2>Location</h2>
+            {series?.location_type === "rotation" && (
+              <Link
+                to={`/w/${occurrence?.workspace_id}/series/${occurrence?.series_id}`}
+                className="btn btn-secondary btn-xs"
+              >
+                Edit rotation
+              </Link>
+            )}
+          </div>
           <div className="location-detail">
             {effectiveLocation && (
               <div className="location-detail-item">

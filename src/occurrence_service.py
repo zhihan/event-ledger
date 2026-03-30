@@ -30,6 +30,13 @@ from series_storage import (
 )
 
 
+def _rotation_location(series: Series, sequence_index: int) -> str | None:
+    """Return the rotation location for a given sequence index, or None."""
+    if series.location_type != "rotation" or not series.location_rotation:
+        return None
+    return series.location_rotation[sequence_index % len(series.location_rotation)]
+
+
 def _to_workspace_tz(series: Series, workspace_timezone: str) -> ZoneInfo:
     return ZoneInfo(workspace_timezone)
 
@@ -76,14 +83,21 @@ def generate_and_save(
         scheduled_for = utc_dt.isoformat()
         if scheduled_for in existing_times:
             continue
+        seq = existing_count + len(new_occurrences)
+        if series.location_type == "fixed":
+            loc = series.default_location
+        elif series.location_type == "rotation":
+            loc = _rotation_location(series, seq)
+        else:
+            loc = None
         occ = Occurrence(
             occurrence_id=str(uuid.uuid4()),
             series_id=series.series_id,
             workspace_id=series.workspace_id,
             scheduled_for=scheduled_for,
             status="scheduled",
-            location=series.default_location if series.location_type == "fixed" else None,
-            sequence_index=existing_count + len(new_occurrences),
+            location=loc,
+            sequence_index=seq,
         )
         new_occurrences.append(occ)
 
@@ -198,20 +212,59 @@ def regenerate_series(
     for idx, utc_dt in enumerate(new_utc_times):
         scheduled_for = utc_dt.isoformat()
         if scheduled_for not in existing_times:
+            seq = base_seq + idx
+            if series.location_type == "fixed":
+                loc = series.default_location
+            elif series.location_type == "rotation":
+                loc = _rotation_location(series, seq)
+            else:
+                loc = None
             to_create.append(Occurrence(
                 occurrence_id=str(uuid.uuid4()),
                 series_id=series_id,
                 workspace_id=series.workspace_id,
                 scheduled_for=scheduled_for,
                 status="scheduled",
-                location=series.default_location if series.location_type == "fixed" else None,
-                sequence_index=base_seq + idx,
+                location=loc,
+                sequence_index=seq,
             ))
 
     if to_create:
         save_occurrences_batch(to_create)
 
     return {"created": len(to_create), "cancelled": cancelled}
+
+
+# ---------------------------------------------------------------------------
+# Rotation: re-apply location rotation to upcoming occurrences
+# ---------------------------------------------------------------------------
+
+def apply_rotation(series_id: str) -> int:
+    """Re-assign locations on all future 'scheduled' occurrences using the
+    series rotation list.  Returns the number of occurrences updated."""
+    series = get_series(series_id)
+    if series is None:
+        raise ValueError(f"Series not found: {series_id}")
+    if series.location_type != "rotation" or not series.location_rotation:
+        return 0
+
+    existing = list_occurrences_for_series(series_id)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    future = [
+        o for o in existing
+        if o.status == "scheduled" and o.scheduled_for >= now_iso
+    ]
+    future.sort(key=lambda o: o.scheduled_for)
+
+    updated = 0
+    for occ in future:
+        if occ.sequence_index is None:
+            continue
+        new_loc = _rotation_location(series, occ.sequence_index)
+        if new_loc != occ.location:
+            update_occurrence(occ.occurrence_id, {"location": new_loc})
+            updated += 1
+    return updated
 
 
 # ---------------------------------------------------------------------------

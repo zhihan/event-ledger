@@ -63,7 +63,8 @@ export function SeriesView() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
-  const [editLocationType, setEditLocationType] = useState<"fixed" | "per_occurrence">("fixed");
+  const [editLocationType, setEditLocationType] = useState<"fixed" | "per_occurrence" | "rotation">("fixed");
+  const [editRotation, setEditRotation] = useState<string[]>([]);
   const [editLink, setEditLink] = useState("");
   const [editTime, setEditTime] = useState("");
   const [editDuration, setEditDuration] = useState("");
@@ -117,6 +118,7 @@ export function SeriesView() {
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
     setEditLocationType(series.location_type ?? "fixed");
+    setEditRotation(series.location_rotation ?? []);
     setEditLink(series.default_online_link ?? "");
     setEditTime(series.default_time ?? "");
     setEditDuration(series.default_duration_minutes?.toString() ?? "");
@@ -131,7 +133,7 @@ export function SeriesView() {
     setEditSubmitting(true);
     setEditError(null);
     try {
-      const updated = await patchSeries(seriesId, {
+      const updates: Parameters<typeof patchSeries>[1] = {
         title: editTitle.trim() || undefined,
         description: editDescription.trim() || undefined,
         default_location: editLocation.trim() || undefined,
@@ -139,7 +141,11 @@ export function SeriesView() {
         location_type: editLocationType,
         default_time: editTime || undefined,
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
-      });
+      };
+      if (editLocationType === "rotation") {
+        updates.location_rotation = editRotation.filter((s) => s.trim());
+      }
+      const updated = await patchSeries(seriesId, updates);
       setSeries(updated);
       if (editExtendDate) {
         const newOcc = await generateOccurrences(seriesId, editExtendDate);
@@ -226,11 +232,13 @@ export function SeriesView() {
         {series?.description && (
           <Markdown text={series.description} className="series-description" />
         )}
-        {series && (series.default_location || series.default_online_link) && (
+        {series && (series.default_location || series.default_online_link || (series.location_type === "rotation" && series.location_rotation?.length)) && (
           <div className="series-location-row">
-            {series.default_location && (
+            {series.location_type === "rotation" && series.location_rotation?.length ? (
+              <span className="location-chip">Rotation: {series.location_rotation.join(" → ")}</span>
+            ) : series.default_location ? (
               <span className="location-chip">{series.default_location}</span>
-            )}
+            ) : null}
             {series.default_online_link && (
               <a
                 href={series.default_online_link}
@@ -306,7 +314,15 @@ export function SeriesView() {
                 onClick={() => setEditLocationType("fixed")}
                 disabled={editSubmitting}
               >
-                Fixed location
+                Fixed
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${editLocationType === "rotation" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditLocationType("rotation")}
+                disabled={editSubmitting}
+              >
+                Rotation
               </button>
               <button
                 type="button"
@@ -314,7 +330,7 @@ export function SeriesView() {
                 onClick={() => setEditLocationType("per_occurrence")}
                 disabled={editSubmitting}
               >
-                Changes each meeting
+                Per meeting
               </button>
             </div>
           </div>
@@ -330,6 +346,44 @@ export function SeriesView() {
                 disabled={editSubmitting}
                 placeholder="Room or address"
               />
+            </div>
+          )}
+          {editLocationType === "rotation" && (
+            <div className="form-field">
+              <label>Rotation list</label>
+              {editRotation.map((loc, i) => (
+                <div key={i} className="rotation-row">
+                  <span className="rotation-index">{i + 1}.</span>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={loc}
+                    onChange={(e) => {
+                      const next = [...editRotation];
+                      next[i] = e.target.value;
+                      setEditRotation(next);
+                    }}
+                    disabled={editSubmitting}
+                    placeholder="e.g. Alice's home"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => setEditRotation(editRotation.filter((_, j) => j !== i))}
+                    disabled={editSubmitting}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => setEditRotation([...editRotation, ""])}
+                disabled={editSubmitting}
+              >
+                + Add location
+              </button>
             </div>
           )}
           <div className="form-field">

@@ -224,7 +224,8 @@ class CreateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
+    location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
+    location_rotation: Optional[list[str]] = None
     description: Optional[str] = None
 
 
@@ -234,7 +235,8 @@ class UpdateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
+    location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
+    location_rotation: Optional[list[str]] = None
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
@@ -471,6 +473,7 @@ def create_series(
         default_location=body.default_location,
         default_online_link=body.default_online_link,
         location_type=body.location_type or "fixed",
+        location_rotation=body.location_rotation,
         description=body.description,
         created_by=token["uid"],
     )
@@ -512,7 +515,7 @@ def update_series(
     updates: dict = {}
     for field in ("title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
-                  "status", "description"):
+                  "location_rotation", "status", "description"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
@@ -521,6 +524,12 @@ def update_series(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     updated = series_storage.update_series(series_id, updates)
+    # Re-apply rotation to future occurrences when rotation settings change
+    if "location_rotation" in updates or (
+        "location_type" in updates and updates["location_type"] == "rotation"
+    ):
+        from occurrence_service import apply_rotation
+        apply_rotation(series_id)
     return updated.to_dict()
 
 

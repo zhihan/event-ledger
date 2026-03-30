@@ -632,6 +632,23 @@ details[open] .chevron { transform: rotate(90deg); }
   margin-top: 0.2rem;
 }
 
+.rotation-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.rotation-row .form-input {
+  flex: 1;
+}
+
+.rotation-index {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  min-width: 1.2rem;
+}
+
 .form-error {
   color: #c00;
   font-size: 0.85rem;

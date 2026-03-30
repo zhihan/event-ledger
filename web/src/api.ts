@@ -74,7 +74,8 @@ export interface SeriesSummary {
   default_duration_minutes: number | null;
   default_location: string | null;
   default_online_link: string | null;
-  location_type: "fixed" | "per_occurrence";
+  location_type: "fixed" | "per_occurrence" | "rotation";
+  location_rotation: string[] | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -175,7 +176,8 @@ export async function createSeries(
     default_duration_minutes?: number;
     default_location?: string;
     default_online_link?: string;
-    location_type?: "fixed" | "per_occurrence";
+    location_type?: "fixed" | "per_occurrence" | "rotation";
+    location_rotation?: string[];
   },
 ): Promise<SeriesSummary> {
   const resp = await apiFetch(`/v2/workspaces/${workspaceId}/series`, {
@@ -206,7 +208,8 @@ export async function patchSeries(
     default_duration_minutes: number;
     default_location: string;
     default_online_link: string;
-    location_type: "fixed" | "per_occurrence";
+    location_type: "fixed" | "per_occurrence" | "rotation";
+    location_rotation: string[];
     schedule_rule: ScheduleRule;
     status: string;
   }>,

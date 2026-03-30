@@ -160,8 +160,11 @@ class Series:
     default_duration_minutes: int | None = None
     default_location: str | None = None
     default_online_link: str | None = None
-    # "fixed" = same location every time; "per_occurrence" = set per meeting
-    location_type: Literal["fixed", "per_occurrence"] = "fixed"
+    # "fixed" = same location every time; "per_occurrence" = set per meeting;
+    # "rotation" = cycle through location_rotation list
+    location_type: Literal["fixed", "per_occurrence", "rotation"] = "fixed"
+    # Ordered list of locations for rotation mode
+    location_rotation: list[str] | None = None
     status: SeriesStatus = "active"
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -182,6 +185,7 @@ class Series:
             "default_location": self.default_location,
             "default_online_link": self.default_online_link,
             "location_type": self.location_type,
+            "location_rotation": self.location_rotation,
             "status": self.status,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
@@ -202,6 +206,7 @@ class Series:
             default_location=data.get("default_location"),
             default_online_link=data.get("default_online_link"),
             location_type=data.get("location_type", "fixed"),
+            location_rotation=data.get("location_rotation"),
             status=data.get("status", "active"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
