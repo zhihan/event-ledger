@@ -670,6 +670,31 @@ details[open] .chevron { transform: rotate(90deg); }
 .upcoming-location {
   color: var(--text-muted);
   font-size: 0.8rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.upcoming-edit-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.upcoming-row:hover .upcoming-edit-btn {
+  opacity: 1;
+}
+
+.upcoming-location-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.upcoming-location-edit .form-input-sm {
+  flex: 1;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.82rem;
 }
 
 .rotation-row {
@@ -1400,6 +1425,31 @@ details[open] .chevron { transform: rotate(90deg); }
   align-items: center;
   flex-wrap: wrap;
   gap: 0.3rem;
+}
+
+.page-title-editable {
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 0.1rem 0.3rem;
+  margin-left: -0.3rem;
+}
+
+.page-title-editable:hover {
+  background: var(--surface-raised);
+}
+
+.inline-edit-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.page-title-input {
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  padding: 0.15rem 0.4rem;
 }
 
 .series-meta {

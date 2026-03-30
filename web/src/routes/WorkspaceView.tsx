@@ -8,6 +8,7 @@ import {
   removeMember,
   createSeries,
   generateOccurrences,
+  patchWorkspace,
   type WorkspaceSummary,
   type SeriesSummary,
   type ScheduleRule,
@@ -64,6 +65,8 @@ export function WorkspaceView() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState("");
 
   // Members
   const [members, setMembers] = useState<Record<string, string> | null>(null);
@@ -223,9 +226,43 @@ export function WorkspaceView() {
         <div className="page-header-top">
           <Link to="/dashboard" className="back-link">&larr; Dashboard</Link>
         </div>
-        <h1 className="page-title">
-          {workspace?.title}
-        </h1>
+        {editingTitle ? (
+          <form
+            className="inline-edit-title"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!workspaceId || !editTitleValue.trim()) return;
+              try {
+                const updated = await patchWorkspace(workspaceId, { title: editTitleValue.trim() });
+                setWorkspace(updated);
+                setEditingTitle(false);
+              } catch (err) {
+                alert(err instanceof Error ? err.message : "Failed to rename");
+              }
+            }}
+          >
+            <input
+              type="text"
+              className="form-input page-title-input"
+              value={editTitleValue}
+              onChange={(e) => setEditTitleValue(e.target.value)}
+              autoFocus
+              required
+            />
+            <button type="submit" className="btn btn-primary btn-sm">Save</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingTitle(false)}>
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <h1
+            className="page-title page-title-editable"
+            onClick={() => { setEditTitleValue(workspace?.title ?? ""); setEditingTitle(true); }}
+            title="Click to rename"
+          >
+            {workspace?.title}
+          </h1>
+        )}
         {workspace && (
           <p className="page-meta-tz">{workspace.timezone}</p>
         )}
