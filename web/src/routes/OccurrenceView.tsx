@@ -178,7 +178,7 @@ export function OccurrenceView() {
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
   const role = user?.uid ? workspace?.member_roles[user.uid] : undefined;
   const isManager = role === "organizer" || role === "teacher";
-  const isPracticeDay = series?.kind === "study_assignment";
+  const isPracticeDay = occ.enable_check_in;
   const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
 

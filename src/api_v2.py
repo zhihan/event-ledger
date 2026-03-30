@@ -227,6 +227,7 @@ class CreateSeriesRequest(BaseModel):
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
     location_rotation: Optional[list[str]] = None
+    check_in_weekdays: Optional[list[int]] = None
     description: Optional[str] = None
 
 
@@ -239,6 +240,7 @@ class UpdateSeriesRequest(BaseModel):
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
     location_rotation: Optional[list[str]] = None
+    check_in_weekdays: Optional[list[int]] = None
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
@@ -274,6 +276,7 @@ class UpdateOccurrenceRequest(BaseModel):
     scheduled_for: Optional[str] = None
     location: Optional[str] = None
     overrides: Optional[OccurrenceOverridesIn] = None
+    enable_check_in: Optional[bool] = None
 
 
 class UpsertCheckInRequest(BaseModel):
@@ -476,6 +479,7 @@ def create_series(
         default_online_link=body.default_online_link,
         location_type=body.location_type or "fixed",
         location_rotation=body.location_rotation,
+        check_in_weekdays=body.check_in_weekdays,
         description=body.description,
         created_by=token["uid"],
     )
@@ -517,7 +521,8 @@ def update_series(
     updates: dict = {}
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
-                  "location_rotation", "status", "description"):
+                  "location_rotation", "check_in_weekdays", "status",
+                  "description"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
@@ -623,6 +628,8 @@ def update_occurrence_endpoint(
     updates: dict = {}
     if body.location is not None:
         updates["location"] = body.location
+    if body.enable_check_in is not None:
+        updates["enable_check_in"] = body.enable_check_in
 
     if body.status == "cancelled":
         result = skip_occurrence(occurrence_id)

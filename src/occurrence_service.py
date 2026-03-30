@@ -78,6 +78,8 @@ def generate_and_save(
     existing_times: set[str] = {occ.scheduled_for for occ in existing}
     existing_count = len(existing)
 
+    check_in_days = set(series.check_in_weekdays or [])
+
     new_occurrences: list[Occurrence] = []
     for idx, utc_dt in enumerate(utc_datetimes):
         scheduled_for = utc_dt.isoformat()
@@ -90,6 +92,9 @@ def generate_and_save(
             loc = _rotation_location(series, seq)
         else:
             loc = None
+        # Determine check-in from local weekday (ISO: 1=Mon..7=Sun)
+        local_dt = utc_dt.astimezone(tz)
+        iso_weekday = local_dt.isoweekday()
         occ = Occurrence(
             occurrence_id=str(uuid.uuid4()),
             series_id=series.series_id,
@@ -98,6 +103,7 @@ def generate_and_save(
             status="scheduled",
             location=loc,
             sequence_index=seq,
+            enable_check_in=iso_weekday in check_in_days,
         )
         new_occurrences.append(occ)
 
@@ -207,6 +213,7 @@ def regenerate_series(
             cancelled += 1
 
     # Create new occurrences for times not yet in Firestore
+    check_in_days = set(series.check_in_weekdays or [])
     to_create: list[Occurrence] = []
     base_seq = len(existing)
     for idx, utc_dt in enumerate(new_utc_times):
@@ -219,6 +226,8 @@ def regenerate_series(
                 loc = _rotation_location(series, seq)
             else:
                 loc = None
+            local_dt = utc_dt.astimezone(tz)
+            iso_weekday = local_dt.isoweekday()
             to_create.append(Occurrence(
                 occurrence_id=str(uuid.uuid4()),
                 series_id=series_id,
@@ -227,6 +236,7 @@ def regenerate_series(
                 status="scheduled",
                 location=loc,
                 sequence_index=seq,
+                enable_check_in=iso_weekday in check_in_days,
             ))
 
     if to_create:

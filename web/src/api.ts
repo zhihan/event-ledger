@@ -76,6 +76,7 @@ export interface SeriesSummary {
   default_online_link: string | null;
   location_type: "fixed" | "per_occurrence" | "rotation";
   location_rotation: string[] | null;
+  check_in_weekdays: number[] | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -99,6 +100,7 @@ export interface OccurrenceSummary {
   status: string;
   location: string | null;
   overrides: OccurrenceOverrides;
+  enable_check_in: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -178,6 +180,7 @@ export async function createSeries(
     default_online_link?: string;
     location_type?: "fixed" | "per_occurrence" | "rotation";
     location_rotation?: string[];
+    check_in_weekdays?: number[];
   },
 ): Promise<SeriesSummary> {
   const resp = await apiFetch(`/v2/workspaces/${workspaceId}/series`, {
@@ -206,6 +209,7 @@ export async function patchSeries(
     title: string;
     description: string;
     default_time: string;
+    check_in_weekdays: number[];
     default_duration_minutes: number;
     default_location: string;
     default_online_link: string;
@@ -256,6 +260,7 @@ export async function patchOccurrence(
     status?: string;
     location?: string | null;
     overrides?: OccurrenceOverrides;
+    enable_check_in?: boolean;
   },
 ): Promise<OccurrenceSummary> {
   const resp = await apiFetch(`/v2/occurrences/${occurrenceId}`, {

@@ -14,6 +14,9 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
 
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
+
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
     timeZone: timezone,
@@ -60,7 +63,7 @@ export function SeriesView() {
   const [error, setError] = useState<Error | null>(null);
 
   const [editing, setEditing] = useState(false);
-  const [editKind, setEditKind] = useState<"meeting" | "study_assignment">("meeting");
+  const [editCheckInDays, setEditCheckInDays] = useState<number[]>([]);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
@@ -117,7 +120,7 @@ export function SeriesView() {
 
   function startEdit() {
     if (!series) return;
-    setEditKind((series.kind === "study_assignment" ? "study_assignment" : "meeting") as "meeting" | "study_assignment");
+    setEditCheckInDays(series.check_in_weekdays ?? []);
     setEditTitle(series.title);
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
@@ -138,7 +141,7 @@ export function SeriesView() {
     setEditError(null);
     try {
       const updates: Parameters<typeof patchSeries>[1] = {
-        kind: editKind,
+        check_in_weekdays: editCheckInDays,
         title: editTitle.trim() || undefined,
         description: editDescription.trim() || undefined,
         default_location: editLocation.trim() || undefined,
@@ -260,27 +263,6 @@ export function SeriesView() {
 
       {editing && (
         <form className="create-page-form" onSubmit={handleSaveEdit}>
-          <div className="form-field">
-            <label>Type</label>
-            <div className="visibility-toggle">
-              <button
-                type="button"
-                className={`btn btn-sm ${editKind === "meeting" ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setEditKind("meeting")}
-                disabled={editSubmitting}
-              >
-                Meeting
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${editKind === "study_assignment" ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setEditKind("study_assignment")}
-                disabled={editSubmitting}
-              >
-                Practice
-              </button>
-            </div>
-          </div>
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
             <input
@@ -424,6 +406,31 @@ export function SeriesView() {
               placeholder="https://zoom.us/j/..."
             />
           </div>
+          {series && series.schedule_rule.weekdays && series.schedule_rule.weekdays.length > 0 && (
+            <div className="form-field">
+              <label>Self-practice days (enable check-in)</label>
+              <div className="days-toggle">
+                {DAYS.map((day, i) => {
+                  const dv = DAY_VALUES[i];
+                  if (!series.schedule_rule.weekdays?.includes(dv)) return null;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => setEditCheckInDays((prev) =>
+                        prev.includes(dv) ? prev.filter((d) => d !== dv) : [...prev, dv]
+                      )}
+                      disabled={editSubmitting}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="form-hint">Occurrences on these days will show a check-in button</span>
+            </div>
+          )}
           <div className="form-field">
             <label htmlFor="edit-extend">Extend schedule to</label>
             <input

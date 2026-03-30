@@ -166,6 +166,8 @@ class Series:
     # Ordered list of locations for rotation mode
     location_rotation: list[str] | None = None
     status: SeriesStatus = "active"
+    # ISO weekdays (1=Mon … 7=Sun) on which check-in is enabled; empty/None = no check-ins
+    check_in_weekdays: list[int] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     description: str | None = None
@@ -187,6 +189,7 @@ class Series:
             "location_type": self.location_type,
             "location_rotation": self.location_rotation,
             "status": self.status,
+            "check_in_weekdays": self.check_in_weekdays,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "description": self.description,
@@ -208,6 +211,7 @@ class Series:
             location_type=data.get("location_type", "fixed"),
             location_rotation=data.get("location_rotation"),
             status=data.get("status", "active"),
+            check_in_weekdays=data.get("check_in_weekdays"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             description=data.get("description"),
@@ -278,6 +282,8 @@ class Occurrence:
     updated_at: datetime | None = None
     # Sequence index within the series (0-based), used for ordering
     sequence_index: int | None = None
+    # Whether participants can check in on this occurrence
+    enable_check_in: bool = False
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -293,6 +299,7 @@ class Occurrence:
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "sequence_index": self.sequence_index,
+            "enable_check_in": self.enable_check_in,
         }
 
     @classmethod
@@ -310,6 +317,7 @@ class Occurrence:
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             sequence_index=data.get("sequence_index"),
+            enable_check_in=bool(data.get("enable_check_in", False)),
         )
 
 

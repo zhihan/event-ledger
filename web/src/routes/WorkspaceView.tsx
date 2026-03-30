@@ -59,7 +59,7 @@ export function WorkspaceView() {
   const [formDuration, setFormDuration] = useState("60");
   const [formLocation, setFormLocation] = useState("");
   const [formLocationType, setFormLocationType] = useState<"fixed" | "per_occurrence">("fixed");
-  const [formKind, setFormKind] = useState<"meeting" | "study_assignment">("meeting");
+  const [formCheckInDays, setFormCheckInDays] = useState<number[]>([]);
   const [formLink, setFormLink] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,7 +106,18 @@ export function WorkspaceView() {
   useEffect(() => { load(); }, [load]);
 
   function toggleDay(day: number) {
-    setFormDays((prev) =>
+    setFormDays((prev) => {
+      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
+      // Remove from check-in days if no longer a scheduled day
+      if (!next.includes(day)) {
+        setFormCheckInDays((ci) => ci.filter((d) => d !== day));
+      }
+      return next;
+    });
+  }
+
+  function toggleCheckInDay(day: number) {
+    setFormCheckInDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
     );
   }
@@ -126,7 +137,6 @@ export function WorkspaceView() {
 
     try {
       const created = await createSeries(workspaceId, {
-        kind: formKind,
         title: formTitle.trim(),
         description: formDescription.trim() || undefined,
         schedule_rule: scheduleRule,
@@ -135,17 +145,18 @@ export function WorkspaceView() {
         default_location: formLocation.trim() || undefined,
         default_online_link: formLink.trim() || undefined,
         location_type: formLocationType,
+        check_in_weekdays: formCheckInDays.length > 0 ? formCheckInDays : undefined,
       });
       setShowForm(false);
       setFormTitle("");
       setFormDescription("");
-      setFormKind("meeting");
       setFormFreq("weekly");
       setFormDays([1]);
       setFormTime("10:00");
       setFormDuration("60");
       setFormLocation("");
       setFormLocationType("fixed");
+      setFormCheckInDays([]);
       setFormLink("");
       // Navigate to series detail
       navigate(`/w/${workspaceId}/series/${created.series_id}`);
@@ -285,27 +296,6 @@ export function WorkspaceView() {
               />
             </div>
             <div className="form-field">
-              <label>Type</label>
-              <div className="visibility-toggle">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${formKind === "meeting" ? "btn-primary" : "btn-secondary"}`}
-                  onClick={() => setFormKind("meeting")}
-                  disabled={formSubmitting}
-                >
-                  Meeting
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${formKind === "study_assignment" ? "btn-primary" : "btn-secondary"}`}
-                  onClick={() => setFormKind("study_assignment")}
-                  disabled={formSubmitting}
-                >
-                  Practice
-                </button>
-              </div>
-            </div>
-            <div className="form-field">
               <label htmlFor="series-desc">Description (markdown supported)</label>
               <textarea
                 id="series-desc"
@@ -349,6 +339,29 @@ export function WorkspaceView() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+            {formDays.length > 0 && (
+              <div className="form-field">
+                <label>Self-practice days (enable check-in)</label>
+                <div className="days-toggle">
+                  {DAYS.map((day, i) => {
+                    const dv = DAY_VALUES[i];
+                    if (!formDays.includes(dv)) return null;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`btn btn-day ${formCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => toggleCheckInDay(dv)}
+                        disabled={formSubmitting}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="form-hint">Occurrences on these days will show a check-in button</span>
               </div>
             )}
             <div className="form-row">
