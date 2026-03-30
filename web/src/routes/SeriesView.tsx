@@ -3,11 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import {
   getSeries,
   getSeriesOccurrences,
+  getSeriesCheckInReport,
   patchSeries,
   patchOccurrence,
   generateOccurrences,
   type SeriesSummary,
   type OccurrenceSummary,
+  type CheckInReport,
   type ScheduleRule,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -85,6 +87,12 @@ export function SeriesView() {
   const [agendaText, setAgendaText] = useState("");
   const [agendaSaving, setAgendaSaving] = useState(false);
 
+  // Check-in report
+  const [showReport, setShowReport] = useState(false);
+  const [report, setReport] = useState<CheckInReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportWindow, setReportWindow] = useState(10); // number of occurrences to show
+
 
   const load = useCallback(async () => {
     if (!seriesId || !workspaceId) return;
@@ -103,6 +111,20 @@ export function SeriesView() {
       setLoading(false);
     }
   }, [seriesId, workspaceId]);
+
+  async function loadReport() {
+    if (!seriesId) return;
+    setReportLoading(true);
+    try {
+      const r = await getSeriesCheckInReport(seriesId);
+      setReport(r);
+      setShowReport(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load report");
+    } finally {
+      setReportLoading(false);
+    }
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -622,6 +644,94 @@ export function SeriesView() {
         )}
       </section>
 
+      {/* Check-in Report */}
+      <section className="section">
+        <div className="section-header">
+          <h2>Check-in Report</h2>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => showReport ? setShowReport(false) : loadReport()}
+            disabled={reportLoading}
+          >
+            {reportLoading ? "Loading..." : showReport ? "Hide" : "View report"}
+          </button>
+        </div>
+        {showReport && report && (() => {
+          const occs = report.occurrences.slice(-reportWindow);
+          const occIds = new Set(occs.map((o) => o.occurrence_id));
+          // Build lookup: occurrence_id -> set of user_ids who checked in
+          const checkInMap = new Map<string, Set<string>>();
+          for (const ci of report.check_ins) {
+            if (!occIds.has(ci.occurrence_id)) continue;
+            if (ci.status !== "confirmed") continue;
+            if (!checkInMap.has(ci.occurrence_id)) checkInMap.set(ci.occurrence_id, new Set());
+            checkInMap.get(ci.occurrence_id)!.add(ci.user_id);
+          }
+          // Get all members (non-organizer) as rows
+          const members = Object.entries(report.members)
+            .filter(([, role]) => role !== "organizer")
+            .map(([uid, role]) => ({
+              uid,
+              role,
+              name: report.member_profiles[uid]?.display_name ?? uid.slice(0, 8),
+            }));
+          members.sort((a, b) => a.name.localeCompare(b.name));
+          return (
+            <>
+              <div className="report-controls">
+                <label>
+                  Show last{" "}
+                  <select
+                    value={reportWindow}
+                    onChange={(e) => setReportWindow(Number(e.target.value))}
+                    className="form-input form-input-sm report-window-select"
+                  >
+                    {[5, 10, 20, 50].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  {" "}occurrences
+                </label>
+              </div>
+              <div className="report-table-wrap">
+                <table className="report-table">
+                  <thead>
+                    <tr>
+                      <th className="report-name-col">Name</th>
+                      {occs.map((o) => (
+                        <th key={o.occurrence_id} className="report-date-col">
+                          <Link to={`/occurrences/${o.occurrence_id}`}>
+                            {new Date(o.scheduled_for).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Link>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => (
+                      <tr key={m.uid}>
+                        <td className="report-name-col">{m.name}</td>
+                        {occs.map((o) => {
+                          const done = checkInMap.get(o.occurrence_id)?.has(m.uid);
+                          return (
+                            <td key={o.occurrence_id} className={`report-cell ${done ? "report-cell-done" : "report-cell-miss"}`}>
+                              {done ? "✓" : "—"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+      </section>
 
     </div>
   );

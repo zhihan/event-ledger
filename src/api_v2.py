@@ -509,6 +509,28 @@ def get_series(
     return s.to_dict()
 
 
+@router.get("/series/{series_id}/check-in-report")
+def series_check_in_report(
+    series_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Return occurrences with check-in enabled and all their check-ins."""
+    s = _get_series_or_404(series_id)
+    ws = _get_workspace_or_404(s.workspace_id)
+    _require_role(ws, token["uid"], "organizer", "teacher")
+    occurrences = series_storage.list_occurrences_for_series(series_id)
+    practice_occs = [o for o in occurrences if o.enable_check_in]
+    practice_occs.sort(key=lambda o: o.scheduled_for)
+    check_ins = series_storage.list_check_ins_for_series(series_id)
+    return {
+        "series_id": series_id,
+        "occurrences": [o.to_dict() for o in practice_occs],
+        "check_ins": [ci.to_dict() for ci in check_ins],
+        "members": ws.member_roles,
+        "member_profiles": ws.member_profiles,
+    }
+
+
 @router.patch("/series/{series_id}")
 def update_series(
     series_id: str,

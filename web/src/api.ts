@@ -202,6 +202,19 @@ export async function getSeries(seriesId: string): Promise<SeriesSummary> {
   return resp.json();
 }
 
+export interface CheckInReport {
+  series_id: string;
+  occurrences: OccurrenceSummary[];
+  check_ins: CheckInSummary[];
+  members: Record<string, string>;
+  member_profiles: Record<string, { display_name?: string | null; email?: string | null }>;
+}
+
+export async function getSeriesCheckInReport(seriesId: string): Promise<CheckInReport> {
+  const resp = await apiFetch(`/v2/series/${seriesId}/check-in-report`);
+  return resp.json();
+}
+
 export async function patchSeries(
   seriesId: string,
   updates: Partial<{

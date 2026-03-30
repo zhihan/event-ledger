@@ -213,6 +213,17 @@ def list_check_ins_for_occurrence(occurrence_id: str) -> list[CheckIn]:
     return [CheckIn.from_dict(doc.to_dict()) for doc in docs]
 
 
+def list_check_ins_for_series(series_id: str) -> list[CheckIn]:
+    """Return all CheckIns across all occurrences of a series."""
+    db = _get_client()
+    docs = (
+        db.collection(CHECK_INS_COLLECTION)
+        .where("series_id", "==", series_id)
+        .stream()
+    )
+    return [CheckIn.from_dict(doc.to_dict()) for doc in docs]
+
+
 def get_check_in_for_user(occurrence_id: str, user_id: str) -> CheckIn | None:
     """Return the CheckIn for a specific user on a specific Occurrence, or None."""
     db = _get_client()

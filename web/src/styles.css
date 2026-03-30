@@ -2139,3 +2139,53 @@ details[open] .chevron { transform: rotate(90deg); }
   font-size: 0.9rem;
   cursor: pointer;
 }
+
+/* Check-in report table */
+.report-controls {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+.report-window-select {
+  display: inline-block;
+  width: auto;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.85rem;
+}
+.report-table-wrap {
+  overflow-x: auto;
+}
+.report-table {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  width: 100%;
+}
+.report-table th,
+.report-table td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+}
+.report-name-col {
+  text-align: left !important;
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 1;
+  min-width: 7rem;
+}
+.report-date-col a {
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+.report-date-col a:hover {
+  text-decoration: underline;
+}
+.report-cell-done {
+  color: #38a169;
+  font-weight: 600;
+}
+.report-cell-miss {
+  color: #a0aec0;
+}
