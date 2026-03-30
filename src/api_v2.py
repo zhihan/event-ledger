@@ -231,6 +231,7 @@ class CreateSeriesRequest(BaseModel):
 
 
 class UpdateSeriesRequest(BaseModel):
+    kind: Optional[str] = None
     title: Optional[str] = None
     default_time: Optional[str] = None
     default_duration_minutes: Optional[int] = None
@@ -514,7 +515,7 @@ def update_series(
     ws = _get_workspace_or_404(s.workspace_id)
     _require_role(ws, token["uid"], "organizer", "teacher")
     updates: dict = {}
-    for field in ("title", "default_time", "default_duration_minutes",
+    for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
                   "location_rotation", "status", "description"):
         val = getattr(body, field)

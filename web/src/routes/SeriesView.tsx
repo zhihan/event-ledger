@@ -60,6 +60,7 @@ export function SeriesView() {
   const [error, setError] = useState<Error | null>(null);
 
   const [editing, setEditing] = useState(false);
+  const [editKind, setEditKind] = useState<"meeting" | "study_assignment">("meeting");
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
@@ -116,6 +117,7 @@ export function SeriesView() {
 
   function startEdit() {
     if (!series) return;
+    setEditKind((series.kind === "study_assignment" ? "study_assignment" : "meeting") as "meeting" | "study_assignment");
     setEditTitle(series.title);
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
@@ -136,6 +138,7 @@ export function SeriesView() {
     setEditError(null);
     try {
       const updates: Parameters<typeof patchSeries>[1] = {
+        kind: editKind,
         title: editTitle.trim() || undefined,
         description: editDescription.trim() || undefined,
         default_location: editLocation.trim() || undefined,
@@ -257,6 +260,27 @@ export function SeriesView() {
 
       {editing && (
         <form className="create-page-form" onSubmit={handleSaveEdit}>
+          <div className="form-field">
+            <label>Type</label>
+            <div className="visibility-toggle">
+              <button
+                type="button"
+                className={`btn btn-sm ${editKind === "meeting" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditKind("meeting")}
+                disabled={editSubmitting}
+              >
+                Meeting
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${editKind === "study_assignment" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditKind("study_assignment")}
+                disabled={editSubmitting}
+              >
+                Practice
+              </button>
+            </div>
+          </div>
           <div className="form-field">
             <label htmlFor="edit-title">Title</label>
             <input

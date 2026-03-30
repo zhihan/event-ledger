@@ -202,6 +202,7 @@ export async function getSeries(seriesId: string): Promise<SeriesSummary> {
 export async function patchSeries(
   seriesId: string,
   updates: Partial<{
+    kind: string;
     title: string;
     description: string;
     default_time: string;

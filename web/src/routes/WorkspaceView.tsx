@@ -59,6 +59,7 @@ export function WorkspaceView() {
   const [formDuration, setFormDuration] = useState("60");
   const [formLocation, setFormLocation] = useState("");
   const [formLocationType, setFormLocationType] = useState<"fixed" | "per_occurrence">("fixed");
+  const [formKind, setFormKind] = useState<"meeting" | "study_assignment">("meeting");
   const [formLink, setFormLink] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export function WorkspaceView() {
 
     try {
       const created = await createSeries(workspaceId, {
+        kind: formKind,
         title: formTitle.trim(),
         description: formDescription.trim() || undefined,
         schedule_rule: scheduleRule,
@@ -137,6 +139,7 @@ export function WorkspaceView() {
       setShowForm(false);
       setFormTitle("");
       setFormDescription("");
+      setFormKind("meeting");
       setFormFreq("weekly");
       setFormDays([1]);
       setFormTime("10:00");
@@ -280,6 +283,27 @@ export function WorkspaceView() {
                 autoFocus
                 disabled={formSubmitting}
               />
+            </div>
+            <div className="form-field">
+              <label>Type</label>
+              <div className="visibility-toggle">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${formKind === "meeting" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setFormKind("meeting")}
+                  disabled={formSubmitting}
+                >
+                  Meeting
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${formKind === "study_assignment" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setFormKind("study_assignment")}
+                  disabled={formSubmitting}
+                >
+                  Practice
+                </button>
+              </div>
             </div>
             <div className="form-field">
               <label htmlFor="series-desc">Description (markdown supported)</label>
