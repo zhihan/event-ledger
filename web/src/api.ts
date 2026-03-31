@@ -61,6 +61,9 @@ export interface WorkspaceSummary {
   description: string | null;
   created_at: string;
   updated_at: string;
+  series_count?: number;
+  series_schedule?: ScheduleRule;
+  series_default_time?: string | null;
 }
 
 export interface SeriesSummary {

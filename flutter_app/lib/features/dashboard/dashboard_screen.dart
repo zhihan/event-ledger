@@ -177,7 +177,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final ws = workspaces[index];
-          final memberCount = ws.memberRoles.length;
           final colors = [
             Colors.indigo,
             Colors.teal,
@@ -215,25 +214,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 15)),
                           const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Icon(Icons.public, size: 13,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
-                              Text(ws.timezone,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                              const SizedBox(width: 12),
-                              Icon(Icons.people_outline, size: 13,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
-                              Text('$memberCount',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                            ],
-                          ),
+                          Text(ws.seriesSubtitle,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         ],
                       ),
                     ),

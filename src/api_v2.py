@@ -321,10 +321,19 @@ def create_workspace(
 def list_workspaces(
     token: dict = Depends(_require_token),
 ) -> dict:
-    """Return all workspaces where the caller is an owner."""
+    """Return all workspaces where the caller is a member, with series info."""
     uid = token["uid"]
     workspaces = workspace_storage.list_workspaces_for_user(uid)
-    return {"workspaces": [ws.to_dict() for ws in workspaces]}
+    results = []
+    for ws in workspaces:
+        d = ws.to_dict()
+        series = series_storage.list_series_for_workspace(ws.workspace_id)
+        d["series_count"] = len(series)
+        if len(series) == 1:
+            d["series_schedule"] = series[0].to_dict().get("schedule_rule")
+            d["series_default_time"] = series[0].default_time
+        results.append(d)
+    return {"workspaces": results}
 
 
 @router.get("/workspaces/{workspace_id}")

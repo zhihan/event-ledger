@@ -7,6 +7,9 @@ class Workspace {
   final Map<String, String> memberRoles;
   final Map<String, Map<String, String?>> memberProfiles;
   final String? description;
+  final int seriesCount;
+  final Map<String, dynamic>? seriesSchedule;
+  final String? seriesDefaultTime;
 
   const Workspace({
     required this.workspaceId,
@@ -17,6 +20,9 @@ class Workspace {
     required this.memberRoles,
     required this.memberProfiles,
     this.description,
+    this.seriesCount = 0,
+    this.seriesSchedule,
+    this.seriesDefaultTime,
   });
 
   factory Workspace.fromJson(Map<String, dynamic> json) {
@@ -49,7 +55,36 @@ class Workspace {
       memberRoles: roles,
       memberProfiles: profiles,
       description: json['description'] as String?,
+      seriesCount: json['series_count'] as int? ?? 0,
+      seriesSchedule: json['series_schedule'] as Map<String, dynamic>?,
+      seriesDefaultTime: json['series_default_time'] as String?,
     );
+  }
+
+  String get seriesSubtitle {
+    if (seriesCount == 0) return 'No series';
+    if (seriesCount == 1 && seriesSchedule != null) {
+      final freq = seriesSchedule!['frequency'] as String? ?? '';
+      String text;
+      if (freq == 'daily') {
+        text = 'Every day';
+      } else if (freq == 'weekdays') {
+        text = 'Weekdays (Mon-Fri)';
+      } else if (freq == 'weekly') {
+        final weekdays = (seriesSchedule!['weekdays'] as List?)?.cast<int>() ?? [];
+        if (weekdays.isNotEmpty) {
+          const dayMap = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
+          text = 'Weekly on ${weekdays.map((d) => dayMap[d] ?? '$d').join(', ')}';
+        } else {
+          text = 'Weekly';
+        }
+      } else {
+        text = freq;
+      }
+      if (seriesDefaultTime != null) text += ' at $seriesDefaultTime';
+      return text;
+    }
+    return '$seriesCount series';
   }
 }
 

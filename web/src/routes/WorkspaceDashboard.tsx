@@ -4,6 +4,7 @@ import {
   getMyWorkspaces,
   createWorkspace,
   type WorkspaceSummary,
+  type ScheduleRule,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
@@ -135,13 +136,37 @@ export function WorkspaceDashboard() {
   );
 }
 
+function formatScheduleRule(rule: ScheduleRule): string {
+  if (rule.frequency === "daily") return "Every day";
+  if (rule.frequency === "weekdays") return "Weekdays (Mon-Fri)";
+  if (rule.frequency === "weekly") {
+    if (rule.weekdays && rule.weekdays.length > 0) {
+      const dayMap: Record<number, string> = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"};
+      return "Weekly on " + rule.weekdays.map((d) => dayMap[d] ?? String(d)).join(", ");
+    }
+    return "Weekly";
+  }
+  return rule.frequency;
+}
+
+function seriesSubtitle(workspace: WorkspaceSummary): string {
+  const count = workspace.series_count ?? 0;
+  if (count === 0) return "No series";
+  if (count === 1 && workspace.series_schedule) {
+    let text = formatScheduleRule(workspace.series_schedule);
+    if (workspace.series_default_time) text += ` at ${workspace.series_default_time}`;
+    return text;
+  }
+  return `${count} series`;
+}
+
 function WorkspaceCard({ workspace }: { workspace: WorkspaceSummary }) {
   return (
     <li className="page-card workspace-card">
       <Link to={`/w/${workspace.workspace_id}`}>
         <strong>{workspace.title}</strong>
       </Link>
-      <p className="page-meta-tz">{workspace.timezone}</p>
+      <p className="page-meta-tz">{seriesSubtitle(workspace)}</p>
     </li>
   );
 }
