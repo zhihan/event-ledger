@@ -242,7 +242,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                           const InputDecoration(labelText: 'Online Link')),
                   if (series.scheduleRule.weekdays.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    const Text('Check-in days',
+                    const Text('Practice days',
                         style: TextStyle(fontSize: 12)),
                     const SizedBox(height: 4),
                     Wrap(

@@ -49,7 +49,7 @@ class _CheckInReportWidgetState extends State<CheckInReportWidget> {
           },
           child: Row(
             children: [
-              Text('Check-in Report',
+              Text('Practice Report',
                   style: Theme.of(context).textTheme.titleMedium),
               Icon(_expanded ? Icons.expand_less : Icons.expand_more),
             ],
@@ -101,7 +101,7 @@ class _CheckInReportWidgetState extends State<CheckInReportWidget> {
     if (displayOccs.isEmpty || memberUids.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
-        child: Text('No check-in data.'),
+        child: Text('No practice data.'),
       );
     }
 

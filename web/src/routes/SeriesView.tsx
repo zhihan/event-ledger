@@ -539,7 +539,7 @@ export function SeriesView() {
           )}
           {series && series.schedule_rule.weekdays && series.schedule_rule.weekdays.length > 0 && (
             <div className="form-field">
-              <label>Self-practice days (enable check-in)</label>
+              <label>Practice days</label>
               <div className="days-toggle">
                 {DAYS.map((day, i) => {
                   const dv = DAY_VALUES[i];
@@ -559,7 +559,7 @@ export function SeriesView() {
                   );
                 })}
               </div>
-              <span className="form-hint">Occurrences on these days will show a check-in button</span>
+              <span className="form-hint">Occurrences on these days will enable practice logging</span>
             </div>
           )}
           <div className="form-field">
@@ -855,7 +855,7 @@ export function SeriesView() {
       {/* Check-in Report */}
       <section className="section">
         <div className="section-header">
-          <h2>Check-in Report</h2>
+          <h2>Practice Report</h2>
           <button
             type="button"
             className="btn btn-secondary btn-sm"

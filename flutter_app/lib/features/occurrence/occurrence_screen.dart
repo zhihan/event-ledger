@@ -509,7 +509,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                   child: FilledButton.icon(
                     onPressed: _checkIn,
                     icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Check In'),
+                    label: const Text('Done'),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
                     ),
@@ -527,7 +527,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                             color: Colors.green, size: 22),
                         const SizedBox(width: 10),
                         const Expanded(
-                          child: Text('Checked in',
+                          child: Text('Done ✓',
                               style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   color: Colors.green)),
@@ -550,7 +550,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                 child: Column(
                   children: [
                     SwitchListTile(
-                      title: const Text('Enable Check-in',
+                      title: const Text('Enable practice log',
                           style: TextStyle(fontSize: 14)),
                       value: occ.enableCheckIn,
                       onChanged: (v) => _toggleCheckIn(v),
@@ -605,7 +605,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             // All check-ins (organizer/teacher)
             if (_canManage && _allCheckIns != null && _allCheckIns!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _sectionLabel('Check-ins (${_allCheckIns!.length})', cs),
+              _sectionLabel('Completions (${_allCheckIns!.length})', cs),
               const SizedBox(height: 6),
               Card(
                 clipBehavior: Clip.antiAlias,

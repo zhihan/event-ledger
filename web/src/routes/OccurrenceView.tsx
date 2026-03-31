@@ -138,7 +138,7 @@ export function OccurrenceView() {
         return [...filtered, ci];
       });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to check in");
+      alert(err instanceof Error ? err.message : "Failed to log practice");
     } finally {
       setCheckInSubmitting(false);
     }
@@ -217,7 +217,7 @@ export function OccurrenceView() {
                 setOccurrence(updated);
               }}
             />
-            <span>Enable self-practice check-in</span>
+            <span>Enable practice log</span>
           </label>
           <div style={{ marginTop: 8 }}>
             <button
@@ -391,11 +391,11 @@ export function OccurrenceView() {
       {isPracticeDay && (
         <section className="section">
           <div className="section-header">
-            <h2>Practice Check-in</h2>
+            <h2>Practice Log</h2>
           </div>
           {myCheckIn?.status === "confirmed" ? (
             <div className="checkin-done">
-              <span className="checkin-done-label">Done</span>
+              <span className="checkin-done-label">Done ✓</span>
               <button
                 type="button"
                 className="btn btn-secondary btn-xs"
@@ -411,7 +411,7 @@ export function OccurrenceView() {
               onClick={handleCheckIn}
               disabled={checkInSubmitting}
             >
-              {checkInSubmitting ? "Saving..." : "Mark as done"}
+              {checkInSubmitting ? "Saving..." : "Done"}
             </button>
           )}
         </section>
@@ -421,7 +421,7 @@ export function OccurrenceView() {
       {isManager && checkIns.length > 0 && (
         <section className="section">
           <div className="section-header">
-            <h2>Check-ins ({checkIns.length})</h2>
+            <h2>Completions ({checkIns.length})</h2>
           </div>
           <ul className="checkin-list">
             {checkIns.map((ci) => (
