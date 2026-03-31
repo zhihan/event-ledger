@@ -14,7 +14,7 @@ export function Landing() {
 
   return (
     <div className="landing">
-      <h1>Event Ledger</h1>
+      <h1>Meeting Assistant</h1>
       <p>Organize your recurring schedules with ease.</p>
       <button type="button" onClick={signIn} className="btn btn-primary">
         Sign in with Google

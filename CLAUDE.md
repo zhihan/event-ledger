@@ -4,7 +4,7 @@ This file gives repo-specific guidance for coding agents working in this reposit
 
 ## Project Overview
 
-Event Ledger is a recurring-schedule platform built on Firebase and Firestore. The core domain includes `Workspace`, `Series`, `Occurrence`, `CheckIn`, notification, study/cohort, and assistant flows.
+Meeting Assistant is a recurring-schedule platform built on Firebase and Firestore. The core domain includes `Workspace`, `Series`, `Occurrence`, `CheckIn`, notification, study/cohort, and assistant flows.
 
 ## Primary Runtime Surfaces
 

@@ -51,7 +51,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     size: 36, color: cs.onPrimaryContainer),
               ),
               const SizedBox(height: 16),
-              Text('Event Ledger',
+              Text('Meeting Assistant',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),

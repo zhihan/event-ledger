@@ -24,7 +24,7 @@ except ImportError as exc:
 
 from models import Occurrence, Series
 
-_PROD_ID = "-//Event Ledger//Event Ledger 1.0//EN"
+_PROD_ID = "-//Meeting Assistant//Meeting Assistant 1.0//EN"
 
 
 def _parse_utc(iso_str: str) -> datetime:

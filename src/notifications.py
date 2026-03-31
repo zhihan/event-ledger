@@ -62,7 +62,7 @@ def _build_email_body(occurrence: Occurrence, series: Series) -> str:
         lines.append(f"Location: {location}")
     if online_link:
         lines.append(f"Online link: {online_link}")
-    lines += ["", f"View details: {link}", "", "— Event Ledger"]
+    lines += ["", f"View details: {link}", "", "— Meeting Assistant"]
     return "\n".join(lines)
 
 

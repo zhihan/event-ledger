@@ -137,7 +137,7 @@ def run_retry_pass(max_age_hours: int = 24) -> dict[str, int]:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Event Ledger notification scheduler")
+    parser = argparse.ArgumentParser(description="Meeting Assistant notification scheduler")
     parser.add_argument("--lookahead", type=int, default=None)
     parser.add_argument("--retry", action="store_true")
     parser.add_argument("--retry-max-age-hours", type=int, default=24)

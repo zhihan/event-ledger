@@ -1,6 +1,6 @@
-# Event Ledger
+# Meeting Assistant
 
-Event Ledger is a Firebase- and Firestore-backed recurring-schedule platform with workspaces, series, occurrences, check-ins, notifications, and an organizer assistant.
+Meeting Assistant is a Firebase- and Firestore-backed recurring-schedule platform with workspaces, series, occurrences, check-ins, notifications, and an organizer assistant.
 
 The current web app is deployed at `https://living-memories-488001.web.app`.
 

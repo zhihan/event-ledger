@@ -11,11 +11,11 @@ import 'services/auth_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const EventLedgerApp());
+  runApp(const MeetingAssistantApp());
 }
 
-class EventLedgerApp extends StatelessWidget {
-  const EventLedgerApp({super.key});
+class MeetingAssistantApp extends StatelessWidget {
+  const MeetingAssistantApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class EventLedgerApp extends StatelessWidget {
           return Provider(
             create: (_) => ApiService(auth),
             child: MaterialApp.router(
-              title: 'Event Ledger',
+              title: 'Meeting Assistant',
               theme: AppTheme.light,
               routerConfig: buildRouter(auth),
               debugShowCheckedModeBanner: false,

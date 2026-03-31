@@ -2,7 +2,7 @@
 
 ## 1. Product Summary
 
-Pivot Event Ledger from a page-based event board into a product with three connected use cases:
+Pivot Meeting Assistant from a page-based event board into a product with three connected use cases:
 
 1. Personal reminders for recurring study and daily habits
 2. Shared meeting coordination for Christian groups

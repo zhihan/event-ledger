@@ -1,4 +1,4 @@
-"""HTTP API for Event Ledger — deployed to Cloud Run.
+"""HTTP API for Meeting Assistant — deployed to Cloud Run.
 
 Uses Firebase ID token auth for all authenticated endpoints.
 """
@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Event Ledger API")
+app = FastAPI(title="Meeting Assistant API")
 
 app.add_middleware(
     CORSMiddleware,
