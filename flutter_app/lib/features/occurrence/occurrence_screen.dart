@@ -176,9 +176,11 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
           FilledButton(
               onPressed: () {
                 Navigator.pop(ctx, {
+                  'location': locationCtrl.text.trim().isNotEmpty
+                      ? locationCtrl.text.trim()
+                      : null,
                   'overrides': {
                     'title': titleCtrl.text,
-                    'location': locationCtrl.text,
                     'online_link': linkCtrl.text,
                     'notes': notesCtrl.text,
                   },
