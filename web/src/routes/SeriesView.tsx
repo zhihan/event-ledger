@@ -192,7 +192,9 @@ export function SeriesView() {
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
         rotation_mode: editRotationMode,
         host_rotation: editRotationMode !== "none" ? editHostRotation.filter((h) => h.trim()) : undefined,
-        host_addresses: editRotationMode === "host_and_location" ? editHostAddresses : undefined,
+        host_addresses: editRotationMode === "host_and_location"
+          ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k, v]) => k.trim() && v.trim()))
+          : undefined,
       };
       const updated = await patchSeries(seriesId, updates);
       setSeries(updated);
@@ -460,9 +462,18 @@ export function SeriesView() {
                     className="form-input"
                     value={hostLabel}
                     onChange={(e) => {
+                      const oldName = editHostRotation[i];
                       const next = [...editHostRotation];
                       next[i] = e.target.value;
                       setEditHostRotation(next);
+                      if (editRotationMode === "host_and_location" && oldName !== e.target.value) {
+                        const newAddresses = { ...editHostAddresses };
+                        if (oldName in newAddresses) {
+                          newAddresses[e.target.value] = newAddresses[oldName];
+                          delete newAddresses[oldName];
+                        }
+                        setEditHostAddresses(newAddresses);
+                      }
                     }}
                     disabled={editSubmitting}
                     placeholder="e.g. Team A, Alice, Bob's family"

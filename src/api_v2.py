@@ -249,6 +249,14 @@ class CreateSeriesRequest(BaseModel):
             raise ValueError("location_type 'rotation' is no longer supported. Use 'fixed' or 'per_occurrence'.")
         return v
 
+    @field_validator('host_addresses')
+    @classmethod
+    def validate_host_addresses(cls, v):
+        """Filter out entries with empty keys or values to prevent Firestore errors."""
+        if v is None:
+            return v
+        return {k: v_ for k, v_ in v.items() if k and k.strip() and v_ and v_.strip()}
+
     @field_validator('host_rotation')
     @classmethod
     def validate_host_rotation(cls, v, info):
@@ -286,6 +294,14 @@ class UpdateSeriesRequest(BaseModel):
         if v == "rotation":
             raise ValueError("location_type 'rotation' is no longer supported. Use 'fixed' or 'per_occurrence'.")
         return v
+
+    @field_validator('host_addresses')
+    @classmethod
+    def validate_host_addresses(cls, v):
+        """Filter out entries with empty keys or values to prevent Firestore errors."""
+        if v is None:
+            return v
+        return {k: v_ for k, v_ in v.items() if k and k.strip() and v_ and v_.strip()}
 
 
 class GenerateOccurrencesRequest(BaseModel):
