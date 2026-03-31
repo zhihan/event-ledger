@@ -19,9 +19,6 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
 import { Toast } from "../components/Toast";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
-
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
     timeZone: timezone,
@@ -60,7 +57,7 @@ export function SeriesView() {
   const [error, setError] = useState<Error | null>(null);
 
   const [editing, setEditing] = useState(false);
-  const [editCheckInDays, setEditCheckInDays] = useState<number[]>([]);
+  const [editEnableDone, setEditEnableDone] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
@@ -144,7 +141,7 @@ export function SeriesView() {
 
   function startEdit() {
     if (!series) return;
-    setEditCheckInDays(series.check_in_weekdays ?? []);
+    setEditEnableDone(series.enable_done ?? false);
     setEditTitle(series.title);
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
@@ -182,7 +179,7 @@ export function SeriesView() {
     setEditError(null);
     try {
       const updates: Parameters<typeof patchSeries>[1] = {
-        check_in_weekdays: editCheckInDays,
+        enable_done: editEnableDone,
         title: editTitle.trim() || undefined,
         description: editDescription.trim() || undefined,
         default_location: editLocation.trim() || undefined,
@@ -193,7 +190,7 @@ export function SeriesView() {
         rotation_mode: editRotationMode,
         host_rotation: editRotationMode !== "none" ? editHostRotation.filter((h) => h.trim()) : undefined,
         host_addresses: editRotationMode === "host_and_location"
-          ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k, v]) => k.trim() && v.trim()))
+          ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k]) => k.trim()))
           : undefined,
       };
       const updated = await patchSeries(seriesId, updates);
@@ -548,31 +545,18 @@ export function SeriesView() {
               </button>
             </div>
           )}
-          {series && series.schedule_rule.weekdays && series.schedule_rule.weekdays.length > 0 && (
-            <div className="form-field">
-              <label>Practice days</label>
-              <div className="days-toggle">
-                {DAYS.map((day, i) => {
-                  const dv = DAY_VALUES[i];
-                  if (!series.schedule_rule.weekdays?.includes(dv)) return null;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setEditCheckInDays((prev) =>
-                        prev.includes(dv) ? prev.filter((d) => d !== dv) : [...prev, dv]
-                      )}
-                      disabled={editSubmitting}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="form-hint">Occurrences on these days will enable practice logging</span>
-            </div>
-          )}
+          <div className="form-field">
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={editEnableDone}
+                onChange={(e) => setEditEnableDone(e.target.checked)}
+                disabled={editSubmitting}
+              />
+              <span>Enable checking</span>
+            </label>
+            <span className="form-hint">Members can mark each occurrence as done</span>
+          </div>
           <div className="form-field">
             <label htmlFor="edit-extend">Extend schedule to</label>
             <input
@@ -991,7 +975,7 @@ export function SeriesView() {
       {/* Check-in Report */}
       <section className="section">
         <div className="section-header">
-          <h2>Practice Report</h2>
+          <h2>Completion Report</h2>
           <button
             type="button"
             className="btn btn-secondary btn-sm"

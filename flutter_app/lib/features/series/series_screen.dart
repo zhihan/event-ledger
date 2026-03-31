@@ -154,7 +154,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final linkCtrl =
         TextEditingController(text: series.defaultOnlineLink ?? '');
     var locationType = series.locationType;
-    var checkInWeekdays = List<int>.from(series.checkInWeekdays ?? []);
+    var enableDone = series.enableDone;
     String? extendDate;
     var hostRotationMode = series.hostRotationMode;
     var hostRotation = List<String>.from(series.hostRotation ?? []);
@@ -240,35 +240,12 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       controller: linkCtrl,
                       decoration:
                           const InputDecoration(labelText: 'Online Link')),
-                  if (series.scheduleRule.weekdays.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Practice days',
-                        style: TextStyle(fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 4,
-                      children: {
-                        1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu',
-                        5: 'Fri', 6: 'Sat', 7: 'Sun',
-                      }.entries.where((e) {
-                        return series.scheduleRule.weekdays.contains(e.key);
-                      }).map((e) {
-                        return FilterChip(
-                          label: Text(e.value),
-                          selected: checkInWeekdays.contains(e.key),
-                          onSelected: (sel) {
-                            setDialogState(() {
-                              if (sel) {
-                                checkInWeekdays.add(e.key);
-                              } else {
-                                checkInWeekdays.remove(e.key);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                  SwitchListTile(
+                    title: const Text('Enable checking'),
+                    value: enableDone,
+                    onChanged: (v) => setDialogState(() => enableDone = v),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                   const SizedBox(height: 12),
                   InkWell(
                     onTap: () async {
@@ -500,7 +477,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   if (locationType != series.locationType) {
                     updates['location_type'] = locationType;
                   }
-                  updates['check_in_weekdays'] = checkInWeekdays;
+                  if (enableDone != series.enableDone) {
+                    updates['enable_done'] = enableDone;
+                  }
                   if (hostRotationMode != series.hostRotationMode) {
                     updates['rotation_mode'] = hostRotationMode;
                   }
@@ -514,7 +493,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     updates['_extend_date'] = extendDate;
                   }
                   Navigator.pop(
-                      ctx, updates.length <= 3 && extendDate == null ? null : updates);
+                      ctx, updates.isEmpty && extendDate == null ? null : updates);
                 },
                 child: const Text('Save')),
           ],

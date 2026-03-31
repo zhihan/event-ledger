@@ -478,10 +478,10 @@ class TestCheckInEndpoints:
         assert resp.json()["check_in"] is None
 
 
-class TestCheckInWeekdays:
-    """Tests for check_in_weekdays on series and enable_check_in on occurrences."""
+class TestEnableDone:
+    """Tests for enable_done on series and enable_check_in on occurrences."""
 
-    def test_create_series_with_check_in_weekdays(self, organizer_client):
+    def test_create_series_with_enable_done(self, organizer_client):
         ws = _make_workspace()
         with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.create_series", side_effect=lambda s: s):
             resp = organizer_client.post(
@@ -490,25 +490,25 @@ class TestCheckInWeekdays:
                     "kind": "meeting",
                     "title": "Study Group",
                     "schedule_rule": {"frequency": "weekly", "weekdays": [1, 3, 5]},
-                    "check_in_weekdays": [3, 5],
+                    "enable_done": True,
                 },
                 headers=AUTH,
             )
         assert resp.status_code == 201
-        assert resp.json()["check_in_weekdays"] == [3, 5]
+        assert resp.json()["enable_done"] is True
 
-    def test_update_series_check_in_weekdays(self, organizer_client):
+    def test_update_series_enable_done(self, organizer_client):
         ws = _make_workspace()
-        series = _make_series(check_in_weekdays=[1])
-        updated_series = _make_series(check_in_weekdays=[1, 3])
+        series = _make_series(enable_done=False)
+        updated_series = _make_series(enable_done=True)
         with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_series", return_value=updated_series),              patch("occurrence_service.apply_check_in_days"):
             resp = organizer_client.patch(
                 "/v2/series/s-1",
-                json={"check_in_weekdays": [1, 3]},
+                json={"enable_done": True},
                 headers=AUTH,
             )
         assert resp.status_code == 200
-        assert resp.json()["check_in_weekdays"] == [1, 3]
+        assert resp.json()["enable_done"] is True
 
     def test_patch_occurrence_enable_check_in(self, organizer_client):
         ws = _make_workspace()

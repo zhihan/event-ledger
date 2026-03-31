@@ -166,7 +166,10 @@ class Series:
     location_rotation: list[str] | None = None
     status: SeriesStatus = "active"
     # ISO weekdays (1=Mon … 7=Sun) on which check-in is enabled; empty/None = no check-ins
+    # DEPRECATED: kept for reading old data; use enable_done instead
     check_in_weekdays: list[int] | None = None
+    # Simple boolean: when True, all generated occurrences get enable_check_in=True
+    enable_done: bool = False
     # Host rotation fields
     rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
     host_rotation: list[str] | None = None  # List of host labels
@@ -193,6 +196,7 @@ class Series:
             "location_rotation": self.location_rotation,
             "status": self.status,
             "check_in_weekdays": self.check_in_weekdays,
+            "enable_done": self.enable_done,
             "rotation_mode": self.rotation_mode,
             "host_rotation": self.host_rotation,
             "host_addresses": self.host_addresses,
@@ -204,6 +208,13 @@ class Series:
 
     @classmethod
     def from_dict(cls, data: dict) -> Series:
+        # Backward compat: if doc has non-empty check_in_weekdays but no
+        # explicit enable_done, treat it as enable_done=True.
+        check_in_weekdays = data.get("check_in_weekdays")
+        if "enable_done" in data:
+            enable_done = bool(data["enable_done"])
+        else:
+            enable_done = bool(check_in_weekdays)
         return cls(
             series_id=data["series_id"],
             workspace_id=data["workspace_id"],
@@ -217,7 +228,8 @@ class Series:
             location_type="fixed" if data.get("location_type") == "rotation" else data.get("location_type", "fixed"),
             location_rotation=data.get("location_rotation"),
             status=data.get("status", "active"),
-            check_in_weekdays=data.get("check_in_weekdays"),
+            check_in_weekdays=check_in_weekdays,
+            enable_done=enable_done,
             rotation_mode=data.get("rotation_mode", "none"),
             host_rotation=data.get("host_rotation"),
             host_addresses=data.get("host_addresses"),

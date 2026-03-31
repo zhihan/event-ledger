@@ -49,7 +49,7 @@ class _CheckInReportWidgetState extends State<CheckInReportWidget> {
           },
           child: Row(
             children: [
-              Text('Practice Report',
+              Text('Completion Report',
                   style: Theme.of(context).textTheme.titleMedium),
               Icon(_expanded ? Icons.expand_less : Icons.expand_more),
             ],

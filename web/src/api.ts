@@ -80,6 +80,7 @@ export interface SeriesSummary {
   location_type: "fixed" | "per_occurrence" | "rotation";
   location_rotation: string[] | null;
   check_in_weekdays: number[] | null;
+  enable_done?: boolean;
   rotation_mode?: "none" | "host_only" | "host_and_location";
   host_rotation?: string[];
   host_addresses?: Record<string, string>;
@@ -230,6 +231,7 @@ export async function patchSeries(
     description: string;
     default_time: string;
     check_in_weekdays: number[];
+    enable_done: boolean;
     default_duration_minutes: number;
     default_location: string;
     default_online_link: string;

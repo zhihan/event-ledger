@@ -549,12 +549,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
               Card(
                 child: Column(
                   children: [
-                    SwitchListTile(
-                      title: const Text('Enable practice log',
-                          style: TextStyle(fontSize: 14)),
-                      value: occ.enableCheckIn,
-                      onChanged: (v) => _toggleCheckIn(v),
-                    ),
+                    if (series.enableDone)
+                      SwitchListTile(
+                        title: const Text('Enable checking',
+                            style: TextStyle(fontSize: 14)),
+                        value: occ.enableCheckIn,
+                        onChanged: (v) => _toggleCheckIn(v),
+                      ),
                     if (series.hostRotationMode != 'none') ...[
                       const Divider(height: 1),
                       ListTile(

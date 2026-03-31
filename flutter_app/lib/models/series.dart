@@ -50,6 +50,7 @@ class Series {
   final String? createdBy;
   final String hostRotationMode;
   final List<String>? hostRotation;
+  final bool enableDone;
   final Map<String, String>? hostAddresses;
 
   const Series({
@@ -66,6 +67,7 @@ class Series {
     this.locationRotation,
     this.status = 'active',
     this.checkInWeekdays,
+    this.enableDone = false,
     this.description,
     this.createdBy,
     this.hostRotationMode = 'none',
@@ -102,6 +104,9 @@ class Series {
       checkInWeekdays: json['check_in_weekdays'] != null
           ? List<int>.from(json['check_in_weekdays'])
           : null,
+      enableDone: json['enable_done'] as bool? ??
+          (json['check_in_weekdays'] != null &&
+              (json['check_in_weekdays'] as List).isNotEmpty),
       description: json['description'] as String?,
       createdBy: json['created_by'] as String?,
       hostRotationMode: json['rotation_mode'] as String? ?? json['host_rotation_mode'] as String? ?? 'none',

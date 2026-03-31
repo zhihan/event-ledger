@@ -138,7 +138,7 @@ export function OccurrenceView() {
         return [...filtered, ci];
       });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to log practice");
+      alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setCheckInSubmitting(false);
     }
@@ -206,19 +206,21 @@ export function OccurrenceView() {
       {isManager && (
         <section className="section">
           {/* status buttons hidden – issue #114 */}
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={occ.enable_check_in}
-              onChange={async (e) => {
-                const updated = await patchOccurrence(occ.occurrence_id, {
-                  enable_check_in: e.target.checked,
-                });
-                setOccurrence(updated);
-              }}
-            />
-            <span>Enable practice log</span>
-          </label>
+          {series?.enable_done && (
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={occ.enable_check_in}
+                onChange={async (e) => {
+                  const updated = await patchOccurrence(occ.occurrence_id, {
+                    enable_check_in: e.target.checked,
+                  });
+                  setOccurrence(updated);
+                }}
+              />
+              <span>Enable checking</span>
+            </label>
+          )}
           <div style={{ marginTop: 8 }}>
             <button
               className="btn btn-sm btn-danger"
@@ -390,9 +392,6 @@ export function OccurrenceView() {
       {/* Check-in section — shown on practice/study days (no location and no online link) */}
       {isPracticeDay && (
         <section className="section">
-          <div className="section-header">
-            <h2>Practice Log</h2>
-          </div>
           {myCheckIn?.status === "confirmed" ? (
             <div className="checkin-done">
               <span className="checkin-done-label">Done ✓</span>

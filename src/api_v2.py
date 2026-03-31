@@ -235,7 +235,7 @@ class CreateSeriesRequest(BaseModel):
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed" or "per_occurrence"
-    check_in_weekdays: Optional[list[int]] = None
+    enable_done: Optional[bool] = None
     rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
@@ -255,7 +255,7 @@ class CreateSeriesRequest(BaseModel):
         """Filter out entries with empty keys or values to prevent Firestore errors."""
         if v is None:
             return v
-        return {k: v_ for k, v_ in v.items() if k and k.strip() and v_ and v_.strip()}
+        return {k: v_ for k, v_ in v.items() if k and k.strip()}
 
     @field_validator('host_rotation')
     @classmethod
@@ -279,7 +279,7 @@ class UpdateSeriesRequest(BaseModel):
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed" or "per_occurrence"
-    check_in_weekdays: Optional[list[int]] = None
+    enable_done: Optional[bool] = None
     rotation_mode: Optional[str] = None  # "none", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
@@ -301,7 +301,7 @@ class UpdateSeriesRequest(BaseModel):
         """Filter out entries with empty keys or values to prevent Firestore errors."""
         if v is None:
             return v
-        return {k: v_ for k, v_ in v.items() if k and k.strip() and v_ and v_.strip()}
+        return {k: v_ for k, v_ in v.items() if k and k.strip()}
 
 
 class GenerateOccurrencesRequest(BaseModel):
@@ -546,7 +546,7 @@ def create_series(
         default_location=body.default_location,
         default_online_link=body.default_online_link,
         location_type=body.location_type or "fixed",
-        check_in_weekdays=body.check_in_weekdays,
+        enable_done=body.enable_done or False,
         rotation_mode=body.rotation_mode,
         host_rotation=body.host_rotation,
         host_addresses=body.host_addresses,
@@ -613,7 +613,7 @@ def update_series(
     updates: dict = {}
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
-                  "check_in_weekdays", "rotation_mode",
+                  "enable_done", "rotation_mode",
                   "host_rotation", "host_addresses", "status", "description"):
         val = getattr(body, field)
         if val is not None:
@@ -623,9 +623,9 @@ def update_series(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     updated = series_storage.update_series(series_id, updates)
-    if "check_in_weekdays" in updates:
+    if "enable_done" in updates:
         from occurrence_service import apply_check_in_days
-        apply_check_in_days(series_id, ws.timezone)
+        apply_check_in_days(series_id)
     return updated.to_dict()
 
 

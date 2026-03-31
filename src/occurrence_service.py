@@ -78,8 +78,6 @@ def generate_and_save(
     existing_times: set[str] = {occ.scheduled_for for occ in existing}
     existing_count = len(existing)
 
-    check_in_days = set(series.check_in_weekdays or [])
-
     new_occurrences: list[Occurrence] = []
     for idx, utc_dt in enumerate(utc_datetimes):
         scheduled_for = utc_dt.isoformat()
@@ -99,9 +97,6 @@ def generate_and_save(
         else:
             loc = None
 
-        # Determine check-in from local weekday (ISO: 1=Mon..7=Sun)
-        local_dt = utc_dt.astimezone(tz)
-        iso_weekday = local_dt.isoweekday()
         occ = Occurrence(
             occurrence_id=str(uuid.uuid4()),
             series_id=series.series_id,
@@ -111,7 +106,7 @@ def generate_and_save(
             location=loc,
             host=host_label,
             sequence_index=seq,
-            enable_check_in=iso_weekday in check_in_days,
+            enable_check_in=series.enable_done,
         )
         new_occurrences.append(occ)
 
@@ -221,7 +216,6 @@ def regenerate_series(
             cancelled += 1
 
     # Create new occurrences for times not yet in Firestore
-    check_in_days = set(series.check_in_weekdays or [])
     to_create: list[Occurrence] = []
     base_seq = len(existing)
     for idx, utc_dt in enumerate(new_utc_times):
@@ -232,8 +226,6 @@ def regenerate_series(
                 loc = series.default_location
             else:
                 loc = None
-            local_dt = utc_dt.astimezone(tz)
-            iso_weekday = local_dt.isoweekday()
             to_create.append(Occurrence(
                 occurrence_id=str(uuid.uuid4()),
                 series_id=series_id,
@@ -242,7 +234,7 @@ def regenerate_series(
                 status="scheduled",
                 location=loc,
                 sequence_index=seq,
-                enable_check_in=iso_weekday in check_in_days,
+                enable_check_in=series.enable_done,
             ))
 
     if to_create:
@@ -255,15 +247,14 @@ def regenerate_series(
 # Re-apply check-in days to upcoming occurrences
 # ---------------------------------------------------------------------------
 
-def apply_check_in_days(series_id: str, workspace_timezone: str) -> int:
-    """Re-evaluate enable_check_in on all future 'scheduled' occurrences
-    based on the series' check_in_weekdays.  Returns the count updated."""
+def apply_check_in_days(series_id: str) -> int:
+    """Set enable_check_in on all future 'scheduled' occurrences
+    based on the series' enable_done flag.  Returns the count updated."""
     series = get_series(series_id)
     if series is None:
         raise ValueError(f"Series not found: {series_id}")
 
-    check_in_days = set(series.check_in_weekdays or [])
-    tz = ZoneInfo(workspace_timezone)
+    should_enable = series.enable_done
 
     existing = list_occurrences_for_series(series_id)
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -274,14 +265,6 @@ def apply_check_in_days(series_id: str, workspace_timezone: str) -> int:
 
     updated = 0
     for occ in future:
-        try:
-            utc_dt = datetime.fromisoformat(occ.scheduled_for)
-        except ValueError:
-            continue
-        if utc_dt.tzinfo is None:
-            utc_dt = utc_dt.replace(tzinfo=timezone.utc)
-        local_weekday = utc_dt.astimezone(tz).isoweekday()
-        should_enable = local_weekday in check_in_days
         if occ.enable_check_in != should_enable:
             update_occurrence(occ.occurrence_id, {"enable_check_in": should_enable})
             updated += 1
