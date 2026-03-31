@@ -643,59 +643,57 @@ export function SeriesView() {
               <Link to={`/occurrences/${next.occurrence_id}`} className="meeting-card-date">
                 {formatDate(next.scheduled_for)}
               </Link>
-              {series?.rotation_mode !== "host_and_location" && (
-                editingLocationId === next.occurrence_id ? (
-                  <input
-                    type="text"
-                    className="form-input form-input-sm upcoming-location-input"
-                    value={editingLocationValue}
-                    onChange={(e) => setEditingLocationValue(e.target.value)}
-                    autoFocus
-                    placeholder="Location"
-                    onBlur={async () => {
-                      const newLoc = editingLocationValue.trim();
-                      if (newLoc === (next.location ?? "")) {
-                        setEditingLocationId(null);
-                        return;
-                      }
-                      try {
-                        const updated = await patchOccurrence(next.occurrence_id, {
-                          location: newLoc || null,
-                        });
-                        setOccurrences((prev) =>
-                          prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
-                        );
-                      } catch (err) {
-                        alert(err instanceof Error ? err.message : "Failed to save");
-                      }
+              {editingLocationId === next.occurrence_id ? (
+                <input
+                  type="text"
+                  className="form-input form-input-sm upcoming-location-input"
+                  value={editingLocationValue}
+                  onChange={(e) => setEditingLocationValue(e.target.value)}
+                  autoFocus
+                  placeholder="Location"
+                  onBlur={async () => {
+                    const newLoc = editingLocationValue.trim();
+                    if (newLoc === (next.location ?? "")) {
                       setEditingLocationId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      if (e.key === "Escape") setEditingLocationId(null);
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="meeting-card-location upcoming-location-clickable"
-                    onClick={() => {
+                      return;
+                    }
+                    try {
+                      const updated = await patchOccurrence(next.occurrence_id, {
+                        location: newLoc || null,
+                      });
+                      setOccurrences((prev) =>
+                        prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
+                      );
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "Failed to save");
+                    }
+                    setEditingLocationId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") setEditingLocationId(null);
+                  }}
+                />
+              ) : (
+                <span
+                  className="meeting-card-location upcoming-location-clickable"
+                  onClick={() => {
+                    setEditingLocationId(next.occurrence_id);
+                    setEditingLocationValue(next.location ?? "");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
                       setEditingLocationId(next.occurrence_id);
                       setEditingLocationValue(next.location ?? "");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setEditingLocationId(next.occurrence_id);
-                        setEditingLocationValue(next.location ?? "");
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    title="Click to edit"
-                  >
-                    {next.location || "Set location"}
-                  </span>
-                )
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to edit"
+                >
+                  {next.location || "Set location"}
+                </span>
               )}
               {editingHostId === next.occurrence_id ? (
                 <input
@@ -776,11 +774,7 @@ export function SeriesView() {
                   role="button"
                   title="Click to edit host"
                 >
-                  {next.host
-                    ? series?.rotation_mode === "host_and_location" && next.location
-                      ? `${next.host} · ${next.location}`
-                      : `Host: ${next.host}`
-                    : "Set host"}
+                  {next.host ? `Host: ${next.host}` : "Set host"}
                 </span>
               )}
               {editingAgenda ? (
@@ -841,59 +835,57 @@ export function SeriesView() {
                 <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
                   {formatDate(o.scheduled_for)}
                 </Link>
-                {series?.rotation_mode !== "host_and_location" && (
-                  editingLocationId === o.occurrence_id ? (
-                    <input
-                      type="text"
-                      className="form-input form-input-sm upcoming-location-input"
-                      value={editingLocationValue}
-                      onChange={(e) => setEditingLocationValue(e.target.value)}
-                      autoFocus
-                      placeholder="Location"
-                      onBlur={async () => {
-                        const newLoc = editingLocationValue.trim();
-                        if (newLoc === (o.location ?? "")) {
-                          setEditingLocationId(null);
-                          return;
-                        }
-                        try {
-                          const updated = await patchOccurrence(o.occurrence_id, {
-                            location: newLoc || null,
-                          });
-                          setOccurrences((prev) =>
-                            prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
-                          );
-                        } catch (err) {
-                          alert(err instanceof Error ? err.message : "Failed to save");
-                        }
+                {editingLocationId === o.occurrence_id ? (
+                  <input
+                    type="text"
+                    className="form-input form-input-sm upcoming-location-input"
+                    value={editingLocationValue}
+                    onChange={(e) => setEditingLocationValue(e.target.value)}
+                    autoFocus
+                    placeholder="Location"
+                    onBlur={async () => {
+                      const newLoc = editingLocationValue.trim();
+                      if (newLoc === (o.location ?? "")) {
                         setEditingLocationId(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                        if (e.key === "Escape") setEditingLocationId(null);
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className="upcoming-location upcoming-location-clickable"
-                      onClick={() => {
+                        return;
+                      }
+                      try {
+                        const updated = await patchOccurrence(o.occurrence_id, {
+                          location: newLoc || null,
+                        });
+                        setOccurrences((prev) =>
+                          prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
+                        );
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to save");
+                      }
+                      setEditingLocationId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setEditingLocationId(null);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="upcoming-location upcoming-location-clickable"
+                    onClick={() => {
+                      setEditingLocationId(o.occurrence_id);
+                      setEditingLocationValue(o.location ?? "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
                         setEditingLocationId(o.occurrence_id);
                         setEditingLocationValue(o.location ?? "");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setEditingLocationId(o.occurrence_id);
-                          setEditingLocationValue(o.location ?? "");
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      title="Click to edit"
-                    >
-                      {o.location || "—"}
-                    </span>
-                  )
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    title="Click to edit"
+                  >
+                    {o.location || "—"}
+                  </span>
                 )}
                 {editingHostId === o.occurrence_id ? (
                   <input
@@ -976,11 +968,7 @@ export function SeriesView() {
                     role="button"
                     title="Click to edit host"
                   >
-                    {o.host
-                      ? series?.rotation_mode === "host_and_location" && o.location
-                        ? `${o.host} · ${o.location}`
-                        : `Host: ${o.host}`
-                      : "Set host"}
+                    {o.host ? `Host: ${o.host}` : "Set host"}
                   </span>
                 )}
               </div>
