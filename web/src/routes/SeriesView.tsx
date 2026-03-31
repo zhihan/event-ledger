@@ -242,11 +242,12 @@ export function SeriesView() {
   if (loading) return <LoadingSpinner message="Loading series..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
+  const now = new Date().toISOString();
   const upcoming = occurrences?.filter(
-    (o) => !["completed", "cancelled"].includes(o.status),
+    (o) => o.scheduled_for > now && !["completed", "cancelled"].includes(o.status),
   ) ?? [];
   const past = occurrences?.filter(
-    (o) => ["completed", "cancelled"].includes(o.status),
+    (o) => o.scheduled_for <= now || ["completed", "cancelled"].includes(o.status),
   ) ?? [];
 
   return (
