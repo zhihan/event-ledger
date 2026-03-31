@@ -304,6 +304,43 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 ],
               ),
             ),
+
+            // Delete workspace (organizer only)
+            if (_isOrganizer(ws)) ...[
+              const SizedBox(height: 24),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Delete workspace',
+                      style: TextStyle(color: Colors.red)),
+                  onTap: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete workspace?'),
+                        content: const Text(
+                            'This will delete the workspace and all its data. This cannot be undone.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete',
+                                  style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && mounted) {
+                      await context
+                          .read<ApiService>()
+                          .deleteWorkspace(widget.workspaceId);
+                      if (mounted) context.go('/');
+                    }
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),

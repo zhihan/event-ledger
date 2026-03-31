@@ -579,6 +579,43 @@ class _SeriesScreenState extends State<SeriesScreen> {
               const SizedBox(height: 16),
               CheckInReportWidget(seriesId: widget.seriesId),
             ],
+
+            // Delete series
+            if (_canManage) ...[
+              const SizedBox(height: 24),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Delete series',
+                      style: TextStyle(color: Colors.red)),
+                  onTap: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete series?'),
+                        content: const Text(
+                            'This will delete the series and all its occurrences. This cannot be undone.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete',
+                                  style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && mounted) {
+                      await context
+                          .read<ApiService>()
+                          .deleteSeries(widget.seriesId);
+                      if (mounted) context.pop();
+                    }
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -620,8 +657,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final dt = occ.scheduledDateTime.toLocal();
     final dateStr = DateFormat('E, MMM d').format(dt);
     final timeStr = DateFormat('HH:mm').format(dt);
-    final statusColor = _statusColor(occ.status);
-
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -693,16 +728,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(occ.status,
-                    style: TextStyle(fontSize: 11, color: statusColor,
-                        fontWeight: FontWeight.w500)),
-              ),
+              // status badge hidden – issue #114
             ],
           ),
         ),
@@ -785,15 +811,5 @@ class _SeriesScreenState extends State<SeriesScreen> {
         ),
       ),
     );
-  }
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'scheduled' => Colors.blue,
-      'completed' => Colors.green,
-      'cancelled' => Colors.grey,
-      'rescheduled' => Colors.orange,
-      _ => Colors.grey,
-    };
   }
 }

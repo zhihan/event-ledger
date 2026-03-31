@@ -43,15 +43,6 @@ function formatScheduleRule(rule: ScheduleRule): string {
   return rule.frequency;
 }
 
-function statusColor(status: string): string {
-  const map: Record<string, string> = {
-    scheduled: "badge-status-scheduled",
-    rescheduled: "badge-status-confirmed",
-    completed: "badge-status-completed",
-    cancelled: "badge-status-cancelled",
-  };
-  return map[status] ?? "badge-status-scheduled";
-}
 
 export function SeriesView() {
   const { workspaceId, seriesId } = useParams<{
@@ -503,7 +494,7 @@ export function SeriesView() {
               <Link to={`/occurrences/${last.occurrence_id}`} className="meeting-card-date">
                 {formatDate(last.scheduled_for)}
               </Link>
-              <span className={`badge ${statusColor(last.status)}`}>{last.status}</span>
+              {/* status badge hidden – issue #114 */}
               {last.overrides?.notes && (
                 <p className="meeting-card-notes">{last.overrides.notes.length > 120 ? last.overrides.notes.slice(0, 120) + "…" : last.overrides.notes}</p>
               )}

@@ -469,18 +469,9 @@ body {
   white-space: nowrap;
 }
 
-.badge-status-scheduled { background: rgba(63,81,181,0.1); color: var(--primary); }
-.badge-status-confirmed { background: rgba(46,125,50,0.1); color: var(--success); }
-.badge-status-completed { background: rgba(0,0,0,0.06); color: var(--on-surface-variant); }
-.badge-status-cancelled { background: rgba(0,0,0,0.06); color: var(--on-surface-variant); }
-.badge-status-rescheduled { background: rgba(230,81,0,0.1); color: var(--warning); }
-
 .badge-role-organizer { background: rgba(63,81,181,0.1); color: var(--primary); }
 .badge-role-participant { background: rgba(0,0,0,0.06); color: var(--on-surface-variant); }
 .badge-role-teacher { background: rgba(46,125,50,0.1); color: var(--success); }
-
-.badge-ci-ontime { background: rgba(46,125,50,0.1); color: var(--success); }
-.badge-ci-late { background: rgba(230,81,0,0.1); color: var(--warning); }
 
 /* Location / Link chips */
 .location-chip {
@@ -700,12 +691,6 @@ body {
 .rotation-row .form-input { flex: 1; }
 
 /* Status row */
-.status-row {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
 
 /* Toggle row */
 .toggle-row {

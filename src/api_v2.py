@@ -676,6 +676,19 @@ def update_occurrence_endpoint(
     return result.to_dict()
 
 
+@router.delete("/occurrences/{occurrence_id}", status_code=204)
+def delete_occurrence_endpoint(
+    occurrence_id: str,
+    token: dict = Depends(_require_token),
+) -> None:
+    occ = series_storage.get_occurrence(occurrence_id)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Occurrence not found")
+    ws = _get_workspace_or_404(occ.workspace_id)
+    _require_organizer(ws, token["uid"])
+    series_storage.delete_occurrence(occurrence_id)
+
+
 # ---------------------------------------------------------------------------
 # CheckIn endpoints
 # ---------------------------------------------------------------------------

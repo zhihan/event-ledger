@@ -105,19 +105,6 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     }
   }
 
-  Future<void> _updateStatus(String status) async {
-    try {
-      await context.read<ApiService>().updateOccurrence(
-          widget.occurrenceId, {'status': status});
-      _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
   Future<void> _toggleCheckIn(bool enable) async {
     try {
       await context.read<ApiService>().updateOccurrence(
@@ -239,8 +226,6 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         occ.effectiveOnlineLink ?? series.defaultOnlineLink;
     final duration =
         occ.overrides?.durationMinutes ?? series.defaultDurationMinutes;
-    final statusColor = _statusColorFor(occ.status);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(occ.effectiveTitle.isNotEmpty
@@ -304,19 +289,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(occ.status,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: statusColor)),
-                    ),
+                    // status badge hidden – issue #114
                   ],
                 ),
               ),
@@ -432,33 +405,41 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
               Card(
                 child: Column(
                   children: [
-                    // Status controls
-                    if (occ.status == 'scheduled')
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: () => _updateStatus('completed'),
-                                child: const Text('Complete'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _updateStatus('cancelled'),
-                                child: const Text('Cancel'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     SwitchListTile(
                       title: const Text('Enable Check-in',
                           style: TextStyle(fontSize: 14)),
                       value: occ.enableCheckIn,
                       onChanged: (v) => _toggleCheckIn(v),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline, color: Colors.red),
+                      title: const Text('Delete occurrence',
+                          style: TextStyle(color: Colors.red)),
+                      onTap: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete occurrence?'),
+                            content: const Text('This cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel')),
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Delete',
+                                      style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && mounted) {
+                          await context
+                              .read<ApiService>()
+                              .deleteOccurrence(widget.occurrenceId);
+                          if (mounted) Navigator.pop(context);
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -548,16 +529,6 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             color: cs.onSurfaceVariant,
           )),
     );
-  }
-
-  Color _statusColorFor(String status) {
-    return switch (status) {
-      'scheduled' => Colors.blue,
-      'completed' => Colors.green,
-      'cancelled' => Colors.grey,
-      'rescheduled' => Colors.orange,
-      _ => Colors.grey,
-    };
   }
 
   Widget _checkInIcon(String status) {

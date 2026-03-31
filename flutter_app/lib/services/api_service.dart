@@ -256,6 +256,10 @@ class ApiService {
     return Occurrence.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<void> deleteOccurrence(String id) async {
+    await _request('DELETE', '/v2/occurrences/$id');
+  }
+
   // --- Check-ins ---
 
   Future<CheckIn> upsertCheckIn(

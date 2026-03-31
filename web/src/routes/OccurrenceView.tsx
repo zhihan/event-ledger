@@ -19,7 +19,6 @@ import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 
-const OCCURRENCE_STATUSES = ["scheduled", "rescheduled", "completed", "cancelled"];
 
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -58,8 +57,6 @@ export function OccurrenceView() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Status change
-  const [statusChanging, setStatusChanging] = useState(false);
 
 
   const load = useCallback(async () => {
@@ -126,19 +123,6 @@ export function OccurrenceView() {
       setEditError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setEditSubmitting(false);
-    }
-  }
-
-  async function handleStatusChange(newStatus: string) {
-    if (!occurrenceId) return;
-    setStatusChanging(true);
-    try {
-      const updated = await patchOccurrence(occurrenceId, { status: newStatus });
-      setOccurrence(updated);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update status");
-    } finally {
-      setStatusChanging(false);
     }
   }
 
@@ -219,22 +203,7 @@ export function OccurrenceView() {
       {/* Status & Actions (manager only) */}
       {isManager && (
         <section className="section">
-          <div className="section-header">
-            <h2>Status</h2>
-          </div>
-          <div className="status-row">
-            {OCCURRENCE_STATUSES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`btn btn-sm ${occ.status === s ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => occ.status !== s && handleStatusChange(s)}
-                disabled={statusChanging || occ.status === s}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+          {/* status buttons hidden – issue #114 */}
           <label className="toggle-row">
             <input
               type="checkbox"
@@ -436,9 +405,7 @@ export function OccurrenceView() {
                 <span className="checkin-name">
                   {ci.display_name ?? ci.user_id.slice(0, 8)}
                 </span>
-                <span className={`badge badge-status-${ci.status === "confirmed" ? "completed" : ci.status}`}>
-                  {ci.status}
-                </span>
+                {/* check-in status badge hidden – issue #114 */}
                 {ci.checked_in_at && (
                   <span className="checkin-time">
                     {new Date(ci.checked_in_at).toLocaleTimeString("en-US", {

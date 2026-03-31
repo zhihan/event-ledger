@@ -466,7 +466,7 @@ export function WorkspaceView() {
                   <Link to={`/w/${workspaceId}/series/${s.series_id}`} className="series-card-title">
                     {s.title}
                   </Link>
-                  <span className={`badge badge-status-${s.status}`}>{s.status}</span>
+                  {/* status badge hidden – issue #114 */}
                 </div>
                 <p className="series-card-schedule">
                   {formatScheduleRule(s.schedule_rule)}
