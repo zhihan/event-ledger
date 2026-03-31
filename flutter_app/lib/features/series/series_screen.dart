@@ -25,10 +25,26 @@ class _SeriesScreenState extends State<SeriesScreen> {
   bool _loading = true;
   String? _error;
 
+  // Inline location editing
+  String? _editingLocationOccId;
+  final _locationEditCtrl = TextEditingController();
+
+  // Inline agenda editing
+  bool _editingAgenda = false;
+  final _agendaCtrl = TextEditingController();
+  bool _agendaSaving = false;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _locationEditCtrl.dispose();
+    _agendaCtrl.dispose();
+    super.dispose();
   }
 
   String get _uid => context.read<AuthService>().currentUser!.uid;
@@ -70,7 +86,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final now = DateTime.now();
     final start = DateFormat('yyyy-MM-dd').format(now);
     final end =
-        DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 90)));
+        DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 60)));
     try {
       final result = await context
           .read<ApiService>()
@@ -88,49 +104,255 @@ class _SeriesScreenState extends State<SeriesScreen> {
     }
   }
 
+  Future<void> _saveInlineLocation(Occurrence occ) async {
+    final newLoc = _locationEditCtrl.text.trim();
+    final oldLoc = occ.location ?? '';
+    setState(() => _editingLocationOccId = null);
+    if (newLoc == oldLoc) return;
+    try {
+      await context.read<ApiService>().updateOccurrence(
+          occ.occurrenceId, {'location': newLoc.isNotEmpty ? newLoc : null});
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _saveAgenda(String occurrenceId) async {
+    setState(() => _agendaSaving = true);
+    try {
+      final notes = _agendaCtrl.text.trim();
+      await context.read<ApiService>().updateOccurrence(
+          occurrenceId, {
+        'overrides': {'notes': notes.isNotEmpty ? notes : null},
+      });
+      setState(() => _editingAgenda = false);
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _agendaSaving = false);
+    }
+  }
+
   Future<void> _editSeries() async {
     final series = _series;
     if (series == null) return;
     final titleCtrl = TextEditingController(text: series.title);
     final descCtrl = TextEditingController(text: series.description ?? '');
+    final timeCtrl = TextEditingController(text: series.defaultTime ?? '');
+    final durationCtrl = TextEditingController(
+        text: series.defaultDurationMinutes?.toString() ?? '');
+    final locationCtrl =
+        TextEditingController(text: series.defaultLocation ?? '');
+    final linkCtrl =
+        TextEditingController(text: series.defaultOnlineLink ?? '');
+    var locationType = series.locationType;
+    var checkInWeekdays = List<int>.from(series.checkInWeekdays ?? []);
+    String? extendDate;
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Series'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Title')),
-            const SizedBox(height: 12),
-            TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit Series'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(labelText: 'Title')),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: descCtrl,
+                      decoration:
+                          const InputDecoration(labelText: 'Description'),
+                      maxLines: 2),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                            controller: timeCtrl,
+                            decoration: const InputDecoration(
+                                labelText: 'Time', hintText: 'HH:MM')),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                            controller: durationCtrl,
+                            decoration: const InputDecoration(
+                                labelText: 'Duration (min)'),
+                            keyboardType: TextInputType.number),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: locationType,
+                    decoration:
+                        const InputDecoration(labelText: 'Location Type'),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'fixed', child: Text('Fixed')),
+                      DropdownMenuItem(
+                          value: 'per_occurrence',
+                          child: Text('Per Meeting')),
+                      DropdownMenuItem(
+                          value: 'rotation', child: Text('Rotation')),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => locationType = v!),
+                  ),
+                  if (locationType == 'fixed') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                        controller: locationCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Location')),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: linkCtrl,
+                      decoration:
+                          const InputDecoration(labelText: 'Online Link')),
+                  if (series.scheduleRule.weekdays.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text('Check-in days',
+                        style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      children: {
+                        1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu',
+                        5: 'Fri', 6: 'Sat', 7: 'Sun',
+                      }.entries.where((e) {
+                        return series.scheduleRule.weekdays.contains(e.key);
+                      }).map((e) {
+                        return FilterChip(
+                          label: Text(e.value),
+                          selected: checkInWeekdays.contains(e.key),
+                          onSelected: (sel) {
+                            setDialogState(() {
+                              if (sel) {
+                                checkInWeekdays.add(e.key);
+                              } else {
+                                checkInWeekdays.remove(e.key);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: DateTime.now().add(
+                            const Duration(days: 30)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(
+                            const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          extendDate =
+                              DateFormat('yyyy-MM-dd').format(picked);
+                        });
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                          labelText: 'Extend schedule to'),
+                      child: Text(
+                          extendDate ?? 'Tap to select date',
+                          style: TextStyle(
+                              color: extendDate != null
+                                  ? null
+                                  : Theme.of(ctx)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () {
+                  final updates = <String, dynamic>{};
+                  if (titleCtrl.text.trim() != series.title) {
+                    updates['title'] = titleCtrl.text.trim();
+                  }
+                  if (descCtrl.text.trim() != (series.description ?? '')) {
+                    updates['description'] = descCtrl.text.trim();
+                  }
+                  if (timeCtrl.text.trim() != (series.defaultTime ?? '')) {
+                    updates['default_time'] = timeCtrl.text.trim();
+                  }
+                  final dur = int.tryParse(durationCtrl.text);
+                  if (dur != series.defaultDurationMinutes) {
+                    updates['default_duration_minutes'] = dur;
+                  }
+                  if (locationCtrl.text.trim() !=
+                      (series.defaultLocation ?? '')) {
+                    updates['default_location'] =
+                        locationCtrl.text.trim().isNotEmpty
+                            ? locationCtrl.text.trim()
+                            : null;
+                  }
+                  if (linkCtrl.text.trim() !=
+                      (series.defaultOnlineLink ?? '')) {
+                    updates['default_online_link'] =
+                        linkCtrl.text.trim().isNotEmpty
+                            ? linkCtrl.text.trim()
+                            : null;
+                  }
+                  if (locationType != series.locationType) {
+                    updates['location_type'] = locationType;
+                  }
+                  updates['check_in_weekdays'] = checkInWeekdays;
+                  if (extendDate != null) {
+                    updates['_extend_date'] = extendDate;
+                  }
+                  Navigator.pop(
+                      ctx, updates.length <= 1 && extendDate == null ? null : updates);
+                },
+                child: const Text('Save')),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () {
-                final updates = <String, dynamic>{};
-                if (titleCtrl.text.trim() != series.title) {
-                  updates['title'] = titleCtrl.text.trim();
-                }
-                if (descCtrl.text.trim() != (series.description ?? '')) {
-                  updates['description'] = descCtrl.text.trim();
-                }
-                Navigator.pop(ctx, updates.isEmpty ? null : updates);
-              },
-              child: const Text('Save')),
-        ],
       ),
     );
     if (result == null) return;
+
     try {
-      await context.read<ApiService>().updateSeries(widget.seriesId, result);
+      final extDate = result.remove('_extend_date') as String?;
+      if (result.isNotEmpty) {
+        await context.read<ApiService>().updateSeries(widget.seriesId, result);
+      }
+      if (extDate != null) {
+        final now = DateTime.now();
+        final start = DateFormat('yyyy-MM-dd').format(now);
+        await context
+            .read<ApiService>()
+            .generateOccurrences(widget.seriesId, start, extDate);
+      }
       _load();
     } catch (e) {
       if (mounted) {
@@ -213,14 +435,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
               ),
             ),
 
-            // Next meeting
-            if (upcoming.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _sectionLabel('Next Meeting', cs),
-              const SizedBox(height: 6),
-              _meetingCard(upcoming.first, cs, isNext: true),
-            ],
-
             // Last meeting
             if (past.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -229,20 +443,114 @@ class _SeriesScreenState extends State<SeriesScreen> {
               _meetingCard(past.first, cs, isPast: true),
             ],
 
-            // Generate button
-            if (_canManage) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _generateOccurrences,
-                icon: const Icon(Icons.add_circle_outline, size: 18),
-                label: const Text('Generate next 90 days'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(40),
+            // Next meeting with agenda editing
+            if (upcoming.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(child: _sectionLabel('Next Meeting', cs)),
+                  if (_canManage && !_editingAgenda)
+                    TextButton(
+                      onPressed: () {
+                        final notes = upcoming.first.effectiveNotes ?? '';
+                        _agendaCtrl.text = notes;
+                        setState(() => _editingAgenda = true);
+                      },
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: Text(upcoming.first.effectiveNotes != null
+                          ? 'Edit agenda'
+                          : 'Add agenda'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _meetingCard(upcoming.first, cs, isNext: true),
+              if (_editingAgenda) ...[
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _agendaCtrl,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            hintText: 'Agenda, discussion topics...',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          enabled: !_agendaSaving,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: _agendaSaving
+                                  ? null
+                                  : () => setState(() => _editingAgenda = false),
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                              onPressed: _agendaSaving
+                                  ? null
+                                  : () => _saveAgenda(
+                                      upcoming.first.occurrenceId),
+                              child: Text(
+                                  _agendaSaving ? 'Saving...' : 'Save'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else if (upcoming.first.effectiveNotes != null) ...[
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(upcoming.first.effectiveNotes!,
+                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('No agenda set.',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                ),
+              ],
+            ] else ...[
+              // No upcoming — show generate link (matching web)
+              const SizedBox(height: 16),
+              _sectionLabel('Meetings', cs),
+              const SizedBox(height: 6),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text('No upcoming occurrences.',
+                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                      ),
+                      if (_canManage)
+                        TextButton(
+                          onPressed: _generateOccurrences,
+                          child: const Text('Generate schedule'),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
 
-            // Upcoming list
+            // Upcoming list with inline location editing
             if (upcoming.length > 1) ...[
               const SizedBox(height: 16),
               _sectionLabel('Upcoming', cs),
@@ -406,6 +714,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final dt = occ.scheduledDateTime.toLocal();
     final dateStr = DateFormat('E, MMM d').format(dt);
     final timeStr = DateFormat('HH:mm').format(dt);
+    final isEditingLoc = _editingLocationOccId == occ.occurrenceId;
 
     return InkWell(
       onTap: () => context.push('/occurrences/${occ.occurrenceId}'),
@@ -429,10 +738,45 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 children: [
                   Text('$dateStr  $timeStr',
                       style: TextStyle(fontSize: 13, color: cs.onSurface)),
-                  if (occ.effectiveLocation != null)
-                    Text(occ.effectiveLocation!,
-                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                        overflow: TextOverflow.ellipsis),
+                  if (isEditingLoc)
+                    SizedBox(
+                      height: 32,
+                      child: TextField(
+                        controller: _locationEditCtrl,
+                        autofocus: true,
+                        style: const TextStyle(fontSize: 12),
+                        decoration: const InputDecoration(
+                          hintText: 'Location',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          border: OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => _saveInlineLocation(occ),
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: _canManage
+                          ? () {
+                              _locationEditCtrl.text = occ.location ?? '';
+                              setState(() =>
+                                  _editingLocationOccId = occ.occurrenceId);
+                            }
+                          : null,
+                      child: Text(
+                        occ.location ?? (occ.effectiveLocation ?? '—'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                          decoration: _canManage
+                              ? TextDecoration.underline
+                              : null,
+                          decorationStyle: TextDecorationStyle.dotted,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
               ),
             ),

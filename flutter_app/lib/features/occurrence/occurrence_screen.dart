@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -496,6 +497,37 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                       ],
                     );
                   }).toList(),
+                ),
+              ),
+            ],
+
+            // Participant summary link (matching web)
+            if (effectiveLocation != null || effectiveLink != null) ...[
+              const SizedBox(height: 16),
+              _sectionLabel('Participant Summary', cs),
+              const SizedBox(height: 6),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Share the summary link with participants for meeting details.',
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.push(
+                              '/occurrences/${widget.occurrenceId}/summary'),
+                          icon: const Icon(Icons.share, size: 16),
+                          label: const Text('View shareable page'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

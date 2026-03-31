@@ -15,7 +15,6 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
   final _locationController = TextEditingController();
   final _linkController = TextEditingController();
 
-  String _kind = 'meeting';
   String _frequency = 'weekly';
   final Set<int> _weekdays = {1}; // Monday default
   String _locationType = 'fixed';
@@ -29,7 +28,6 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
   void _submit() {
     if (_titleController.text.trim().isEmpty) return;
     final body = <String, dynamic>{
-      'kind': _kind,
       'title': _titleController.text.trim(),
       'schedule_rule': {
         'frequency': _frequency,
@@ -72,17 +70,6 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _kind,
-                decoration: const InputDecoration(labelText: 'Kind'),
-                items: const [
-                  DropdownMenuItem(value: 'meeting', child: Text('Meeting')),
-                  DropdownMenuItem(value: 'reminder', child: Text('Reminder')),
-                  DropdownMenuItem(value: 'study_assignment', child: Text('Study')),
-                ],
-                onChanged: (v) => setState(() => _kind = v!),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(

@@ -209,6 +209,31 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
               ),
             ],
 
+            // Series section (before Members, matching web layout)
+            const SizedBox(height: 16),
+            _SectionHeader(icon: Icons.event_repeat, title: 'Recurring Series'),
+            const SizedBox(height: 6),
+            if (series.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.event_note, size: 32, color: cs.onSurfaceVariant),
+                        const SizedBox(height: 8),
+                        Text('No series yet',
+                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ...series.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _seriesCard(s, cs),
+                )),
+
             // Members section
             const SizedBox(height: 16),
             _SectionHeader(
@@ -279,31 +304,6 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                 ],
               ),
             ),
-
-            // Series section
-            const SizedBox(height: 16),
-            _SectionHeader(icon: Icons.event_repeat, title: 'Series'),
-            const SizedBox(height: 6),
-            if (series.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.event_note, size: 32, color: cs.onSurfaceVariant),
-                        const SizedBox(height: 8),
-                        Text('No series yet',
-                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ...series.map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _seriesCard(s, cs),
-                )),
           ],
         ),
       ),

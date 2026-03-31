@@ -40,32 +40,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  static const _timezones = [
+    'UTC',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'America/Sao_Paulo',
+    'Europe/London',
+    'Europe/Berlin',
+    'Europe/Moscow',
+    'Asia/Tokyo',
+    'Asia/Shanghai',
+    'Asia/Kolkata',
+    'Asia/Taipei',
+    'Australia/Sydney',
+    'Pacific/Auckland',
+  ];
+
   Future<void> _createWorkspace() async {
-    final title = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) {
         final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('New Workspace'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(labelText: 'Title'),
-            autofocus: true,
-            onSubmitted: (v) => Navigator.pop(ctx, v),
+        var selectedTz = 'UTC';
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('New Workspace'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedTz,
+                  decoration: const InputDecoration(labelText: 'Timezone'),
+                  items: _timezones
+                      .map((tz) => DropdownMenuItem(value: tz, child: Text(tz)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => selectedTz = v!),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, {
+                    'title': controller.text,
+                    'timezone': selectedTz,
+                  }),
+                  child: const Text('Create')),
+            ],
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, controller.text),
-                child: const Text('Create')),
-          ],
         );
       },
     );
-    if (title == null || title.trim().isEmpty) return;
+    if (result == null || result['title']!.trim().isEmpty) return;
     try {
-      await context.read<ApiService>().createWorkspace(title: title.trim());
+      await context.read<ApiService>().createWorkspace(
+          title: result['title']!.trim(),
+          timezone: result['timezone']!);
       _load();
     } catch (e) {
       if (mounted) {

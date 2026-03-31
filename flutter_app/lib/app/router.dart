@@ -5,6 +5,7 @@ import '../features/auth/sign_in_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/invites/accept_invite_screen.dart';
 import '../features/occurrence/occurrence_screen.dart';
+import '../features/occurrence/occurrence_summary_screen.dart';
 import '../features/series/series_screen.dart';
 import '../features/workspace/workspace_screen.dart';
 import '../services/auth_service.dart';
@@ -48,6 +49,11 @@ GoRouter buildRouter(AuthService auth) {
         path: '/occurrences/:id',
         builder: (context, state) =>
             OccurrenceScreen(occurrenceId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/occurrences/:id/summary',
+        builder: (context, state) =>
+            OccurrenceSummaryScreen(occurrenceId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/invites/:id',
