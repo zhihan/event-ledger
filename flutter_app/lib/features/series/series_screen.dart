@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/occurrence.dart';
@@ -282,10 +284,10 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     value: hostRotationMode,
                     decoration: const InputDecoration(labelText: 'Host Rotation'),
                     items: const [
-                      DropdownMenuItem(value: 'none', child: Text('None')),
+                      DropdownMenuItem(value: 'none', child: Text('No host')),
                       DropdownMenuItem(value: 'manual', child: Text('Manual')),
-                      DropdownMenuItem(value: 'host_only', child: Text('Host only')),
-                      DropdownMenuItem(value: 'host_and_location', child: Text('Host + Location')),
+                      DropdownMenuItem(value: 'host_only', child: Text('Rotating hosts')),
+                      DropdownMenuItem(value: 'host_and_location', child: Text('Rotate host + location')),
                     ],
                     onChanged: (v) => setDialogState(() => hostRotationMode = v!),
                   ),
@@ -589,8 +591,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     if (series.description != null &&
                         series.description!.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text(series.description!,
-                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                      MarkdownBody(
+                        data: series.description!,
+                        softLineBreak: true,
+                        onTapLink: (text, href, title) {
+                          if (href != null) launchUrl(Uri.parse(href));
+                        },
+                      ),
                     ],
                   ],
                 ),
@@ -677,8 +684,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(upcoming.first.effectiveNotes!,
-                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  child: MarkdownBody(
+                    data: upcoming.first.effectiveNotes!,
+                    softLineBreak: true,
+                    onTapLink: (text, href, title) {
+                      if (href != null) launchUrl(Uri.parse(href));
+                    },
+                  ),
                 ),
               ] else ...[
                 Padding(

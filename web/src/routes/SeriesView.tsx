@@ -429,7 +429,7 @@ export function SeriesView() {
                 onClick={() => setEditRotationMode("none")}
                 disabled={editSubmitting}
               >
-                No rotation
+                No host
               </button>
               <button
                 type="button"
@@ -453,7 +453,7 @@ export function SeriesView() {
                 onClick={() => setEditRotationMode("host_and_location")}
                 disabled={editSubmitting}
               >
-                Hosts + locations
+                Rotate host + location
               </button>
             </div>
           </div>

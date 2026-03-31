@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/check_in.dart';
@@ -492,8 +493,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(occ.effectiveNotes!,
-                          style: const TextStyle(fontSize: 14)),
+                      MarkdownBody(
+                        data: occ.effectiveNotes!,
+                        softLineBreak: true,
+                        onTapLink: (text, href, title) {
+                          if (href != null) launchUrl(Uri.parse(href));
+                        },
+                      ),
                     ],
                   ),
                 ),
