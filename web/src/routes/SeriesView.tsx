@@ -972,8 +972,8 @@ export function SeriesView() {
         )}
       </section>
 
-      {/* Check-in Report */}
-      <section className="section">
+      {/* Completion Report — only shown when Done is enabled */}
+      {series?.enable_done && <section className="section">
         <div className="section-header">
           <h2>Completion Report</h2>
           <button
@@ -1062,7 +1062,7 @@ export function SeriesView() {
             </>
           );
         })()}
-      </section>
+      </section>}
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 

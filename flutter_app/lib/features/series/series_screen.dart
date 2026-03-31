@@ -735,8 +735,8 @@ class _SeriesScreenState extends State<SeriesScreen> {
               ),
             ],
 
-            // Check-in report
-            if (_canManage) ...[
+            // Completion report — only when Done is enabled
+            if (_canManage && series.enableDone) ...[
               const SizedBox(height: 16),
               CheckInReportWidget(seriesId: widget.seriesId),
             ],
