@@ -81,7 +81,7 @@ export interface SeriesSummary {
   location_rotation: string[] | null;
   check_in_weekdays: number[] | null;
   enable_done?: boolean;
-  rotation_mode?: "none" | "host_only" | "host_and_location";
+  rotation_mode?: "none" | "manual" | "host_only" | "host_and_location";
   host_rotation?: string[];
   host_addresses?: Record<string, string>;
   status: string;
@@ -237,7 +237,7 @@ export async function patchSeries(
     default_online_link: string;
     location_type: "fixed" | "per_occurrence" | "rotation";
     location_rotation: string[];
-    rotation_mode: "none" | "host_only" | "host_and_location";
+    rotation_mode: "none" | "manual" | "host_only" | "host_and_location";
     host_rotation: string[];
     host_addresses: Record<string, string>;
     schedule_rule: ScheduleRule;
