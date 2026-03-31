@@ -236,7 +236,7 @@ class CreateSeriesRequest(BaseModel):
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     enable_done: Optional[bool] = None
-    rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
+    rotation_mode: str = "none"  # "none", "manual", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
     description: Optional[str] = None
@@ -262,7 +262,7 @@ class CreateSeriesRequest(BaseModel):
     def validate_host_rotation(cls, v, info):
         """Ensure host_rotation is provided when rotation_mode is set."""
         mode = info.data.get('rotation_mode')
-        if mode and mode != "none":
+        if mode and mode not in ("none", "manual"):
             if not v:
                 raise ValueError("host_rotation required when rotation_mode is not 'none'")
             # Ensure all entries are non-empty
@@ -280,7 +280,7 @@ class UpdateSeriesRequest(BaseModel):
     default_online_link: Optional[str] = None
     location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     enable_done: Optional[bool] = None
-    rotation_mode: Optional[str] = None  # "none", "host_only", "host_and_location"
+    rotation_mode: Optional[str] = None  # "none", "manual", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
     status: Optional[str] = None

@@ -32,7 +32,7 @@ from series_storage import (
 
 def _get_rotation_host(series: Series, sequence_index: int) -> str | None:
     """Return the host label for this occurrence based on rotation."""
-    if not series.host_rotation or series.rotation_mode == "none":
+    if not series.host_rotation or series.rotation_mode in ("none", "manual"):
         return None
     return series.host_rotation[sequence_index % len(series.host_rotation)]
 
@@ -290,7 +290,7 @@ def regenerate_rotation_from_occurrence(
     if series is None:
         raise ValueError(f"Series not found: {series_id}")
 
-    if series.rotation_mode == "none" or not series.host_rotation:
+    if series.rotation_mode in ("none", "manual") or not series.host_rotation:
         raise ValueError("Series has no rotation configured")
 
     # Get the target occurrence

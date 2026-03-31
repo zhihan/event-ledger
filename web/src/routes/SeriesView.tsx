@@ -74,7 +74,7 @@ export function SeriesView() {
   const [generating, setGenerating] = useState(false);
 
   // Host rotation state
-  const [editRotationMode, setEditRotationMode] = useState<"none" | "host_only" | "host_and_location">("none");
+  const [editRotationMode, setEditRotationMode] = useState<"none" | "manual" | "host_only" | "host_and_location">("none");
   const [editHostRotation, setEditHostRotation] = useState<string[]>([]);
   const [editHostAddresses, setEditHostAddresses] = useState<Record<string, string>>({});
   const [editingHostId, setEditingHostId] = useState<string | null>(null);
@@ -162,7 +162,7 @@ export function SeriesView() {
     if (!seriesId) return;
 
     // Validation
-    if (editRotationMode !== "none") {
+    if (editRotationMode !== "none" && editRotationMode !== "manual") {
       const validHosts = editHostRotation.filter((h) => h.trim());
       if (validHosts.length === 0) {
         setEditError("Rotation requires at least one host entry");
@@ -188,7 +188,7 @@ export function SeriesView() {
         default_time: editTime || undefined,
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
         rotation_mode: editRotationMode,
-        host_rotation: editRotationMode !== "none" ? editHostRotation.filter((h) => h.trim()) : undefined,
+        host_rotation: editRotationMode !== "none" && editRotationMode !== "manual" ? editHostRotation.filter((h) => h.trim()) : undefined,
         host_addresses: editRotationMode === "host_and_location"
           ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k]) => k.trim()))
           : undefined,
@@ -433,6 +433,14 @@ export function SeriesView() {
               </button>
               <button
                 type="button"
+                className={`btn btn-sm ${editRotationMode === "manual" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditRotationMode("manual")}
+                disabled={editSubmitting}
+              >
+                Manual
+              </button>
+              <button
+                type="button"
                 className={`btn btn-sm ${editRotationMode === "host_only" ? "btn-primary" : "btn-secondary"}`}
                 onClick={() => setEditRotationMode("host_only")}
                 disabled={editSubmitting}
@@ -449,7 +457,7 @@ export function SeriesView() {
               </button>
             </div>
           </div>
-          {editRotationMode !== "none" && (
+          {editRotationMode !== "none" && editRotationMode !== "manual" && (
             <div className="form-field">
               <label>Host rotation order</label>
               {editHostRotation.map((hostLabel, i) => (

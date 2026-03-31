@@ -283,12 +283,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     decoration: const InputDecoration(labelText: 'Host Rotation'),
                     items: const [
                       DropdownMenuItem(value: 'none', child: Text('None')),
+                      DropdownMenuItem(value: 'manual', child: Text('Manual')),
                       DropdownMenuItem(value: 'host_only', child: Text('Host only')),
                       DropdownMenuItem(value: 'host_and_location', child: Text('Host + Location')),
                     ],
                     onChanged: (v) => setDialogState(() => hostRotationMode = v!),
                   ),
-                  if (hostRotationMode != 'none') ...[
+                  if (hostRotationMode != 'none' && hostRotationMode != 'manual') ...[
                     const SizedBox(height: 12),
                     const Text('Rotation Order', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
@@ -871,7 +872,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       occ.effectiveTitle.isNotEmpty ? '$dateStr  $timeStr' : timeStr,
                       style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                     ),
-                    if (_series?.hostRotationMode == 'host_and_location' &&
+                    if (_series?.hostRotationMode != 'none' &&
                         occ.host != null) ...[
                       const SizedBox(height: 2),
                       Row(
@@ -916,7 +917,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
 
   Future<void> _showEditOccurrenceDialog(Occurrence occ) async {
     final rotationMode = _series?.hostRotationMode ?? 'none';
-    final showHost = rotationMode == 'host_only' || rotationMode == 'host_and_location';
+    final showHost = rotationMode == 'host_only' || rotationMode == 'host_and_location' || rotationMode == 'manual';
     final showLocation = rotationMode == 'none' || rotationMode == 'per_occurrence' || rotationMode == 'host_and_location';
 
     final hostCtrl = TextEditingController(text: occ.host ?? '');

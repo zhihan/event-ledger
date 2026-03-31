@@ -171,7 +171,7 @@ class Series:
     # Simple boolean: when True, all generated occurrences get enable_check_in=True
     enable_done: bool = False
     # Host rotation fields
-    rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
+    rotation_mode: str = "none"  # "none", "manual", "host_only", "host_and_location"
     host_rotation: list[str] | None = None  # List of host labels
     host_addresses: dict[str, str] | None = None  # Maps host names to addresses
     created_at: datetime | None = None
