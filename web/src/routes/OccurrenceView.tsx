@@ -218,7 +218,7 @@ export function OccurrenceView() {
                   setOccurrence(updated);
                 }}
               />
-              <span>Enable checking</span>
+              <span>Show "Done" button</span>
             </label>
           )}
           <div style={{ marginTop: 8 }}>

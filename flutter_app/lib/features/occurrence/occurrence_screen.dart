@@ -551,7 +551,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                   children: [
                     if (series.enableDone)
                       SwitchListTile(
-                        title: const Text('Enable checking',
+                        title: const Text('Show "Done" button',
                             style: TextStyle(fontSize: 14)),
                         value: occ.enableCheckIn,
                         onChanged: (v) => _toggleCheckIn(v),

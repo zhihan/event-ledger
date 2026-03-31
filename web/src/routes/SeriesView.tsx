@@ -553,7 +553,7 @@ export function SeriesView() {
                 onChange={(e) => setEditEnableDone(e.target.checked)}
                 disabled={editSubmitting}
               />
-              <span>Enable checking</span>
+              <span>Show "Done" button</span>
             </label>
             <span className="form-hint">Members can mark each occurrence as done</span>
           </div>

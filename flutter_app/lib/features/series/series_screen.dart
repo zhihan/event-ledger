@@ -241,7 +241,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       decoration:
                           const InputDecoration(labelText: 'Online Link')),
                   SwitchListTile(
-                    title: const Text('Enable checking'),
+                    title: const Text('Show "Done" button'),
                     value: enableDone,
                     onChanged: (v) => setDialogState(() => enableDone = v),
                     contentPadding: EdgeInsets.zero,
