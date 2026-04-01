@@ -27,7 +27,11 @@ async function apiFetch(path: string, init?: RequestInit, retryCount = 0): Promi
     const body = await resp.json().catch(() => ({ detail: resp.statusText }));
     let detail = body.detail ?? resp.statusText;
     if (Array.isArray(detail)) {
-      detail = detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
+      detail = detail.map((d: { msg?: string; loc?: (string | number)[] ; input?: unknown }) => {
+        const loc = d.loc ? d.loc.filter(l => l !== "body").join(".") : "";
+        const msg = d.msg ?? JSON.stringify(d);
+        return loc ? `${loc}: ${msg} (got ${JSON.stringify(d.input)})` : msg;
+      }).join("; ");
     } else if (typeof detail !== "string") {
       detail = JSON.stringify(detail);
     }

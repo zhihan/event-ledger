@@ -253,6 +253,7 @@ export function SeriesView() {
         check_in_weekdays: editCheckInDays.length > 0 ? editCheckInDays : undefined,
         ...(scheduleRule ? { schedule_rule: scheduleRule, schedule_mode: mode } : {}),
       };
+      console.log("PATCH series payload:", JSON.stringify(updates, null, 2));
       const updated = await patchSeries(seriesId, updates);
       setSeries(updated);
       if (editExtendDate) {
