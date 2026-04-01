@@ -198,6 +198,10 @@ def _build_and_save_actions(
             p.preview_summary = preview_override
         save_pending_action(p)
         results.append(p)
+    # Link batch actions: store sibling IDs on the first action
+    if len(results) > 1:
+        results[0].payload["_batch_action_ids"] = [a.action_id for a in results[1:]]
+        save_pending_action(results[0])  # re-save with batch IDs
     return results
 
 

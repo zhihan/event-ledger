@@ -179,19 +179,17 @@ async def handle_telegram_message(
     await _send_telegram_message(bot_config.bot_token, chat_id, response_text)
 
     # Send action proposal with inline confirm/cancel buttons
-    # action_ids carries all IDs in a batch; action_id is the primary (first) one
+    # Use only the first action ID in callback_data (Telegram 64-byte limit).
+    # Batch sibling IDs are stored in the first action's payload._batch_action_ids.
     action_id = None
     if action_proposal:
         action_id = action_proposal.get("action_id")
         preview = action_proposal.get("preview_summary", "")
-        # Encode all batch action IDs in the callback data
-        all_ids = action_proposal.get("action_ids") or ([action_id] if action_id else [])
-        batch_key = ",".join(all_ids)
         if action_id and preview:
             reply_markup = {
                 "inline_keyboard": [[
-                    {"text": "\u2705 Confirm", "callback_data": f"confirm:{batch_key}"},
-                    {"text": "\u274c Cancel", "callback_data": f"cancel:{batch_key}"},
+                    {"text": "\u2705 Confirm", "callback_data": f"confirm:{action_id}"},
+                    {"text": "\u274c Cancel", "callback_data": f"cancel:{action_id}"},
                 ]]
             }
             await _send_telegram_message_with_inline_keyboard(
@@ -230,14 +228,9 @@ async def handle_telegram_callback(
         await _answer_callback_query(bot_config.bot_token, callback_query_id)
         return
 
-    # Support batch actions (comma-separated IDs)
-    action_ids = [aid.strip() for aid in action_ids_str.split(",") if aid.strip()]
-    if not action_ids:
-        await _answer_callback_query(bot_config.bot_token, callback_query_id)
-        return
-
-    # Validate all actions using the first one for auth checks
-    first_pending = get_pending_action(action_ids[0])
+    # Look up the primary action; resolve batch siblings from payload
+    action_id = action_ids_str.strip()
+    first_pending = get_pending_action(action_id)
     if first_pending is None:
         await _edit_telegram_message(
             bot_config.bot_token, chat_id, message_id,
@@ -270,30 +263,35 @@ async def handle_telegram_callback(
         await _answer_callback_query(bot_config.bot_token, callback_query_id)
         return
 
+    # Resolve batch: primary action + any siblings stored in payload
+    batch_ids = [action_id]
+    sibling_ids = first_pending.payload.get("_batch_action_ids") or []
+    batch_ids.extend(sibling_ids)
+
     # Execute or cancel all actions in the batch
     results = []
     if action_type == "confirm":
-        for aid in action_ids:
-            pending = get_pending_action(aid)
-            if pending is None or pending.status != "pending":
+        for aid in batch_ids:
+            p = get_pending_action(aid)
+            if p is None or p.status != "pending":
                 continue
             try:
                 update_pending_action_status(aid, "confirmed")
-                result = execute_action(pending)
+                result = execute_action(p)
                 update_pending_action_status(aid, "executed", result=result)
-                results.append(f"\u2705 Done: {pending.preview_summary}")
+                results.append(f"\u2705 Done: {p.preview_summary}")
             except Exception as exc:
                 logger.exception("Action execution failed: %s", aid)
                 update_pending_action_status(aid, "failed", error=str(exc))
-                results.append(f"\u274c Failed: {pending.preview_summary}\nError: {exc}")
+                results.append(f"\u274c Failed: {p.preview_summary}\nError: {exc}")
         result_text = "\n".join(results) if results else "\u2705 Done"
     else:
-        for aid in action_ids:
-            pending = get_pending_action(aid)
-            if pending is None or pending.status != "pending":
+        for aid in batch_ids:
+            p = get_pending_action(aid)
+            if p is None or p.status != "pending":
                 continue
             update_pending_action_status(aid, "cancelled")
-            results.append(f"\u274c Cancelled: {pending.preview_summary}")
+            results.append(f"\u274c Cancelled: {p.preview_summary}")
         result_text = "\n".join(results) if results else "\u274c Cancelled"
 
     # Edit the original message to show the result
@@ -310,6 +308,6 @@ async def handle_telegram_callback(
         role="assistant",
         text=result_text,
         timestamp=datetime.now(timezone.utc),
-        action_id=action_ids[0],
+        action_id=action_id,
     )
     telegram_storage.append_turn(session.session_id, result_turn)
