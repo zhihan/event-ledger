@@ -942,6 +942,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
     );
   }
 
+  String _occurrencePath(String id) =>
+      _canManage ? '/occurrences/$id' : '/occurrences/$id/summary';
+
   Widget _meetingCard(Occurrence occ, ColorScheme cs,
       {bool isNext = false, bool isPast = false}) {
     final dt = occ.scheduledDateTime.toLocal();
@@ -950,7 +953,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push('/occurrences/${occ.occurrenceId}'),
+        onTap: () => context.push(_occurrencePath(occ.occurrenceId)),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -1117,7 +1120,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     final isEditingLoc = _editingLocationOccId == occ.occurrenceId;
 
     return InkWell(
-      onTap: () => context.push('/occurrences/${occ.occurrenceId}'),
+      onTap: () => context.push(_occurrencePath(occ.occurrenceId)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
