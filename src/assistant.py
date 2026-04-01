@@ -227,6 +227,9 @@ def run_assistant_stream(
     response_text = ai_result.get("response_text", "")
     ai_action = ai_result.get("action")
 
+    logger.info("AI result: intent=%s, has_action=%s, action=%s",
+                intent, ai_action is not None, json.dumps(ai_action, default=str)[:500] if ai_action else None)
+
     if response_text:
         yield {"type": "text_chunk", "text": response_text}
 
