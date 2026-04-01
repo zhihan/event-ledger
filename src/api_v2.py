@@ -1227,6 +1227,12 @@ def _extract_telegram_user(message: dict) -> tuple[str, str, str]:
     return telegram_user_id, display_name, chat_id
 
 
+def _is_private_telegram_chat(message: dict) -> bool:
+    """Phase 1 supports only 1:1 chats with the bot."""
+    chat_type = (message.get("chat", {}) or {}).get("type")
+    return chat_type in (None, "", "private")
+
+
 async def _send_telegram_message(bot_token: str, chat_id: str, text: str) -> None:
     """Send a text message via the Telegram Bot API."""
     import httpx
@@ -1286,6 +1292,16 @@ async def telegram_bot_webhook(
 
     message = raw_update.get("message")
     if not message:
+        return {"ok": True}
+
+    if not _is_private_telegram_chat(message):
+        chat_id = str(message.get("chat", {}).get("id", ""))
+        if chat_id:
+            await _send_telegram_message(
+                config.bot_token,
+                chat_id,
+                "This bot currently supports private chats only. Open the bot directly in Telegram and send the link code there.",
+            )
         return {"ok": True}
 
     telegram_user_id, display_name, chat_id = _extract_telegram_user(message)

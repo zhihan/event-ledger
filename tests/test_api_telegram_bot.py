@@ -337,6 +337,28 @@ class TestWebhookEndpoint:
         mock_send.assert_called_once()
         assert "welcome" in mock_send.call_args[0][2].lower()
 
+    def test_webhook_group_chat_is_rejected(self, organizer_client):
+        config = _make_bot_config()
+
+        with (
+            patch("api_v2.telegram_storage.get_bot_config", return_value=config),
+            patch("api_v2._send_telegram_message", new_callable=AsyncMock) as mock_send,
+        ):
+            resp = organizer_client.post(
+                self._webhook_url(),
+                json={
+                    "message": {
+                        "from": {"id": 999, "first_name": "Alice"},
+                        "chat": {"id": -100, "type": "group"},
+                        "text": "/start",
+                    }
+                },
+                headers={"X-Telegram-Bot-Api-Secret-Token": "secret-abc"},
+            )
+
+        assert resp.status_code == 200
+        assert "private chats only" in mock_send.call_args[0][2].lower()
+
     def test_webhook_invalid_secret(self, organizer_client):
         config = _make_bot_config()
 
