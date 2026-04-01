@@ -17,7 +17,7 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
 
   String _frequency = 'weekly';
   final Set<int> _weekdays = {1}; // Monday default
-  String _locationType = 'fixed';
+  String _locationType = 'none';
   final List<int> _checkInWeekdays = [];
 
   static const _weekdayLabels = {
@@ -123,16 +123,19 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
                 initialValue: _locationType,
                 decoration: const InputDecoration(labelText: 'Location Type'),
                 items: const [
+                  DropdownMenuItem(value: 'none', child: Text('None')),
                   DropdownMenuItem(value: 'fixed', child: Text('Fixed')),
                   DropdownMenuItem(value: 'per_occurrence', child: Text('Per Occurrence')),
                 ],
                 onChanged: (v) => setState(() => _locationType = v!),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _locationController,
-                decoration: const InputDecoration(labelText: 'Location'),
-              ),
+              if (_locationType != 'none') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _locationController,
+                  decoration: const InputDecoration(labelText: 'Location'),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: _linkController,

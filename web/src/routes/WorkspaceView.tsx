@@ -59,7 +59,7 @@ export function WorkspaceView() {
   const [formTime, setFormTime] = useState("10:00");
   const [formDuration, setFormDuration] = useState("60");
   const [formLocation, setFormLocation] = useState("");
-  const [formLocationType, setFormLocationType] = useState<"fixed" | "per_occurrence">("fixed");
+  const [formLocationType, setFormLocationType] = useState<"none" | "fixed" | "per_occurrence">("none");
   const [formCheckInDays, setFormCheckInDays] = useState<number[]>([]);
   const [formLink, setFormLink] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -156,7 +156,7 @@ export function WorkspaceView() {
       setFormTime("10:00");
       setFormDuration("60");
       setFormLocation("");
-      setFormLocationType("fixed");
+      setFormLocationType("none");
       setFormCheckInDays([]);
       setFormLink("");
       // Navigate to series detail
@@ -396,6 +396,14 @@ export function WorkspaceView() {
               <div className="visibility-toggle">
                 <button
                   type="button"
+                  className={`btn btn-sm ${formLocationType === "none" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setFormLocationType("none")}
+                  disabled={formSubmitting}
+                >
+                  None
+                </button>
+                <button
+                  type="button"
                   className={`btn btn-sm ${formLocationType === "fixed" ? "btn-primary" : "btn-secondary"}`}
                   onClick={() => setFormLocationType("fixed")}
                   disabled={formSubmitting}
@@ -482,7 +490,7 @@ export function WorkspaceView() {
                   </p>
                 )}
                 {s.description && <Markdown text={s.description} className="series-card-desc" />}
-                {(s.default_location || s.default_online_link) && (
+                {s.location_type !== "none" && (s.default_location || s.default_online_link) && (
                   <p className="series-card-location">
                     {s.default_location && (
                       <span className="location-chip">{s.default_location}</span>

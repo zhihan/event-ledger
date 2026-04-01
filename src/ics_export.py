@@ -49,10 +49,13 @@ def _build_event(occurrence: Occurrence, series: Series) -> Event:
     ev.add("dtstart", dtstart)
     ev.add("dtend", dtend)
     ev.add("dtstamp", datetime.now(timezone.utc))
-    location = (
-        (occurrence.overrides and occurrence.overrides.location)
-        or series.default_location
-    )
+    if series.location_type == "none":
+        location = occurrence.overrides and occurrence.overrides.location
+    else:
+        location = (
+            (occurrence.overrides and occurrence.overrides.location)
+            or series.default_location
+        )
     if location:
         ev.add("location", location)
     notes = occurrence.overrides and occurrence.overrides.notes

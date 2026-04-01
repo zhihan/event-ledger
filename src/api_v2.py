@@ -234,7 +234,7 @@ class CreateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
+    location_type: Optional[str] = None  # "none", "fixed", or "per_occurrence"
     enable_done: Optional[bool] = None
     rotation_mode: str = "none"  # "none", "manual", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
@@ -278,7 +278,7 @@ class UpdateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
+    location_type: Optional[str] = None  # "none", "fixed", or "per_occurrence"
     enable_done: Optional[bool] = None
     rotation_mode: Optional[str] = None  # "none", "manual", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
@@ -547,7 +547,7 @@ def create_series(
         default_online_link=body.default_online_link,
         location_type=body.location_type or "fixed",
         enable_done=body.enable_done or False,
-        rotation_mode=body.rotation_mode,
+        rotation_mode="host_only" if (body.location_type == "none" and body.rotation_mode == "host_and_location") else body.rotation_mode,
         host_rotation=body.host_rotation,
         host_addresses=body.host_addresses,
         description=body.description,
@@ -622,6 +622,11 @@ def update_series(
         updates["schedule_rule"] = body.schedule_rule.to_model().to_dict()
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    # Auto-downgrade rotation_mode when location becomes "none"
+    effective_location_type = updates.get("location_type", s.location_type)
+    effective_rotation_mode = updates.get("rotation_mode", s.rotation_mode)
+    if effective_location_type == "none" and effective_rotation_mode == "host_and_location":
+        updates["rotation_mode"] = "host_only"
     updated = series_storage.update_series(series_id, updates)
     if "enable_done" in updates:
         from occurrence_service import apply_check_in_days

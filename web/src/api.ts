@@ -77,7 +77,7 @@ export interface SeriesSummary {
   default_duration_minutes: number | null;
   default_location: string | null;
   default_online_link: string | null;
-  location_type: "fixed" | "per_occurrence" | "rotation";
+  location_type: "none" | "fixed" | "per_occurrence" | "rotation";
   location_rotation: string[] | null;
   check_in_weekdays: number[] | null;
   enable_done?: boolean;
@@ -186,7 +186,7 @@ export async function createSeries(
     default_duration_minutes?: number;
     default_location?: string;
     default_online_link?: string;
-    location_type?: "fixed" | "per_occurrence" | "rotation";
+    location_type?: "none" | "fixed" | "per_occurrence" | "rotation";
     location_rotation?: string[];
     check_in_weekdays?: number[];
   },
@@ -235,7 +235,7 @@ export async function patchSeries(
     default_duration_minutes: number;
     default_location: string;
     default_online_link: string;
-    location_type: "fixed" | "per_occurrence" | "rotation";
+    location_type: "none" | "fixed" | "per_occurrence" | "rotation";
     location_rotation: string[];
     rotation_mode: "none" | "manual" | "host_only" | "host_and_location";
     host_rotation: string[];

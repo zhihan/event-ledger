@@ -221,13 +221,20 @@ class _SeriesScreenState extends State<SeriesScreen> {
                           const InputDecoration(labelText: 'Location Type'),
                       items: const [
                         DropdownMenuItem(
+                            value: 'none', child: Text('None')),
+                        DropdownMenuItem(
                             value: 'fixed', child: Text('Fixed')),
                         DropdownMenuItem(
                             value: 'per_occurrence',
                             child: Text('Per Meeting')),
                       ],
                       onChanged: (v) =>
-                          setDialogState(() => locationType = v!),
+                          setDialogState(() {
+                            locationType = v!;
+                            if (locationType == 'none' && hostRotationMode == 'host_and_location') {
+                              hostRotationMode = 'host_only';
+                            }
+                          }),
                     ),
                     if (locationType == 'fixed') ...[
                       const SizedBox(height: 12),
@@ -283,11 +290,12 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   DropdownButtonFormField<String>(
                     value: hostRotationMode,
                     decoration: const InputDecoration(labelText: 'Host Rotation'),
-                    items: const [
-                      DropdownMenuItem(value: 'none', child: Text('No host')),
-                      DropdownMenuItem(value: 'manual', child: Text('Manual')),
-                      DropdownMenuItem(value: 'host_only', child: Text('Rotating hosts')),
-                      DropdownMenuItem(value: 'host_and_location', child: Text('Rotate host + location')),
+                    items: [
+                      const DropdownMenuItem(value: 'none', child: Text('No host')),
+                      const DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                      const DropdownMenuItem(value: 'host_only', child: Text('Rotating hosts')),
+                      if (locationType != 'none')
+                        const DropdownMenuItem(value: 'host_and_location', child: Text('Rotate host + location')),
                     ],
                     onChanged: (v) => setDialogState(() => hostRotationMode = v!),
                   ),
@@ -584,7 +592,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       _infoRow(Icons.access_time, 'Time: ${series.defaultTime}', cs),
                     if (series.defaultDurationMinutes != null)
                       _infoRow(Icons.timelapse, '${series.defaultDurationMinutes} min', cs),
-                    if (series.defaultLocation != null)
+                    if (series.hasLocation && series.defaultLocation != null)
                       _infoRow(Icons.location_on_outlined, series.defaultLocation!, cs),
                     if (series.defaultOnlineLink != null)
                       _infoRow(Icons.link, series.defaultOnlineLink!, cs),
@@ -901,7 +909,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                           ),
                         ],
                       ),
-                    ] else if (occ.effectiveLocation != null) ...[
+                    ] else if (occ.effectiveLocation != null && (_series?.hasLocation != false || occ.location != null)) ...[
                       const SizedBox(height: 2),
                       Row(
                         children: [
@@ -1053,6 +1061,14 @@ class _SeriesScreenState extends State<SeriesScreen> {
                           ),
                         ),
                       ],
+                    )
+                  else if (_series?.hasLocation == false && occ.location == null)
+                    const SizedBox.shrink()
+                  else if (_series?.hasLocation == false && occ.location != null)
+                    Text(
+                      occ.location!,
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                      overflow: TextOverflow.ellipsis,
                     )
                   else if (isEditingLoc)
                     SizedBox(

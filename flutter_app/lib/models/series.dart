@@ -145,6 +145,8 @@ class Series {
     }
   }
 
+  bool get hasLocation => locationType != 'none';
+
   static String _weekdayName(int day) {
     const names = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return day >= 1 && day <= 7 ? names[day] : '?';

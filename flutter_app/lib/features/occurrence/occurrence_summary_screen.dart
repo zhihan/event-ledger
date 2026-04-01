@@ -92,7 +92,9 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
     final series = _series!;
     final dt = occ.scheduledDateTime.toLocal();
     final effectiveTitle = occ.overrides?.title ?? series.title;
-    final effectiveLocation = occ.location ?? occ.overrides?.location ?? series.defaultLocation;
+    final effectiveLocation = series.hasLocation
+        ? (occ.location ?? occ.overrides?.location ?? series.defaultLocation)
+        : (occ.location ?? occ.overrides?.location);
     final effectiveLink = occ.overrides?.onlineLink ?? series.defaultOnlineLink;
     final effectiveNotes = occ.overrides?.notes;
     final duration = occ.overrides?.durationMinutes ?? series.defaultDurationMinutes;

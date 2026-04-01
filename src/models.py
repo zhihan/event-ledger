@@ -160,8 +160,8 @@ class Series:
     default_duration_minutes: int | None = None
     default_location: str | None = None
     default_online_link: str | None = None
-    # "fixed" = same location every time; "per_occurrence" = set per meeting
-    location_type: Literal["fixed", "per_occurrence"] = "fixed"
+    # "none" = no location; "fixed" = same location every time; "per_occurrence" = set per meeting
+    location_type: Literal["none", "fixed", "per_occurrence"] = "fixed"
     # Ordered list of locations for rotation mode
     location_rotation: list[str] | None = None
     status: SeriesStatus = "active"

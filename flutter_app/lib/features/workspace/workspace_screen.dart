@@ -380,7 +380,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                   ],
                 ],
               ),
-              if (s.defaultLocation != null || s.defaultOnlineLink != null) ...[
+              if ((s.hasLocation && s.defaultLocation != null) || s.defaultOnlineLink != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [

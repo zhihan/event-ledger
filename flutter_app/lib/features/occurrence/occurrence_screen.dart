@@ -344,7 +344,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     final series = _series!;
     final cs = Theme.of(context).colorScheme;
     final dt = occ.scheduledDateTime.toLocal();
-    final effectiveLocation = occ.effectiveLocation ?? series.defaultLocation;
+    final effectiveLocation = series.hasLocation
+        ? (occ.effectiveLocation ?? series.defaultLocation)
+        : occ.overrides?.location;
     final effectiveLink =
         occ.effectiveOnlineLink ?? series.defaultOnlineLink;
     final duration =
@@ -468,6 +470,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                       ),
                   ],
                 ),
+              ),
+            ] else if (!series.hasLocation && effectiveLocation == null && _canManage) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _editOverrides,
+                icon: const Icon(Icons.add_location_alt, size: 18),
+                label: const Text('+ Add location'),
               ),
             ],
 

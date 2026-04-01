@@ -89,7 +89,9 @@ def generate_and_save(
         host_label = _get_rotation_host(series, seq)
 
         # Determine location
-        if series.rotation_mode == "host_and_location" and host_label:
+        if series.location_type == "none":
+            loc = None
+        elif series.rotation_mode == "host_and_location" and host_label:
             # Look up host's address in the map, fall back to default
             loc = (series.host_addresses or {}).get(host_label) or series.default_location
         elif series.location_type == "fixed":
@@ -222,7 +224,9 @@ def regenerate_series(
         scheduled_for = utc_dt.isoformat()
         if scheduled_for not in existing_times:
             seq = base_seq + idx
-            if series.location_type == "fixed":
+            if series.location_type == "none":
+                loc = None
+            elif series.location_type == "fixed":
                 loc = series.default_location
             else:
                 loc = None

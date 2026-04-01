@@ -158,7 +158,7 @@ export function OccurrenceView() {
 
   const occ = occurrence!;
   const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.location ?? occ.overrides?.location ?? series?.default_location;
+  const effectiveLocation = occ.location ?? occ.overrides?.location ?? (series?.location_type !== "none" ? series?.default_location : undefined);
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
@@ -243,6 +243,19 @@ export function OccurrenceView() {
             <span className="host-label">Hosted by</span>
             <span className="host-name">{occurrence.host}</span>
           </div>
+        </section>
+      )}
+
+      {/* Add location prompt for "none" series with no location set */}
+      {series?.location_type === "none" && !effectiveLocation && !editing && isManager && (
+        <section className="section">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={startEdit}
+          >
+            + Add location
+          </button>
         </section>
       )}
 
