@@ -30,7 +30,7 @@ from assistant_actions import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "gemini-2.5-flash-lite"
+_DEFAULT_MODEL = "gemini-2.5-flash"
 _MAX_RETRIES = 2
 
 # ---------------------------------------------------------------------------
