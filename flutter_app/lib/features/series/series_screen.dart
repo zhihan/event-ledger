@@ -31,10 +31,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
   String? _editingLocationOccId;
   final _locationEditCtrl = TextEditingController();
 
-  // Inline agenda editing
-  bool _editingAgenda = false;
-  final _agendaCtrl = TextEditingController();
-  bool _agendaSaving = false;
 
   @override
   void initState() {
@@ -45,7 +41,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
   @override
   void dispose() {
     _locationEditCtrl.dispose();
-    _agendaCtrl.dispose();
     super.dispose();
   }
 
@@ -123,25 +118,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
     }
   }
 
-  Future<void> _saveAgenda(String occurrenceId) async {
-    setState(() => _agendaSaving = true);
-    try {
-      final notes = _agendaCtrl.text.trim();
-      await context.read<ApiService>().updateOccurrence(
-          occurrenceId, {
-        'overrides': {'notes': notes.isNotEmpty ? notes : null},
-      });
-      setState(() => _editingAgenda = false);
-      _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _agendaSaving = false);
-    }
-  }
 
   Future<void> _addOccurrence() async {
     final series = _series;
@@ -769,75 +745,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
               _meetingCard(past.first, cs, isPast: true),
             ],
 
-            // Next meeting with agenda editing
+            // Next meeting
             if (upcoming.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _sectionLabel('Next Meeting', cs)),
-                  if (_canManage && !_editingAgenda)
-                    TextButton(
-                      onPressed: () {
-                        final notes = upcoming.first.effectiveNotes ?? '';
-                        _agendaCtrl.text = notes;
-                        setState(() => _editingAgenda = true);
-                      },
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                      child: Text(upcoming.first.effectiveNotes != null
-                          ? 'Edit agenda'
-                          : 'Add agenda'),
-                    ),
-                ],
-              ),
+              _sectionLabel('Next Meeting', cs),
               const SizedBox(height: 6),
               _meetingCard(upcoming.first, cs, isNext: true),
-              if (_editingAgenda) ...[
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _agendaCtrl,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            hintText: 'Agenda, discussion topics...',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          enabled: !_agendaSaving,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: _agendaSaving
-                                  ? null
-                                  : () => setState(() => _editingAgenda = false),
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed: _agendaSaving
-                                  ? null
-                                  : () => _saveAgenda(
-                                      upcoming.first.occurrenceId),
-                              child: Text(
-                                  _agendaSaving ? 'Saving...' : 'Save'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ] else if (upcoming.first.effectiveNotes != null) ...[
+              if (upcoming.first.effectiveNotes != null) ...[
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1104,6 +1018,14 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 ),
               ),
               // status badge hidden – issue #114
+              if (isNext && _canManage)
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 20, color: cs.onSurfaceVariant),
+                  onPressed: () => _showEditOccurrenceDialog(occ),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
             ],
           ),
         ),
