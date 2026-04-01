@@ -133,8 +133,9 @@ def _resolve_telegram_webhook_base_url(request: Request) -> str:
             return base_url
 
     inferred_base_url = str(request.base_url).rstrip("/")
-    if request.url.scheme == "https":
-        return inferred_base_url
+    forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
+    if request.url.scheme == "https" or forwarded_proto == "https":
+        return inferred_base_url.replace("http://", "https://", 1)
 
     raise HTTPException(
         status_code=503,
