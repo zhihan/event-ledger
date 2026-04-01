@@ -220,13 +220,15 @@ def run_assistant_stream(
     if ai_action and intent != "general_question":
         try:
             actions = _build_and_save_actions(intent, ai_action, room_id, uid)
-            for pending in actions:
+            if actions:
+                previews = [a.preview_summary for a in actions]
                 yield {
                     "type": "action_proposal",
-                    "action_id": pending.action_id,
-                    "action_type": pending.action_type,
-                    "preview_summary": pending.preview_summary,
-                    "payload": pending.payload,
+                    "action_id": actions[0].action_id,
+                    "action_ids": [a.action_id for a in actions],
+                    "action_type": actions[0].action_type,
+                    "preview_summary": "\n".join(previews),
+                    "payload": actions[0].payload,
                 }
         except Exception as exc:
             logger.exception("Failed to build/save action proposal")
