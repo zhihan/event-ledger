@@ -152,7 +152,7 @@ def dispatch(
         log_id=log_id,
         rule_id=rule.rule_id,
         occurrence_id=occurrence.occurrence_id,
-        workspace_id=occurrence.workspace_id,
+        room_id=occurrence.room_id,
         recipient_uid=recipient_uid,
         channel=rule.channel,
         status="pending",

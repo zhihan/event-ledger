@@ -1,26 +1,26 @@
-"""API v2 — Workspaces, Series, Occurrences, and CheckIns.
+"""API v2 — Rooms, Series, Occurrences, and CheckIns.
 
 Mounted at /v2 on the main FastAPI app.  All routes enforce role-based
 permissions using the same Firebase Auth token verification as the v1 API.
 
 Route overview:
-  POST   /v2/workspaces
-  GET    /v2/workspaces/{workspace_id}
-  PATCH  /v2/workspaces/{workspace_id}
-  DELETE /v2/workspaces/{workspace_id}
-  GET    /v2/workspaces/{workspace_id}/members
-  POST   /v2/workspaces/{workspace_id}/members
-  DELETE /v2/workspaces/{workspace_id}/members/{uid}
-  POST   /v2/workspaces/{workspace_id}/invites
+  POST   /v2/rooms
+  GET    /v2/rooms/{room_id}
+  PATCH  /v2/rooms/{room_id}
+  DELETE /v2/rooms/{room_id}
+  GET    /v2/rooms/{room_id}/members
+  POST   /v2/rooms/{room_id}/members
+  DELETE /v2/rooms/{room_id}/members/{uid}
+  POST   /v2/rooms/{room_id}/invites
   POST   /v2/invites/{invite_id}/accept
 
-  POST   /v2/workspaces/{workspace_id}/series
-  GET    /v2/workspaces/{workspace_id}/series
+  POST   /v2/rooms/{room_id}/series
+  GET    /v2/rooms/{room_id}/series
   GET    /v2/series/{series_id}
   PATCH  /v2/series/{series_id}
   DELETE /v2/series/{series_id}
 
-  GET    /v2/workspaces/{workspace_id}/occurrences
+  GET    /v2/rooms/{room_id}/occurrences
   GET    /v2/series/{series_id}/occurrences
   POST   /v2/series/{series_id}/occurrences/generate
   GET    /v2/occurrences/{occurrence_id}
@@ -42,7 +42,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, field_validator
 
 import series_storage
-import workspace_storage
+import room_storage
 from assistant import run_assistant_stream
 from assistant_actions import execute_action, get_pending_action, update_pending_action_status
 from models import (
@@ -52,7 +52,7 @@ from models import (
     OccurrenceOverrides,
     ScheduleRule,
     Series,
-    Workspace,
+    Room,
 )
 from occurrence_service import (
     complete_occurrence,
@@ -87,11 +87,11 @@ def _require_token(authorization: str = Header(...)) -> dict:
     return _verify_firebase_token(authorization)
 
 
-def _get_workspace_or_404(workspace_id: str) -> Workspace:
-    ws = workspace_storage.get_workspace(workspace_id)
-    if ws is None:
-        raise HTTPException(status_code=404, detail=f"Workspace not found: {workspace_id}")
-    return ws
+def _get_room_or_404(room_id: str) -> Room:
+    rm = room_storage.get_room(room_id)
+    if rm is None:
+        raise HTTPException(status_code=404, detail=f"Room not found: {room_id}")
+    return rm
 
 
 def _get_series_or_404(series_id: str) -> Series:
@@ -101,9 +101,9 @@ def _get_series_or_404(series_id: str) -> Series:
     return s
 
 
-def _require_role(workspace: Workspace, uid: str, *roles: MemberRole) -> None:
-    """Raise 403 unless uid holds one of the required roles in workspace."""
-    actual_role = workspace.member_roles.get(uid)
+def _require_role(room: Room, uid: str, *roles: MemberRole) -> None:
+    """Raise 403 unless uid holds one of the required roles in room."""
+    actual_role = room.member_roles.get(uid)
     if actual_role not in roles:
         raise HTTPException(
             status_code=403,
@@ -111,14 +111,14 @@ def _require_role(workspace: Workspace, uid: str, *roles: MemberRole) -> None:
         )
 
 
-def _require_organizer(workspace: Workspace, uid: str) -> None:
-    _require_role(workspace, uid, "organizer")
+def _require_organizer(room: Room, uid: str) -> None:
+    _require_role(room, uid, "organizer")
 
 
-def _require_member(workspace: Workspace, uid: str) -> None:
-    """Any workspace member (any role) may access this resource."""
-    if uid not in workspace.member_roles and uid not in workspace.owner_uids:
-        raise HTTPException(status_code=403, detail="Not a member of this workspace")
+def _require_member(room: Room, uid: str) -> None:
+    """Any room member (any role) may access this resource."""
+    if uid not in room.member_roles and uid not in room.owner_uids:
+        raise HTTPException(status_code=403, detail="Not a member of this room")
 
 
 def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
@@ -152,12 +152,12 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
     return details
 
 
-def _merge_member_details(workspace: Workspace) -> list[dict]:
-    """Prefer persisted workspace profiles, with Firebase lookup as fallback."""
-    runtime_details = {d["uid"]: d for d in _get_member_details(workspace.member_roles)}
+def _merge_member_details(room: Room) -> list[dict]:
+    """Prefer persisted room profiles, with Firebase lookup as fallback."""
+    runtime_details = {d["uid"]: d for d in _get_member_details(room.member_roles)}
     merged: list[dict] = []
-    for uid, role in workspace.member_roles.items():
-        stored = workspace.member_profiles.get(uid, {})
+    for uid, role in room.member_roles.items():
+        stored = room.member_profiles.get(uid, {})
         runtime = runtime_details.get(uid, {})
         merged.append({
             "uid": uid,
@@ -203,14 +203,14 @@ class ScheduleRuleIn(BaseModel):
         )
 
 
-class CreateWorkspaceRequest(BaseModel):
+class CreateRoomRequest(BaseModel):
     title: str
     type: str = "shared"
     timezone: str = "UTC"
     description: Optional[str] = None
 
 
-class UpdateWorkspaceRequest(BaseModel):
+class UpdateRoomRequest(BaseModel):
     title: Optional[str] = None
     timezone: Optional[str] = None
     description: Optional[str] = None
@@ -307,7 +307,7 @@ class UpdateSeriesRequest(BaseModel):
 class GenerateOccurrencesRequest(BaseModel):
     start_date: str  # ISO date "YYYY-MM-DD"
     end_date: str    # ISO date "YYYY-MM-DD"
-    workspace_timezone: Optional[str] = None  # overrides workspace default
+    room_timezone: Optional[str] = None  # overrides room default
 
 
 class OccurrenceOverridesIn(BaseModel):
@@ -344,18 +344,18 @@ class UpsertCheckInRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Workspace endpoints
+# Room endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("/workspaces", status_code=201)
-def create_workspace(
-    body: CreateWorkspaceRequest,
+@router.post("/rooms", status_code=201)
+def create_room(
+    body: CreateRoomRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    """Create a new workspace. The caller becomes the first organizer."""
+    """Create a new room. The caller becomes the first organizer."""
     uid = token["uid"]
-    ws = Workspace(
-        workspace_id=str(uuid.uuid4()),
+    rm = Room(
+        room_id=str(uuid.uuid4()),
         title=body.title,
         type=body.type,
         timezone=body.timezone,
@@ -370,105 +370,105 @@ def create_workspace(
         description=body.description,
     )
     try:
-        workspace_storage.create_workspace(ws)
+        room_storage.create_room(rm)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return ws.to_dict()
+    return rm.to_dict()
 
 
-@router.get("/workspaces")
-def list_workspaces(
+@router.get("/rooms")
+def list_rooms(
     token: dict = Depends(_require_token),
 ) -> dict:
-    """Return all workspaces where the caller is a member, with series info."""
+    """Return all rooms where the caller is a member, with series info."""
     uid = token["uid"]
-    workspaces = workspace_storage.list_workspaces_for_user(uid)
+    rooms = room_storage.list_rooms_for_user(uid)
     results = []
-    for ws in workspaces:
-        d = ws.to_dict()
-        series = series_storage.list_series_for_workspace(ws.workspace_id)
+    for rm in rooms:
+        d = rm.to_dict()
+        series = series_storage.list_series_for_room(rm.room_id)
         d["series_count"] = len(series)
         if len(series) == 1:
             d["series_schedule"] = series[0].to_dict().get("schedule_rule")
             d["series_default_time"] = series[0].default_time
         results.append(d)
-    return {"workspaces": results}
+    return {"rooms": results}
 
 
-@router.get("/workspaces/{workspace_id}")
-def get_workspace(
-    workspace_id: str,
+@router.get("/rooms/{room_id}")
+def get_room(
+    room_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
+    rm = _get_room_or_404(room_id)
     uid = token["uid"]
-    _require_member(ws, uid)
-    return ws.to_dict()
+    _require_member(rm, uid)
+    return rm.to_dict()
 
 
-@router.patch("/workspaces/{workspace_id}")
-def update_workspace(
-    workspace_id: str,
-    body: UpdateWorkspaceRequest,
+@router.patch("/rooms/{room_id}")
+def update_room(
+    room_id: str,
+    body: UpdateRoomRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token["uid"])
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    updated = workspace_storage.update_workspace(workspace_id, updates)
+    updated = room_storage.update_room(room_id, updates)
     return updated.to_dict()
 
 
-@router.delete("/workspaces/{workspace_id}", status_code=204)
-def delete_workspace(
-    workspace_id: str,
+@router.delete("/rooms/{room_id}", status_code=204)
+def delete_room(
+    room_id: str,
     token: dict = Depends(_require_token),
 ) -> None:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token["uid"])
-    workspace_storage.delete_workspace(workspace_id)
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+    room_storage.delete_room(room_id)
 
 
-@router.get("/workspaces/{workspace_id}/members")
+@router.get("/rooms/{room_id}/members")
 def list_members(
-    workspace_id: str,
+    room_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_member(ws, token["uid"])
+    rm = _get_room_or_404(room_id)
+    _require_member(rm, token["uid"])
     return {
-        "workspace_id": workspace_id,
-        "members": ws.member_roles,
-        "member_details": _merge_member_details(ws),
+        "room_id": room_id,
+        "members": rm.member_roles,
+        "member_details": _merge_member_details(rm),
     }
 
 
-@router.post("/workspaces/{workspace_id}/members", status_code=201)
+@router.post("/rooms/{room_id}/members", status_code=201)
 def add_member(
-    workspace_id: str,
+    room_id: str,
     body: AddMemberRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token["uid"])
-    updated = workspace_storage.add_member(workspace_id, body.uid, body.role)
-    return {"workspace_id": workspace_id, "uid": body.uid, "role": body.role}
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+    updated = room_storage.add_member(room_id, body.uid, body.role)
+    return {"room_id": room_id, "uid": body.uid, "role": body.role}
 
 
-@router.delete("/workspaces/{workspace_id}/members/{uid}", status_code=204)
+@router.delete("/rooms/{room_id}/members/{uid}", status_code=204)
 def remove_member(
-    workspace_id: str,
+    room_id: str,
     uid: str,
     token: dict = Depends(_require_token),
 ) -> None:
-    ws = _get_workspace_or_404(workspace_id)
+    rm = _get_room_or_404(room_id)
     caller_uid = token["uid"]
     if uid != caller_uid:
-        _require_organizer(ws, caller_uid)
+        _require_organizer(rm, caller_uid)
     else:
-        _require_member(ws, caller_uid)
+        _require_member(rm, caller_uid)
     try:
-        workspace_storage.remove_member(workspace_id, uid)
+        room_storage.remove_member(room_id, uid)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -477,17 +477,17 @@ def remove_member(
 # Invite endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("/workspaces/{workspace_id}/invites", status_code=201)
+@router.post("/rooms/{room_id}/invites", status_code=201)
 def create_invite(
-    workspace_id: str,
+    room_id: str,
     body: CreateInviteRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token["uid"])
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
     try:
-        invite = workspace_storage.create_workspace_invite(
-            workspace_id,
+        invite = room_storage.create_room_invite(
+            room_id,
             created_by=token["uid"],
             role=body.role,
             expires_in_days=body.expires_in_days,
@@ -497,7 +497,7 @@ def create_invite(
     # Omit the datetime objects for clean JSON (convert to iso strings)
     return {
         "invite_id": invite["invite_id"],
-        "workspace_id": invite["workspace_id"],
+        "room_id": invite["room_id"],
         "role": invite["role"],
         "created_by": invite["created_by"],
         "expires_at": invite["expires_at"].isoformat(),
@@ -511,33 +511,34 @@ def accept_invite(
 ) -> dict:
     uid = token["uid"]
     try:
-        invite = workspace_storage.accept_workspace_invite(invite_id, uid)
-        workspace_storage.update_member_profile(
-            invite["workspace_id"],
+        invite = room_storage.accept_room_invite(invite_id, uid)
+        room_id = invite.get("room_id") or invite.get("workspace_id")
+        room_storage.update_member_profile(
+            room_id,
             uid,
             display_name=token.get("name"),
             email=token.get("email"),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"accepted": True, "workspace_id": invite["workspace_id"], "role": invite["role"]}
+    return {"accepted": True, "room_id": room_id, "role": invite["role"]}
 
 
 # ---------------------------------------------------------------------------
 # Series endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("/workspaces/{workspace_id}/series", status_code=201)
+@router.post("/rooms/{room_id}/series", status_code=201)
 def create_series(
-    workspace_id: str,
+    room_id: str,
     body: CreateSeriesRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
     series = Series(
         series_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         kind=body.kind,
         title=body.title,
         schedule_rule=body.schedule_rule.to_model(),
@@ -557,15 +558,15 @@ def create_series(
     return series.to_dict()
 
 
-@router.get("/workspaces/{workspace_id}/series")
+@router.get("/rooms/{room_id}/series")
 def list_series(
-    workspace_id: str,
+    room_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_member(ws, token["uid"])
-    all_series = series_storage.list_series_for_workspace(workspace_id)
-    return {"workspace_id": workspace_id, "series": [s.to_dict() for s in all_series]}
+    rm = _get_room_or_404(room_id)
+    _require_member(rm, token["uid"])
+    all_series = series_storage.list_series_for_room(room_id)
+    return {"room_id": room_id, "series": [s.to_dict() for s in all_series]}
 
 
 @router.get("/series/{series_id}")
@@ -574,8 +575,8 @@ def get_series(
     token: dict = Depends(_require_token),
 ) -> dict:
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_member(ws, token["uid"])
+    rm = _get_room_or_404(s.room_id)
+    _require_member(rm, token["uid"])
     return s.to_dict()
 
 
@@ -586,8 +587,8 @@ def series_check_in_report(
 ) -> dict:
     """Return occurrences with check-in enabled and all their check-ins."""
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(s.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
     occurrences = series_storage.list_occurrences_for_series(series_id)
     practice_occs = [o for o in occurrences if o.enable_check_in]
     practice_occs.sort(key=lambda o: o.scheduled_for)
@@ -596,8 +597,8 @@ def series_check_in_report(
         "series_id": series_id,
         "occurrences": [o.to_dict() for o in practice_occs],
         "check_ins": [ci.to_dict() for ci in check_ins],
-        "members": ws.member_roles,
-        "member_profiles": ws.member_profiles,
+        "members": rm.member_roles,
+        "member_profiles": rm.member_profiles,
     }
 
 
@@ -608,8 +609,8 @@ def update_series(
     token: dict = Depends(_require_token),
 ) -> dict:
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(s.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
     updates: dict = {}
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
@@ -640,8 +641,8 @@ def delete_series(
     token: dict = Depends(_require_token),
 ) -> None:
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_organizer(ws, token["uid"])
+    rm = _get_room_or_404(s.room_id)
+    _require_organizer(rm, token["uid"])
     series_storage.delete_series(series_id)
 
 
@@ -657,28 +658,28 @@ def generate_occurrences_endpoint(
 ) -> dict:
     """Expand a Series into Occurrence documents for a date window."""
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(s.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
     try:
         start = date.fromisoformat(body.start_date)
         end = date.fromisoformat(body.end_date)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid date: {exc}") from exc
-    tz = body.workspace_timezone or ws.timezone
+    tz = body.room_timezone or rm.timezone
     new_occs = generate_and_save(s, tz, start, end)
     return {"created": len(new_occs), "occurrences": [o.to_dict() for o in new_occs]}
 
 
-@router.get("/workspaces/{workspace_id}/occurrences")
-def list_workspace_occurrences(
-    workspace_id: str,
+@router.get("/rooms/{room_id}/occurrences")
+def list_room_occurrences(
+    room_id: str,
     status: Optional[str] = None,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_member(ws, token["uid"])
-    occs = series_storage.list_occurrences_for_workspace(workspace_id, status=status)
-    return {"workspace_id": workspace_id, "occurrences": [o.to_dict() for o in occs]}
+    rm = _get_room_or_404(room_id)
+    _require_member(rm, token["uid"])
+    occs = series_storage.list_occurrences_for_room(room_id, status=status)
+    return {"room_id": room_id, "occurrences": [o.to_dict() for o in occs]}
 
 
 @router.get("/series/{series_id}/occurrences")
@@ -688,8 +689,8 @@ def list_series_occurrences(
     token: dict = Depends(_require_token),
 ) -> dict:
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_member(ws, token["uid"])
+    rm = _get_room_or_404(s.room_id)
+    _require_member(rm, token["uid"])
     occs = series_storage.list_occurrences_for_series(series_id, status=status)
     return {"series_id": series_id, "occurrences": [o.to_dict() for o in occs]}
 
@@ -702,8 +703,8 @@ def get_occurrence(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_member(ws, token["uid"])
+    rm = _get_room_or_404(occ.room_id)
+    _require_member(rm, token["uid"])
     return occ.to_dict()
 
 
@@ -716,8 +717,8 @@ def update_occurrence_endpoint(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(occ.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
 
     updates: dict = {}
     if body.location is not None:
@@ -755,8 +756,8 @@ def delete_occurrence_endpoint(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_organizer(ws, token["uid"])
+    rm = _get_room_or_404(occ.room_id)
+    _require_organizer(rm, token["uid"])
     series_storage.delete_occurrence(occurrence_id)
 
 
@@ -779,8 +780,8 @@ def regenerate_rotation_from_occurrence_endpoint(
     Returns: {"updated_count": int, "starting_index": int, "message": str, "warnings": list}
     """
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(s.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
 
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
@@ -810,8 +811,8 @@ def upsert_check_in(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_member(ws, token["uid"])
+    rm = _get_room_or_404(occ.room_id)
+    _require_member(rm, token["uid"])
 
     uid = token["uid"]
     display_name = token.get("name") or token.get("email") or uid[:8]
@@ -831,7 +832,7 @@ def upsert_check_in(
             check_in_id=str(uuid.uuid4()),
             occurrence_id=occurrence_id,
             series_id=occ.series_id,
-            workspace_id=occ.workspace_id,
+            room_id=occ.room_id,
             user_id=uid,
             display_name=display_name,
             status=body.status,
@@ -851,8 +852,8 @@ def list_check_ins(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_role(ws, token["uid"], "organizer", "teacher")
+    rm = _get_room_or_404(occ.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
     check_ins = series_storage.list_check_ins_for_occurrence(occurrence_id)
     return {"occurrence_id": occurrence_id, "check_ins": [ci.to_dict() for ci in check_ins]}
 
@@ -866,9 +867,9 @@ def get_my_check_in(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail="Occurrence not found")
-    ws = _get_workspace_or_404(occ.workspace_id)
+    rm = _get_room_or_404(occ.room_id)
     uid = token["uid"]
-    _require_member(ws, uid)
+    _require_member(rm, uid)
     check_in = series_storage.get_check_in_for_user(occurrence_id, uid)
     return {
         "occurrence_id": occurrence_id,
@@ -886,11 +887,11 @@ def update_check_in(
     ci = series_storage.get_check_in(check_in_id)
     if ci is None:
         raise HTTPException(status_code=404, detail="CheckIn not found")
-    ws = _get_workspace_or_404(ci.workspace_id)
+    rm = _get_room_or_404(ci.room_id)
     uid = token["uid"]
     # Allow: the check-in owner themselves, or an organizer/teacher
     if uid != ci.user_id:
-        _require_role(ws, uid, "organizer", "teacher")
+        _require_role(rm, uid, "organizer", "teacher")
 
     ci.status = body.status
     ci.note = body.note
@@ -909,10 +910,10 @@ def delete_check_in(
     ci = series_storage.get_check_in(check_in_id)
     if ci is None:
         raise HTTPException(status_code=404, detail="CheckIn not found")
-    ws = _get_workspace_or_404(ci.workspace_id)
+    rm = _get_room_or_404(ci.room_id)
     uid = token["uid"]
     if uid != ci.user_id:
-        _require_role(ws, uid, "organizer", "teacher")
+        _require_role(rm, uid, "organizer", "teacher")
     series_storage.delete_check_in(check_in_id)
 
 
@@ -928,31 +929,31 @@ class CreateNotificationRuleRequest(BaseModel):
     enabled: bool = True
 
 
-@router.get('/workspaces/{workspace_id}/notification-rules')
+@router.get('/rooms/{room_id}/notification-rules')
 def list_notification_rules(
-    workspace_id: str,
+    room_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_member(ws, token['uid'])
+    rm = _get_room_or_404(room_id)
+    _require_member(rm, token['uid'])
     import series_storage as _ss
-    rules = _ss.list_notification_rules_for_workspace(workspace_id)
-    return {'workspace_id': workspace_id, 'rules': [r.to_dict() for r in rules]}
+    rules = _ss.list_notification_rules_for_room(room_id)
+    return {'room_id': room_id, 'rules': [r.to_dict() for r in rules]}
 
 
-@router.post('/workspaces/{workspace_id}/notification-rules', status_code=201)
+@router.post('/rooms/{room_id}/notification-rules', status_code=201)
 def create_notification_rule(
-    workspace_id: str,
+    room_id: str,
     body: CreateNotificationRuleRequest,
     token: dict = Depends(_require_token),
 ) -> dict:
-    ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token['uid'])
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token['uid'])
     from models import NotificationRule
     import series_storage as _ss
     rule = NotificationRule(
         rule_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         series_id=body.series_id,
         channel=body.channel,
         remind_before_minutes=body.remind_before_minutes,
@@ -973,8 +974,8 @@ def delete_notification_rule(
     rule = _ss.get_notification_rule(rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail='NotificationRule not found')
-    ws = _get_workspace_or_404(rule.workspace_id)
-    _require_organizer(ws, token['uid'])
+    rm = _get_room_or_404(rule.room_id)
+    _require_organizer(rm, token['uid'])
     db = get_client()
     db.collection(_ss.NOTIFICATION_RULES_COLLECTION).document(rule_id).delete()
 
@@ -993,8 +994,8 @@ def get_occurrence_ics(
     occ = series_storage.get_occurrence(occurrence_id)
     if occ is None:
         raise HTTPException(status_code=404, detail='Occurrence not found')
-    ws = _get_workspace_or_404(occ.workspace_id)
-    _require_member(ws, token['uid'])
+    rm = _get_room_or_404(occ.room_id)
+    _require_member(rm, token['uid'])
     s = series_storage.get_series(occ.series_id)
     if s is None:
         raise HTTPException(status_code=404, detail='Series not found')
@@ -1021,8 +1022,8 @@ def get_series_ics(
     """Export all occurrences of a series as an ICS calendar feed."""
     from fastapi.responses import Response
     s = _get_series_or_404(series_id)
-    ws = _get_workspace_or_404(s.workspace_id)
-    _require_member(ws, token['uid'])
+    rm = _get_room_or_404(s.room_id)
+    _require_member(rm, token['uid'])
     occs = series_storage.list_occurrences_for_series(series_id)
     try:
         from ics_export import series_to_ics, calendar_to_bytes
@@ -1048,7 +1049,7 @@ def telegram_webhook(raw_update: dict, x_telegram_bot_api_secret_token: str = He
 
     Telegram calls this URL when a new message arrives (webhook mode).
     The endpoint does not require a Firebase auth token because Telegram
-    does not send one — security is provided by a secret token header.
+    does not send one -- security is provided by a secret token header.
 
     Returns {"ok": true} to tell Telegram the update was accepted.
     """
@@ -1086,29 +1087,29 @@ def telegram_webhook(raw_update: dict, x_telegram_bot_api_secret_token: str = He
 
 class AssistantMessageRequest(BaseModel):
     message: str
-    workspace_context: dict | None = None
+    room_context: dict | None = None
     history: list[dict] | None = None
 
 
-@router.post('/workspaces/{workspace_id}/assistant')
+@router.post('/rooms/{room_id}/assistant')
 def assistant_chat(
-    workspace_id: str,
+    room_id: str,
     body: AssistantMessageRequest,
     token: dict = Depends(_require_token),
 ) -> object:
     import json as _json
     from fastapi.responses import StreamingResponse
 
-    ws = _get_workspace_or_404(workspace_id)
-    _require_role(ws, token['uid'], 'organizer', 'teacher')
+    rm = _get_room_or_404(room_id)
+    _require_role(rm, token['uid'], 'organizer', 'teacher')
     uid = token['uid']
 
     def _event_stream():
         for event in run_assistant_stream(
             message=body.message,
-            workspace_id=workspace_id,
+            room_id=room_id,
             uid=uid,
-            workspace_context=body.workspace_context,
+            room_context=body.room_context,
             history=body.history,
         ):
             yield f"data: {_json.dumps(event)}\n\n"
@@ -1130,8 +1131,8 @@ def confirm_action(
     if pending.status != 'pending':
         raise HTTPException(status_code=409, detail=f'Action is already {pending.status}')
 
-    ws = _get_workspace_or_404(pending.workspace_id)
-    _require_role(ws, token['uid'], 'organizer', 'teacher')
+    rm = _get_room_or_404(pending.room_id)
+    _require_role(rm, token['uid'], 'organizer', 'teacher')
 
     update_pending_action_status(action_id, 'confirmed')
     try:

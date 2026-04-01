@@ -2,7 +2,7 @@
 
 ## What We're Building
 
-A recurring-schedule platform that serves three connected use cases: personal study reminders, shared meeting coordination for Christian groups, and supervised study with teacher oversight. One unified engine powers all three — workspaces, recurring series, editable occurrences, check-ins, and notifications.
+A recurring-schedule platform that serves three connected use cases: personal study reminders, shared meeting coordination for Christian groups, and supervised study with teacher oversight. One unified engine powers all three — rooms, recurring series, editable occurrences, check-ins, and notifications.
 
 ## Problem
 
@@ -12,7 +12,7 @@ Existing tools handle one-off events well but are weak at recurring study plans 
 
 The first release focuses exclusively on meeting organizers managing recurring meetings. This is the most differentiated use case and solves the hardest technical problem — recurrence with editable single instances — which every subsequent feature depends on.
 
-MVP delivers: mobile web app with Google login, workspaces, recurring meeting series, generated occurrences with per-instance editing, meeting details (location, Zoom link, content), and shareable meeting summaries for copy-paste into other channels.
+MVP delivers: mobile web app with Google login, rooms, recurring meeting series, generated occurrences with per-instance editing, meeting details (location, Zoom link, content), and shareable meeting summaries for copy-paste into other channels.
 
 The product includes an always-on AI assistant with a chat interface that helps meeting organizers create and update schedules, draft meeting content, reschedule occurrences, and generate shareable reminder messages. Telegram and WhatsApp will be the first supported messaging channels, starting with whichever is easier to implement.
 

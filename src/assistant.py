@@ -78,12 +78,12 @@ Respond with a single JSON object (no markdown fences):
 
 def _build_prompt(
     message: str,
-    workspace_context: dict[str, Any] | None,
+    room_context: dict[str, Any] | None,
     history: list[dict[str, str]] | None = None,
 ) -> str:
     ctx = ""
-    if workspace_context:
-        ctx = "\nWorkspace context:\n" + json.dumps(workspace_context, indent=2, default=str) + "\n"
+    if room_context:
+        ctx = "\nRoom context:\n" + json.dumps(room_context, indent=2, default=str) + "\n"
     conv = ""
     if history:
         for turn in history:
@@ -157,12 +157,12 @@ _ACTION_BUILDERS = {
 
 
 def _build_and_save_action(
-    intent: str, ai_action: dict, workspace_id: str, uid: str
+    intent: str, ai_action: dict, room_id: str, uid: str
 ):
     builder = _ACTION_BUILDERS.get(intent)
     if builder is None:
         return None
-    pending = builder(workspace_id, uid, ai_action.get("payload", {}))
+    pending = builder(room_id, uid, ai_action.get("payload", {}))
     if ai_action.get("preview_summary"):
         pending.preview_summary = ai_action["preview_summary"]
     save_pending_action(pending)
@@ -175,15 +175,15 @@ def _build_and_save_action(
 
 def run_assistant_stream(
     message: str,
-    workspace_id: str,
+    room_id: str,
     uid: str,
-    workspace_context: dict[str, Any] | None = None,
+    room_context: dict[str, Any] | None = None,
     history: list[dict[str, str]] | None = None,
 ) -> Generator[dict, None, None]:
     """Stream assistant events for an organizer message."""
     yield {"type": "status", "message": "Thinking\u2026"}
 
-    prompt = _build_prompt(message, workspace_context, history)
+    prompt = _build_prompt(message, room_context, history)
     try:
         ai_result = _call_ai(prompt)
     except Exception as exc:
@@ -200,7 +200,7 @@ def run_assistant_stream(
 
     if ai_action and intent != "general_question":
         try:
-            pending = _build_and_save_action(intent, ai_action, workspace_id, uid)
+            pending = _build_and_save_action(intent, ai_action, room_id, uid)
             if pending is not None:
                 yield {
                     "type": "action_proposal",

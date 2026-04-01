@@ -1,6 +1,6 @@
 # Meeting Assistant
 
-Meeting Assistant is a Firebase- and Firestore-backed recurring-schedule platform with workspaces, series, occurrences, check-ins, notifications, and an organizer assistant.
+Meeting Assistant is a Firebase- and Firestore-backed recurring-schedule platform with rooms, series, occurrences, check-ins, notifications, and an organizer assistant.
 
 The current web app is deployed at `https://living-memories-488001.web.app`.
 
@@ -9,7 +9,7 @@ The current web app is deployed at `https://living-memories-488001.web.app`.
 ### Backend
 
 - `src/api.py` is the main FastAPI entry point (health check, middleware, mounts the v2 router).
-- `src/api_v2.py` exposes the workspace, series, occurrence, check-in, notification, ICS, Telegram webhook, and assistant APIs.
+- `src/api_v2.py` exposes the room, series, occurrence, check-in, notification, ICS, Telegram webhook, and assistant APIs.
 - `src/db.py` provides the shared Firestore client factory.
 - Firestore is the primary datastore.
 - Firebase Auth provides user authentication for authenticated routes.
@@ -17,11 +17,11 @@ The current web app is deployed at `https://living-memories-488001.web.app`.
 
 ### Frontend
 
-- `web/` is the primary React SPA, organized around workspaces and recurring schedules.
+- `web/` is the primary React SPA, organized around rooms and recurring schedules.
 
 ### Domain Models
 
-- `Workspace`
+- `Room`
 - `Series`
 - `Occurrence`
 - `CheckIn`
@@ -31,21 +31,21 @@ The current web app is deployed at `https://living-memories-488001.web.app`.
 
 ## Main User Flows
 
-### Workspace and recurrence flow
+### Room and recurrence flow
 
-1. Create a workspace.
-2. Create one or more recurring series in that workspace.
+1. Create a room.
+2. Create one or more recurring series in that room.
 3. Generate occurrences for a date window.
 4. Edit, reschedule, complete, or cancel individual occurrences.
 5. Record participant check-ins and configure notification rules.
 
 ### Organizer assistant flow
 
-1. Send a message to the assistant endpoint for a workspace.
+1. Send a message to the assistant endpoint for a room.
 2. The assistant proposes a structured action.
 3. The proposed action is stored as a pending action.
 4. The user confirms or cancels it.
-5. Confirmation executes the action against the workspace data.
+5. Confirmation executes the action against the room data.
 
 ## Local Development
 
@@ -112,24 +112,24 @@ Authenticated routes require a Firebase ID token in `Authorization: Bearer <toke
 
 ### API groups
 
-- `/v2/workspaces`
-- `/v2/workspaces/{workspace_id}/members`
-- `/v2/workspaces/{workspace_id}/series`
-- `/v2/workspaces/{workspace_id}/occurrences`
+- `/v2/rooms`
+- `/v2/rooms/{room_id}/members`
+- `/v2/rooms/{room_id}/series`
+- `/v2/rooms/{room_id}/occurrences`
 - `/v2/series/{series_id}`
 - `/v2/series/{series_id}/occurrences`
 - `/v2/occurrences/{occurrence_id}`
 - `/v2/occurrences/{occurrence_id}/check-ins`
 - `/v2/occurrences/{occurrence_id}/my-check-in`
-- `/v2/workspaces/{workspace_id}/notification-rules`
-- `/v2/workspaces/{workspace_id}/assistant`
+- `/v2/rooms/{room_id}/notification-rules`
+- `/v2/rooms/{room_id}/assistant`
 - `/v2/assistant/actions/{action_id}/confirm`
 - `/v2/assistant/actions/{action_id}/cancel`
 
-### Example: create a workspace
+### Example: create a room
 
 ```bash
-curl -X POST https://living-memories-488001.web.app/v2/workspaces \
+curl -X POST https://living-memories-488001.web.app/v2/rooms \
   -H "Authorization: Bearer $(login token)" \
   -H "Content-Type: application/json" \
   -d '{"title": "Weekly Standup", "type": "shared", "timezone": "America/New_York"}'
@@ -140,5 +140,5 @@ curl -X POST https://living-memories-488001.web.app/v2/workspaces \
 - `src/` Python backend
 - `web/` React SPA
 - `tests/` pytest suite
-- `docs/design/` product and design docs for the workspace/series platform
+- `docs/design/` product and design docs for the room/series platform
 - `scripts/` operational scripts

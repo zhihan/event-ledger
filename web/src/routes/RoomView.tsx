@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
-  getWorkspace,
-  getWorkspaceSeries,
-  getWorkspaceMembers,
-  createWorkspaceInvite,
+  getRoom,
+  getRoomSeries,
+  getRoomMembers,
+  createRoomInvite,
   removeMember,
   createSeries,
-  patchWorkspace,
-  deleteWorkspace,
-  type WorkspaceSummary,
+  patchRoom,
+  deleteRoom,
+  type RoomSummary,
   type SeriesSummary,
   type ScheduleRule,
 } from "../api";
@@ -41,12 +41,12 @@ function formatScheduleRule(rule: ScheduleRule): string {
   return rule.frequency;
 }
 
-export function WorkspaceView() {
-  const { workspaceId } = useParams<{ workspaceId: string }>();
+export function RoomView() {
+  const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [room, setRoom] = useState<RoomSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -77,16 +77,16 @@ export function WorkspaceView() {
   const [removingUid, setRemovingUid] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!roomId) return;
     setLoading(true);
     setError(null);
     try {
-      const [ws, sr, mem] = await Promise.all([
-        getWorkspace(workspaceId),
-        getWorkspaceSeries(workspaceId),
-        getWorkspaceMembers(workspaceId),
+      const [rm, sr, mem] = await Promise.all([
+        getRoom(roomId),
+        getRoomSeries(roomId),
+        getRoomMembers(roomId),
       ]);
-      setWorkspace(ws);
+      setRoom(rm);
       setSeries(sr);
       setMembers(mem.members);
       setMemberDetails(
@@ -102,7 +102,7 @@ export function WorkspaceView() {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [roomId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -125,7 +125,7 @@ export function WorkspaceView() {
 
   async function handleCreateSeries(e: React.FormEvent) {
     e.preventDefault();
-    if (!workspaceId || !formTitle.trim()) return;
+    if (!roomId || !formTitle.trim()) return;
     setFormSubmitting(true);
     setFormError(null);
 
@@ -137,7 +137,7 @@ export function WorkspaceView() {
     }
 
     try {
-      const created = await createSeries(workspaceId, {
+      const created = await createSeries(roomId, {
         title: formTitle.trim(),
         description: formDescription.trim() || undefined,
         schedule_rule: scheduleRule,
@@ -160,7 +160,7 @@ export function WorkspaceView() {
       setFormCheckInDays([]);
       setFormLink("");
       // Navigate to series detail
-      navigate(`/w/${workspaceId}/series/${created.series_id}`);
+      navigate(`/room/${roomId}/series/${created.series_id}`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create series");
     } finally {
@@ -169,10 +169,10 @@ export function WorkspaceView() {
   }
 
   async function handleCreateInvite() {
-    if (!workspaceId) return;
+    if (!roomId) return;
     setInviteCreating(true);
     try {
-      const invite = await createWorkspaceInvite(workspaceId, inviteRole);
+      const invite = await createRoomInvite(roomId, inviteRole);
       setInviteLink(`${window.location.origin}/invites/${invite.invite_id}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create invite");
@@ -182,7 +182,7 @@ export function WorkspaceView() {
   }
 
   async function handleRemoveMember(uid: string) {
-    if (!workspaceId) return;
+    if (!roomId) return;
     const isSelf = uid === user?.uid;
     if (isSelf) {
       const otherOrganizers = members && Object.entries(members).some(
@@ -192,11 +192,11 @@ export function WorkspaceView() {
         alert("You are the only organizer. Add another organizer before leaving.");
         return;
       }
-      if (!window.confirm("Leave this workspace? You will lose access.")) return;
+      if (!window.confirm("Leave this room? You will lose access.")) return;
     }
     setRemovingUid(uid);
     try {
-      await removeMember(workspaceId, uid);
+      await removeMember(roomId, uid);
       if (isSelf) {
         navigate("/dashboard");
         return;
@@ -214,13 +214,13 @@ export function WorkspaceView() {
     }
   }
 
-  const isOrganizer = user?.uid && workspace?.member_roles[user.uid] === "organizer";
+  const isOrganizer = user?.uid && room?.member_roles[user.uid] === "organizer";
 
-  if (loading) return <LoadingSpinner message="Loading workspace..." />;
+  if (loading) return <LoadingSpinner message="Loading room..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
   return (
-    <div className="workspace-view">
+    <div className="room-view">
       <div className="page-header">
         <div className="page-header-top">
           <Link to="/dashboard" className="back-link">&larr; Dashboard</Link>
@@ -230,10 +230,10 @@ export function WorkspaceView() {
             className="inline-edit-title"
             onSubmit={async (e) => {
               e.preventDefault();
-              if (!workspaceId || !editTitleValue.trim()) return;
+              if (!roomId || !editTitleValue.trim()) return;
               try {
-                const updated = await patchWorkspace(workspaceId, { title: editTitleValue.trim() });
-                setWorkspace(updated);
+                const updated = await patchRoom(roomId, { title: editTitleValue.trim() });
+                setRoom(updated);
                 setEditingTitle(false);
               } catch (err) {
                 alert(err instanceof Error ? err.message : "Failed to rename");
@@ -256,14 +256,14 @@ export function WorkspaceView() {
         ) : (
           <h1
             className="page-title page-title-editable"
-            onClick={() => { setEditTitleValue(workspace?.title ?? ""); setEditingTitle(true); }}
+            onClick={() => { setEditTitleValue(room?.title ?? ""); setEditingTitle(true); }}
             title="Click to rename"
           >
-            {workspace?.title}
+            {room?.title}
           </h1>
         )}
-        {workspace && (
-          <p className="page-meta-tz">{workspace.timezone}</p>
+        {room && (
+          <p className="page-meta-tz">{room.timezone}</p>
         )}
       </div>
 
@@ -472,7 +472,7 @@ export function WorkspaceView() {
             {series.map((s) => (
               <li key={s.series_id} className="series-card">
                 <div className="series-card-top">
-                  <Link to={`/w/${workspaceId}/series/${s.series_id}`} className="series-card-title">
+                  <Link to={`/room/${roomId}/series/${s.series_id}`} className="series-card-title">
                     {s.title}
                   </Link>
                   {/* status badge hidden – issue #114 */}
@@ -509,7 +509,7 @@ export function WorkspaceView() {
                 )}
                 <div className="series-card-actions">
                   <Link
-                    to={`/w/${workspaceId}/series/${s.series_id}`}
+                    to={`/room/${roomId}/series/${s.series_id}`}
                     className="btn btn-secondary btn-sm"
                   >
                     View schedule
@@ -610,12 +610,12 @@ export function WorkspaceView() {
           <button
             className="btn btn-sm btn-danger"
             onClick={async () => {
-              if (!confirm("Delete this workspace and all its data? This cannot be undone.")) return;
-              await deleteWorkspace(workspaceId!);
+              if (!confirm("Delete this room and all its data? This cannot be undone.")) return;
+              await deleteRoom(roomId!);
               navigate("/");
             }}
           >
-            Delete workspace
+            Delete room
           </button>
         </section>
       )}

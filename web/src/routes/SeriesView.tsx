@@ -45,8 +45,8 @@ function formatScheduleRule(rule: ScheduleRule): string {
 
 
 export function SeriesView() {
-  const { workspaceId, seriesId } = useParams<{
-    workspaceId: string;
+  const { roomId, seriesId } = useParams<{
+    roomId: string;
     seriesId: string;
   }>();
   const navigate = useNavigate();
@@ -94,7 +94,7 @@ export function SeriesView() {
 
 
   const load = useCallback(async () => {
-    if (!seriesId || !workspaceId) return;
+    if (!seriesId || !roomId) return;
     setLoading(true);
     setError(null);
     try {
@@ -109,7 +109,7 @@ export function SeriesView() {
     } finally {
       setLoading(false);
     }
-  }, [seriesId, workspaceId]);
+  }, [seriesId, roomId]);
 
   async function loadReport() {
     if (!seriesId) return;
@@ -251,11 +251,11 @@ export function SeriesView() {
   ) ?? [];
 
   return (
-    <div className="workspace-view">
+    <div className="room-view">
       <div className="page-header">
         <div className="page-header-top">
-          <Link to={`/w/${workspaceId}`} className="back-link">
-            &larr; Workspace
+          <Link to={`/room/${roomId}`} className="back-link">
+            &larr; Room
           </Link>
           {!editing && (
             <div style={{ display: "flex", gap: 4 }}>
@@ -271,7 +271,7 @@ export function SeriesView() {
                 onClick={async () => {
                   if (!confirm("Delete this series and all its occurrences? This cannot be undone.")) return;
                   await deleteSeries(seriesId!);
-                  navigate(`/w/${workspaceId}`);
+                  navigate(`/room/${roomId}`);
                 }}
               >
                 Delete

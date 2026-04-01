@@ -39,7 +39,7 @@ class OccurrenceOverrides {
 class Occurrence {
   final String occurrenceId;
   final String seriesId;
-  final String workspaceId;
+  final String roomId;
   final String scheduledFor;
   final String status;
   final String? location;
@@ -51,7 +51,7 @@ class Occurrence {
   const Occurrence({
     required this.occurrenceId,
     required this.seriesId,
-    required this.workspaceId,
+    required this.roomId,
     required this.scheduledFor,
     this.status = 'scheduled',
     this.location,
@@ -65,7 +65,7 @@ class Occurrence {
     return Occurrence(
       occurrenceId: json['occurrence_id'] as String,
       seriesId: json['series_id'] as String,
-      workspaceId: json['workspace_id'] as String,
+      roomId: json['room_id'] as String,
       scheduledFor: json['scheduled_for'] as String,
       status: json['status'] as String? ?? 'scheduled',
       location: json['location'] as String?,

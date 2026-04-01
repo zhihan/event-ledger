@@ -34,7 +34,7 @@ class ScheduleRule {
 
 class Series {
   final String seriesId;
-  final String workspaceId;
+  final String roomId;
   final String kind;
   final String title;
   final ScheduleRule scheduleRule;
@@ -55,7 +55,7 @@ class Series {
 
   const Series({
     required this.seriesId,
-    required this.workspaceId,
+    required this.roomId,
     required this.kind,
     required this.title,
     required this.scheduleRule,
@@ -87,7 +87,7 @@ class Series {
 
     return Series(
       seriesId: json['series_id'] as String,
-      workspaceId: json['workspace_id'] as String,
+      roomId: json['room_id'] as String,
       kind: json['kind'] as String,
       title: json['title'] as String,
       scheduleRule: ScheduleRule.fromJson(

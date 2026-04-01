@@ -4,21 +4,21 @@ This file gives repo-specific guidance for coding agents working in this reposit
 
 ## Project Overview
 
-Meeting Assistant is a recurring-schedule platform built on Firebase and Firestore. The core domain includes `Workspace`, `Series`, `Occurrence`, `CheckIn`, notification, study/cohort, and assistant flows.
+Meeting Assistant is a recurring-schedule platform built on Firebase and Firestore. The core domain includes `Room`, `Series`, `Occurrence`, `CheckIn`, notification, study/cohort, and assistant flows.
 
 ## Primary Runtime Surfaces
 
 - `src/api.py`
   Main FastAPI entry point: health check, middleware, mounts the v2 router.
 - `src/api_v2.py`
-  FastAPI surface for workspaces, membership, recurring series, occurrences, check-ins, notifications, cohorts, ICS export, Telegram webhook handling, and assistant actions.
+  FastAPI surface for rooms, membership, recurring series, occurrences, check-ins, notifications, cohorts, ICS export, Telegram webhook handling, and assistant actions.
 - `web/`
-  Primary React SPA with workspace-centric routes.
+  Primary React SPA with room-centric routes.
 
 ## Core Backend Modules
 
 - `src/models.py`
-  Canonical dataclasses for `Workspace`, `Series`, `Occurrence`, `CheckIn`, `NotificationRule`, and `DeliveryLog`.
+  Canonical dataclasses for `Room`, `Series`, `Occurrence`, `CheckIn`, `NotificationRule`, and `DeliveryLog`.
 - `src/db.py`
   Shared Firestore client factory.
 - `src/recurrence.py`
@@ -32,8 +32,8 @@ Meeting Assistant is a recurring-schedule platform built on Firebase and Firesto
 
 ## Storage Modules
 
-- `src/workspace_storage.py`
-  Workspace and membership storage.
+- `src/room_storage.py`
+  Room and membership storage.
 - `src/series_storage.py`
   Series, occurrence, check-in, notification rule, and delivery log storage.
 - `src/study_storage.py`

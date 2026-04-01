@@ -6,7 +6,7 @@ import '../app/config.dart';
 import '../models/check_in.dart';
 import '../models/occurrence.dart';
 import '../models/series.dart';
-import '../models/workspace.dart';
+import '../models/room.dart';
 import '../shared/errors/api_exception.dart';
 import 'auth_service.dart';
 
@@ -87,72 +87,72 @@ class ApiService {
     return response.body.isNotEmpty ? jsonDecode(response.body) : null;
   }
 
-  // --- Workspaces ---
+  // --- Rooms ---
 
-  Future<List<Workspace>> listWorkspaces() async {
-    final data = await _request('GET', '/v2/workspaces');
-    final list = data['workspaces'] as List;
+  Future<List<Room>> listRooms() async {
+    final data = await _request('GET', '/v2/rooms');
+    final list = data['rooms'] as List;
     return list
-        .map((w) => Workspace.fromJson(w as Map<String, dynamic>))
+        .map((r) => Room.fromJson(r as Map<String, dynamic>))
         .toList();
   }
 
-  Future<Workspace> getWorkspace(String id) async {
-    final data = await _request('GET', '/v2/workspaces/$id');
-    return Workspace.fromJson(data as Map<String, dynamic>);
+  Future<Room> getRoom(String id) async {
+    final data = await _request('GET', '/v2/rooms/$id');
+    return Room.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<Workspace> createWorkspace({
+  Future<Room> createRoom({
     required String title,
     String type = 'shared',
     String timezone = 'UTC',
     String? description,
   }) async {
-    final data = await _request('POST', '/v2/workspaces', body: {
+    final data = await _request('POST', '/v2/rooms', body: {
       'title': title,
       'type': type,
       'timezone': timezone,
       if (description != null) 'description': description,
     });
-    return Workspace.fromJson(data as Map<String, dynamic>);
+    return Room.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<Workspace> updateWorkspace(
+  Future<Room> updateRoom(
       String id, Map<String, dynamic> updates) async {
-    final data = await _request('PATCH', '/v2/workspaces/$id', body: updates);
-    return Workspace.fromJson(data as Map<String, dynamic>);
+    final data = await _request('PATCH', '/v2/rooms/$id', body: updates);
+    return Room.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<void> deleteWorkspace(String id) async {
-    await _request('DELETE', '/v2/workspaces/$id');
+  Future<void> deleteRoom(String id) async {
+    await _request('DELETE', '/v2/rooms/$id');
   }
 
   // --- Members ---
 
-  Future<List<MemberDetail>> listMembers(String workspaceId) async {
+  Future<List<MemberDetail>> listMembers(String roomId) async {
     final data =
-        await _request('GET', '/v2/workspaces/$workspaceId/members');
+        await _request('GET', '/v2/rooms/$roomId/members');
     final list = data['member_details'] as List;
     return list
         .map((m) => MemberDetail.fromJson(m as Map<String, dynamic>))
         .toList();
   }
 
-  Future<void> addMember(String workspaceId, String uid, String role) async {
-    await _request('POST', '/v2/workspaces/$workspaceId/members',
+  Future<void> addMember(String roomId, String uid, String role) async {
+    await _request('POST', '/v2/rooms/$roomId/members',
         body: {'uid': uid, 'role': role});
   }
 
-  Future<void> removeMember(String workspaceId, String uid) async {
-    await _request('DELETE', '/v2/workspaces/$workspaceId/members/$uid');
+  Future<void> removeMember(String roomId, String uid) async {
+    await _request('DELETE', '/v2/rooms/$roomId/members/$uid');
   }
 
   // --- Invites ---
 
   Future<Map<String, dynamic>> createInvite(
-      String workspaceId, String role) async {
+      String roomId, String role) async {
     final data = await _request(
-        'POST', '/v2/workspaces/$workspaceId/invites',
+        'POST', '/v2/rooms/$roomId/invites',
         body: {'role': role});
     return data as Map<String, dynamic>;
   }
@@ -164,9 +164,9 @@ class ApiService {
 
   // --- Series ---
 
-  Future<List<Series>> listSeries(String workspaceId) async {
+  Future<List<Series>> listSeries(String roomId) async {
     final data =
-        await _request('GET', '/v2/workspaces/$workspaceId/series');
+        await _request('GET', '/v2/rooms/$roomId/series');
     final list = data['series'] as List;
     return list
         .map((s) => Series.fromJson(s as Map<String, dynamic>))
@@ -179,9 +179,9 @@ class ApiService {
   }
 
   Future<Series> createSeries(
-      String workspaceId, Map<String, dynamic> body) async {
+      String roomId, Map<String, dynamic> body) async {
     final data = await _request(
-        'POST', '/v2/workspaces/$workspaceId/series',
+        'POST', '/v2/rooms/$roomId/series',
         body: body);
     return Series.fromJson(data as Map<String, dynamic>);
   }
@@ -211,10 +211,10 @@ class ApiService {
 
   // --- Occurrences ---
 
-  Future<List<Occurrence>> listWorkspaceOccurrences(
-      String workspaceId, {String? status}) async {
+  Future<List<Occurrence>> listRoomOccurrences(
+      String roomId, {String? status}) async {
     final data = await _request(
-        'GET', '/v2/workspaces/$workspaceId/occurrences',
+        'GET', '/v2/rooms/$roomId/occurrences',
         queryParams: status != null ? {'status': status} : null);
     final list = data['occurrences'] as List;
     return list
@@ -241,7 +241,7 @@ class ApiService {
         body: {
           'start_date': startDate,
           'end_date': endDate,
-          if (timezone != null) 'workspace_timezone': timezone,
+          if (timezone != null) 'room_timezone': timezone,
         });
     return data as Map<String, dynamic>;
   }

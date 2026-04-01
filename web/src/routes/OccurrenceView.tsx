@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   getOccurrence,
   getSeries,
-  getWorkspace,
+  getRoom,
   patchOccurrence,
   createCheckIn,
   getOccurrenceCheckIns,
@@ -14,7 +14,7 @@ import {
   type SeriesSummary,
   type OccurrenceOverrides,
   type CheckInSummary,
-  type WorkspaceSummary,
+  type RoomSummary,
 } from "../api";
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -41,7 +41,7 @@ export function OccurrenceView() {
 
   const [occurrence, setOccurrence] = useState<OccurrenceSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary | null>(null);
-  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [room, setRoom] = useState<RoomSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -69,7 +69,7 @@ export function OccurrenceView() {
       const occ = await getOccurrence(occurrenceId);
       const [s, ws] = await Promise.all([
         getSeries(occ.series_id),
-        getWorkspace(occ.workspace_id),
+        getRoom(occ.room_id),
       ]);
       const role = user?.uid ? ws.member_roles[user.uid] : undefined;
       const isManager = role === "organizer" || role === "teacher";
@@ -82,7 +82,7 @@ export function OccurrenceView() {
       }
       setOccurrence(occ);
       setSeries(s);
-      setWorkspace(ws);
+      setRoom(ws);
       setCheckIns(cis);
     } catch (err) {
       setError(err as Error);
@@ -162,18 +162,18 @@ export function OccurrenceView() {
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
-  const role = user?.uid ? workspace?.member_roles[user.uid] : undefined;
+  const role = user?.uid ? room?.member_roles[user.uid] : undefined;
   const isManager = role === "organizer" || role === "teacher";
   const isPracticeDay = occ.enable_check_in;
   const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
 
   return (
-    <div className="workspace-view">
+    <div className="room-view">
       <div className="page-header">
         <div className="page-header-top">
           <Link
-            to={`/w/${occurrence?.workspace_id}/series/${occurrence?.series_id}`}
+            to={`/room/${occurrence?.room_id}/series/${occurrence?.series_id}`}
             className="back-link"
           >
             &larr; Series
@@ -196,7 +196,7 @@ export function OccurrenceView() {
           <p className="series-meta">{effectiveDuration} minutes</p>
         )}
         <p className="series-meta series-meta-link">
-          <Link to={`/w/${occurrence?.workspace_id}/series/${occurrence?.series_id}`} className="muted-link">
+          <Link to={`/room/${occurrence?.room_id}/series/${occurrence?.series_id}`} className="muted-link">
             {series?.title}
           </Link>
         </p>
@@ -227,7 +227,7 @@ export function OccurrenceView() {
               onClick={async () => {
                 if (!confirm("Delete this occurrence? This cannot be undone.")) return;
                 await deleteOccurrence(occ.occurrence_id);
-                navigate(`/w/${occ.workspace_id}/series/${occ.series_id}`);
+                navigate(`/room/${occ.room_id}/series/${occ.series_id}`);
               }}
             >
               Delete occurrence
@@ -266,7 +266,7 @@ export function OccurrenceView() {
             <h2>Location</h2>
             {series?.location_type === "rotation" && (
               <Link
-                to={`/w/${occurrence?.workspace_id}/series/${occurrence?.series_id}`}
+                to={`/room/${occurrence?.room_id}/series/${occurrence?.series_id}`}
                 className="btn btn-secondary btn-xs"
               >
                 Edit rotation

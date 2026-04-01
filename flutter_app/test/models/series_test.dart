@@ -40,7 +40,7 @@ void main() {
     test('fromJson parses full series', () {
       final json = {
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'kind': 'meeting',
         'title': 'Weekly Standup',
         'schedule_rule': {
@@ -73,7 +73,7 @@ void main() {
     test('scheduleDescription for weekly', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(
@@ -87,7 +87,7 @@ void main() {
     test('scheduleDescription for daily', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(frequency: 'daily'),
@@ -98,7 +98,7 @@ void main() {
     test('scheduleDescription for daily with interval', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(frequency: 'daily', interval: 3),
@@ -109,7 +109,7 @@ void main() {
     test('scheduleDescription for weekdays', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(frequency: 'weekdays'),
@@ -120,7 +120,7 @@ void main() {
     test('scheduleDescription for once', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(frequency: 'once'),
@@ -131,7 +131,7 @@ void main() {
     test('scheduleDescription for biweekly', () {
       final series = Series(
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         kind: 'meeting',
         title: 'Test',
         scheduleRule: ScheduleRule(
@@ -146,7 +146,7 @@ void main() {
     test('handles missing optional fields', () {
       final json = {
         'series_id': 's-2',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'kind': 'reminder',
         'title': 'Reminder',
         'schedule_rule': {'frequency': 'once'},

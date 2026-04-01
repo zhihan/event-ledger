@@ -5,8 +5,8 @@ import { AuthProvider, RequireAuth } from "./auth";
 import { AppShell } from "./components/AppShell";
 import { Landing } from "./routes/Landing";
 import { SignIn } from "./routes/SignIn";
-import { WorkspaceDashboard } from "./routes/WorkspaceDashboard";
-import { WorkspaceView } from "./routes/WorkspaceView";
+import { RoomDashboard } from "./routes/RoomDashboard";
+import { RoomView } from "./routes/RoomView";
 import { SeriesView } from "./routes/SeriesView";
 import { OccurrenceView } from "./routes/OccurrenceView";
 import { OccurrenceSummaryPage } from "./routes/OccurrenceSummaryPage";
@@ -34,25 +34,25 @@ createRoot(document.getElementById("root")!).render(
           />
 
           <Route element={<AppShell />}>
-            {/* New workspace-centric routes */}
+            {/* Room-centric routes */}
             <Route
               path="/dashboard"
               element={
                 <RequireAuth>
-                  <WorkspaceDashboard />
+                  <RoomDashboard />
                 </RequireAuth>
               }
             />
             <Route
-              path="/w/:workspaceId"
+              path="/room/:roomId"
               element={
                 <RequireAuth>
-                  <WorkspaceView />
+                  <RoomView />
                 </RequireAuth>
               }
             />
             <Route
-              path="/w/:workspaceId/series/:seriesId"
+              path="/room/:roomId/series/:seriesId"
               element={
                 <RequireAuth>
                   <SeriesView />

@@ -4,21 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/series.dart';
-import '../../models/workspace.dart';
+import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import 'create_series_dialog.dart';
 
-class WorkspaceScreen extends StatefulWidget {
-  final String workspaceId;
-  const WorkspaceScreen({super.key, required this.workspaceId});
+class RoomScreen extends StatefulWidget {
+  final String roomId;
+  const RoomScreen({super.key, required this.roomId});
 
   @override
-  State<WorkspaceScreen> createState() => _WorkspaceScreenState();
+  State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _WorkspaceScreenState extends State<WorkspaceScreen> {
-  Workspace? _workspace;
+class _RoomScreenState extends State<RoomScreen> {
+  Room? _room;
   List<Series>? _series;
   bool _loading = true;
   String? _error;
@@ -31,12 +31,12 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
 
   String get _uid => context.read<AuthService>().currentUser!.uid;
 
-  String? _roleInWorkspace(Workspace ws) => ws.memberRoles[_uid];
+  String? _roleInRoom(Room room) => room.memberRoles[_uid];
 
-  bool _isOrganizer(Workspace ws) => _roleInWorkspace(ws) == 'organizer';
+  bool _isOrganizer(Room room) => _roleInRoom(room) == 'organizer';
 
-  bool _canManageSeries(Workspace ws) {
-    final role = _roleInWorkspace(ws);
+  bool _canManageSeries(Room room) {
+    final role = _roleInRoom(room);
     return role == 'organizer' || role == 'teacher';
   }
 
@@ -48,12 +48,12 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     try {
       final api = context.read<ApiService>();
       final results = await Future.wait([
-        api.getWorkspace(widget.workspaceId),
-        api.listSeries(widget.workspaceId),
+        api.getRoom(widget.roomId),
+        api.listSeries(widget.roomId),
       ]);
       if (mounted) {
         setState(() {
-          _workspace = results[0] as Workspace;
+          _room = results[0] as Room;
           _series = results[1] as List<Series>;
         });
       }
@@ -65,9 +65,9 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
   }
 
   Future<void> _editTitle() async {
-    final ws = _workspace;
-    if (ws == null || !_isOrganizer(ws)) return;
-    final controller = TextEditingController(text: ws.title);
+    final room = _room;
+    if (room == null || !_isOrganizer(room)) return;
+    final controller = TextEditingController(text: room.title);
     final newTitle = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -82,10 +82,10 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         ],
       ),
     );
-    if (newTitle == null || newTitle.trim().isEmpty || newTitle.trim() == ws.title) return;
+    if (newTitle == null || newTitle.trim().isEmpty || newTitle.trim() == room.title) return;
     try {
-      await context.read<ApiService>().updateWorkspace(
-          widget.workspaceId, {'title': newTitle.trim()});
+      await context.read<ApiService>().updateRoom(
+          widget.roomId, {'title': newTitle.trim()});
       _load();
     } catch (e) {
       if (mounted) {
@@ -99,7 +99,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     try {
       final invite = await context
           .read<ApiService>()
-          .createInvite(widget.workspaceId, 'participant');
+          .createInvite(widget.roomId, 'participant');
       final inviteId = invite['invite_id'];
       final link =
           'https://living-memories-488001.web.app/invites/$inviteId';
@@ -123,7 +123,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
     );
     if (body == null) return;
     try {
-      await context.read<ApiService>().createSeries(widget.workspaceId, body);
+      await context.read<ApiService>().createSeries(widget.roomId, body);
       _load();
     } catch (e) {
       if (mounted) {
@@ -157,18 +157,18 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       );
     }
 
-    final ws = _workspace!;
+    final room = _room!;
     final series = _series ?? [];
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
-          onTap: _isOrganizer(ws) ? _editTitle : null,
-          child: Text(ws.title),
+          onTap: _isOrganizer(room) ? _editTitle : null,
+          child: Text(room.title),
         ),
       ),
-      floatingActionButton: _canManageSeries(ws)
+      floatingActionButton: _canManageSeries(room)
           ? FloatingActionButton(
               onPressed: _createSeries,
               child: const Icon(Icons.add),
@@ -179,7 +179,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
           children: [
-            // Workspace info
+            // Room info
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -187,23 +187,23 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                   children: [
                     Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
                     const SizedBox(width: 8),
-                    Text(ws.timezone,
+                    Text(room.timezone,
                         style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                     const Spacer(),
                     Icon(Icons.people_outline, size: 16, color: cs.onSurfaceVariant),
                     const SizedBox(width: 6),
-                    Text('${ws.memberRoles.length} members',
+                    Text('${room.memberRoles.length} members',
                         style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                   ],
                 ),
               ),
             ),
-            if (ws.description != null && ws.description!.isNotEmpty) ...[
+            if (room.description != null && room.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(14),
-                  child: Text(ws.description!,
+                  child: Text(room.description!,
                       style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                 ),
               ),
@@ -239,7 +239,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
             _SectionHeader(
               icon: Icons.people_outline,
               title: 'Members',
-              trailing: _isOrganizer(ws)
+              trailing: _isOrganizer(room)
                   ? TextButton.icon(
                       onPressed: _createInvite,
                       icon: const Icon(Icons.person_add, size: 16),
@@ -256,10 +256,10 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  ...ws.memberRoles.entries.toList().asMap().entries.map((entry) {
+                  ...room.memberRoles.entries.toList().asMap().entries.map((entry) {
                     final e = entry.value;
-                    final isLast = entry.key == ws.memberRoles.length - 1;
-                    final profile = ws.memberProfiles[e.key];
+                    final isLast = entry.key == room.memberRoles.length - 1;
+                    final profile = room.memberProfiles[e.key];
                     final name = profile?['display_name'] ?? e.key.substring(0, 8);
                     final isMe = e.key == _uid;
                     return Column(
@@ -305,21 +305,21 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
               ),
             ),
 
-            // Delete workspace (organizer only)
-            if (_isOrganizer(ws)) ...[
+            // Delete room (organizer only)
+            if (_isOrganizer(room)) ...[
               const SizedBox(height: 24),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Delete workspace',
+                  title: const Text('Delete room',
                       style: TextStyle(color: Colors.red)),
                   onTap: () async {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Delete workspace?'),
+                        title: const Text('Delete room?'),
                         content: const Text(
-                            'This will delete the workspace and all its data. This cannot be undone.'),
+                            'This will delete the room and all its data. This cannot be undone.'),
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
@@ -334,7 +334,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                     if (confirmed == true && mounted) {
                       await context
                           .read<ApiService>()
-                          .deleteWorkspace(widget.workspaceId);
+                          .deleteRoom(widget.roomId);
                       if (mounted) context.go('/');
                     }
                   },

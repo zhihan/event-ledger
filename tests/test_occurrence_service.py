@@ -20,7 +20,7 @@ from occurrence_service import (
 def _make_series(**kwargs) -> Series:
     defaults = dict(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Standup",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),  # Mondays
@@ -56,7 +56,7 @@ class TestGenerateAndSave:
         existing = [Occurrence(
             occurrence_id="occ-existing",
             series_id="s-1",
-            workspace_id="ws-1",
+            room_id="ws-1",
             scheduled_for="2026-04-06T09:00:00+00:00",
         )]
 
@@ -78,12 +78,12 @@ class TestGenerateAndSave:
         assert result == []
         mock_save.assert_not_called()
 
-    def test_assigns_workspace_id(self):
-        series = _make_series(workspace_id="ws-99")
+    def test_assigns_room_id(self):
+        series = _make_series(room_id="ws-99")
         with patch("occurrence_service.list_occurrences_for_series", return_value=[]),              patch("occurrence_service.save_occurrences_batch") as mock_save:
             result = generate_and_save(series, "UTC", date(2026, 4, 6), date(2026, 4, 6))
 
-        assert all(o.workspace_id == "ws-99" for o in result)
+        assert all(o.room_id == "ws-99" for o in result)
 
     def test_occurrence_ids_are_unique(self):
         series = _make_series()
@@ -97,7 +97,7 @@ class TestGenerateAndSave:
 class TestSkipComplete:
     def _mock_occ(self, status="scheduled"):
         return Occurrence(
-            occurrence_id="occ-1", series_id="s-1", workspace_id="ws-1",
+            occurrence_id="occ-1", series_id="s-1", room_id="ws-1",
             scheduled_for="2026-04-06T13:00:00+00:00", status=status,
         )
 

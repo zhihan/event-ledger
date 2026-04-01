@@ -27,7 +27,7 @@ def test_get_rotation_host_none_mode():
     """When rotation_mode is 'none', host should be None."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -42,7 +42,7 @@ def test_get_rotation_host_no_rotation_list():
     """When host_rotation is empty, host should be None."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -56,7 +56,7 @@ def test_get_rotation_host_cycles():
     """Host should cycle through the rotation list."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -82,7 +82,7 @@ def test_generate_and_save_host_only(mock_save, mock_list):
 
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),  # Mondays
@@ -94,7 +94,7 @@ def test_generate_and_save_host_only(mock_save, mock_list):
 
     new_occs = generate_and_save(
         series,
-        workspace_timezone="UTC",
+        room_timezone="UTC",
         start_date=date(2026, 4, 6),  # Monday
         end_date=date(2026, 4, 20),
     )
@@ -115,7 +115,7 @@ def test_generate_and_save_host_and_location(mock_save, mock_list):
 
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),  # Mondays
@@ -128,7 +128,7 @@ def test_generate_and_save_host_and_location(mock_save, mock_list):
 
     new_occs = generate_and_save(
         series,
-        workspace_timezone="UTC",
+        room_timezone="UTC",
         start_date=date(2026, 4, 6),
         end_date=date(2026, 4, 13),
     )
@@ -148,7 +148,7 @@ def test_generate_and_save_missing_address_fallback(mock_save, mock_list):
 
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -161,7 +161,7 @@ def test_generate_and_save_missing_address_fallback(mock_save, mock_list):
 
     new_occs = generate_and_save(
         series,
-        workspace_timezone="UTC",
+        room_timezone="UTC",
         start_date=date(2026, 4, 6),
         end_date=date(2026, 4, 13),
     )
@@ -184,7 +184,7 @@ def test_regenerate_rotation_from_occurrence(
     """Regeneration continues rotation from the target occurrence's host."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -197,7 +197,7 @@ def test_regenerate_rotation_from_occurrence(
     target = Occurrence(
         occurrence_id="occ-3",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-20T09:00:00+00:00",
         host="C",
     )
@@ -207,14 +207,14 @@ def test_regenerate_rotation_from_occurrence(
     occ4 = Occurrence(
         occurrence_id="occ-4",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-27T09:00:00+00:00",
         status="scheduled",
     )
     occ5 = Occurrence(
         occurrence_id="occ-5",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-05-04T09:00:00+00:00",
         status="scheduled",
     )
@@ -245,7 +245,7 @@ def test_regenerate_host_not_in_rotation_warns(
     """When host not in rotation, warn and start from beginning."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -257,7 +257,7 @@ def test_regenerate_host_not_in_rotation_warns(
     target = Occurrence(
         occurrence_id="occ-3",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-20T09:00:00+00:00",
         host="X",  # Not in rotation list
     )
@@ -266,7 +266,7 @@ def test_regenerate_host_not_in_rotation_warns(
     occ4 = Occurrence(
         occurrence_id="occ-4",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-27T09:00:00+00:00",
         status="scheduled",
     )
@@ -290,7 +290,7 @@ def test_regenerate_no_subsequent_occurrences(mock_list, mock_get_occ, mock_get_
     """When no subsequent occurrences, return 0 updates."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -302,7 +302,7 @@ def test_regenerate_no_subsequent_occurrences(mock_list, mock_get_occ, mock_get_
     target = Occurrence(
         occurrence_id="occ-last",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-20T09:00:00+00:00",
         host="A",
     )
@@ -325,7 +325,7 @@ def test_regenerate_with_host_and_location(
     """Regeneration with host_and_location updates both host and location."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -339,7 +339,7 @@ def test_regenerate_with_host_and_location(
     target = Occurrence(
         occurrence_id="occ-1",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-06T09:00:00+00:00",
         host="Alice",
     )
@@ -348,7 +348,7 @@ def test_regenerate_with_host_and_location(
     occ2 = Occurrence(
         occurrence_id="occ-2",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-13T09:00:00+00:00",
         status="scheduled",
     )
@@ -367,7 +367,7 @@ def test_regenerate_no_rotation_configured_raises(mock_get_series):
     """Raises ValueError when series has no rotation configured."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -385,7 +385,7 @@ def test_regenerate_no_host_set_raises(mock_get_occ, mock_get_series):
     """Raises ValueError when target occurrence has no host."""
     series = Series(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         kind="meeting",
         title="Test",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -397,7 +397,7 @@ def test_regenerate_no_host_set_raises(mock_get_occ, mock_get_series):
     target = Occurrence(
         occurrence_id="occ-1",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="ws-1",
         scheduled_for="2026-04-06T09:00:00+00:00",
         host=None,  # No host set
     )

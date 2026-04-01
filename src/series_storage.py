@@ -64,12 +64,12 @@ def delete_series(series_id: str) -> None:
     db.collection(SERIES_COLLECTION).document(series_id).delete()
 
 
-def list_series_for_workspace(workspace_id: str) -> list[Series]:
-    """Return all Series belonging to workspace_id, ordered by created_at."""
+def list_series_for_room(room_id: str) -> list[Series]:
+    """Return all Series belonging to room_id, ordered by created_at."""
     db = _get_client()
     docs = (
         db.collection(SERIES_COLLECTION)
-        .where("workspace_id", "==", workspace_id)
+        .where("room_id", "==", room_id)
         .stream()
     )
     results = [Series.from_dict(doc.to_dict()) for doc in docs]
@@ -136,15 +136,15 @@ def list_occurrences_for_series(
     return results
 
 
-def list_occurrences_for_workspace(
-    workspace_id: str,
+def list_occurrences_for_room(
+    room_id: str,
     status: str | None = None,
 ) -> list[Occurrence]:
-    """Return Occurrences for a workspace, optionally filtered by status."""
+    """Return Occurrences for a room, optionally filtered by status."""
     db = _get_client()
     query = (
         db.collection(OCCURRENCES_COLLECTION)
-        .where("workspace_id", "==", workspace_id)
+        .where("room_id", "==", room_id)
     )
     if status is not None:
         query = query.where("status", "==", status)
@@ -265,12 +265,12 @@ def get_notification_rule(rule_id: str) -> NotificationRule | None:
     return NotificationRule.from_dict(doc.to_dict())
 
 
-def list_notification_rules_for_workspace(workspace_id: str) -> list[NotificationRule]:
-    """Return all enabled NotificationRules for a workspace."""
+def list_notification_rules_for_room(room_id: str) -> list[NotificationRule]:
+    """Return all enabled NotificationRules for a room."""
     db = _get_client()
     docs = (
         db.collection(NOTIFICATION_RULES_COLLECTION)
-        .where("workspace_id", "==", workspace_id)
+        .where("room_id", "==", room_id)
         .stream()
     )
     return [NotificationRule.from_dict(doc.to_dict()) for doc in docs]
@@ -303,13 +303,13 @@ def list_delivery_logs_for_occurrence(occurrence_id: str) -> list[DeliveryLog]:
     return results
 
 
-def list_check_ins_for_user_in_workspace(user_id: str, workspace_id: str) -> list[CheckIn]:
-    """Return all CheckIns for a user across all occurrences in a workspace."""
+def list_check_ins_for_user_in_room(user_id: str, room_id: str) -> list[CheckIn]:
+    """Return all CheckIns for a user across all occurrences in a room."""
     db = _get_client()
     docs = (
         db.collection(CHECK_INS_COLLECTION)
         .where("user_id", "==", user_id)
-        .where("workspace_id", "==", workspace_id)
+        .where("room_id", "==", room_id)
         .stream()
     )
     return [CheckIn.from_dict(doc.to_dict()) for doc in docs]

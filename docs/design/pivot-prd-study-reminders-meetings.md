@@ -92,7 +92,7 @@ Requirements:
 - physical location support
 - participant reminders
 - calendar export
-- organizer workspace for meeting preparation
+- organizer room for meeting preparation
 - shared content for hymns, agenda, notes, reading portions, or announcements
 - organizer coordination with co-organizers
 - AI assistant for meeting preparation and rescheduling
@@ -156,7 +156,7 @@ The first release should focus on the smallest system that proves the pivot:
 - mobile web app only
 - Google login only
 - meeting organizer workflow first
-- accounts and workspaces
+- accounts and rooms
 - recurring schedules
 - generated occurrences
 - editable occurrence exceptions
@@ -182,11 +182,11 @@ The first release should focus on the smallest system that proves the pivot:
 
 ## 8. Functional Requirements
 
-### 8.1 Accounts and spaces
+### 8.1 Accounts and rooms
 
-- Users can sign in and manage one or more spaces
-- A space can represent a personal workspace, a meeting group, or a supervised study cohort
-- A space has roles such as owner, organizer, participant, teacher, assistant, and student
+- Users can sign in and manage one or more rooms
+- A room can represent a personal space, a meeting group, or a supervised study cohort
+- A room has roles such as owner, organizer, participant, teacher, assistant, and student
 
 ### 8.2 Scheduling model
 
@@ -253,16 +253,16 @@ The first release should focus on the smallest system that proves the pivot:
 - timezone-aware recurrence and reminders
 - auditability for organizer and teacher actions
 - reliable reminder delivery with retries
-- privacy controls for personal study versus group spaces
+- privacy controls for personal study versus group rooms
 - extensible integration architecture for external messaging channels
 
 ---
 
 ## 10. Proposed Domain Model
 
-### 10.1 Workspace
+### 10.1 Room
 
-A container for personal reminders, meeting groups, or supervised study cohorts.
+A private, invitation-only container for personal reminders, meeting groups, or supervised study cohorts.
 
 Types:
 
@@ -317,7 +317,7 @@ Structured meeting or study content for one occurrence, such as:
 
 ### 11.1 MVP metrics
 
-- number of active recurring series per active workspace
+- number of active recurring series per active room
 - percentage of occurrences that receive a user action
 - completion rate for personal reminders
 - organizer retention after creating first recurring meeting
@@ -343,7 +343,7 @@ Structured meeting or study content for one occurrence, such as:
 
 ## 13. Product Strategy Recommendation
 
-Do not build all three use cases as separate products. Build one recurring-workspace platform with three packaged entry points:
+Do not build all three use cases as separate products. Build one recurring-room platform with three packaged entry points:
 
 - Personal Study
 - Group Meeting
@@ -351,7 +351,7 @@ Do not build all three use cases as separate products. Build one recurring-works
 
 The shared platform should reuse the same primitives:
 
-- workspace
+- room
 - role
 - series
 - occurrence
@@ -408,5 +408,5 @@ Implications:
 6. Should organizers be able to send notifications directly from the app, or only generate copyable messages in MVP?
 7. For gamification, what matters most at first: streaks, badges, leaderboards, or teacher recognition views?
 8. Does the product need multilingual support from day one, given the likely church-group audience?
-9. Does a workspace always map to one group, or can one workspace contain multiple subgroups and meeting series?
+9. Does a room always map to one group, or can one room contain multiple subgroups and meeting series?
 10. What privacy boundaries are required between organizer notes, participant-facing content, and teacher-only supervision data?

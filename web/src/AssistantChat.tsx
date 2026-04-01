@@ -48,11 +48,11 @@ async function cancelAction(actionId: string): Promise<void> {
 }
 
 interface Props {
-  workspaceId: string;
+  roomId: string;
   context?: Record<string, unknown>;
 }
 
-export function AssistantChat({ workspaceId, context }: Props) {
+export function AssistantChat({ roomId, context }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +108,7 @@ export function AssistantChat({ workspaceId, context }: Props) {
 
     try {
       const token = await getToken();
-      const resp = await fetch(`${BASE_URL}/v2/workspaces/${workspaceId}/assistant`, {
+      const resp = await fetch(`${BASE_URL}/v2/rooms/${roomId}/assistant`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -116,7 +116,7 @@ export function AssistantChat({ workspaceId, context }: Props) {
         },
         body: JSON.stringify({
           message: trimmed,
-          workspace_context: context,
+          room_context: context,
           history,
         }),
       });

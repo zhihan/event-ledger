@@ -24,7 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount API v2 router (workspaces, series, occurrences, check-ins)
+# Mount API v2 router (rooms, series, occurrences, check-ins)
 from api_v2 import router as v2_router  # noqa: E402
 app.include_router(v2_router)
 

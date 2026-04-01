@@ -71,16 +71,16 @@ def list_delivery_logs_for_occurrence(occurrence_id: str) -> list[DeliveryLog]:
     return series_storage.list_delivery_logs_for_occurrence(occurrence_id)
 
 
-def list_delivery_logs_for_workspace(
-    workspace_id: str,
+def list_delivery_logs_for_room(
+    room_id: str,
     limit: int = 200,
 ) -> list[DeliveryLog]:
-    """Return recent DeliveryLogs for a workspace (newest first)."""
+    """Return recent DeliveryLogs for a room (newest first)."""
     from db import get_client as _get_client
     db = _get_client()
     docs = (
         db.collection(series_storage.DELIVERY_LOGS_COLLECTION)
-        .where("workspace_id", "==", workspace_id)
+        .where("room_id", "==", room_id)
         .limit(limit)
         .stream()
     )

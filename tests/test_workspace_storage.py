@@ -1,4 +1,4 @@
-"""Tests for workspace_storage.py using mocked Firestore."""
+"""Tests for room_storage.py using mocked Firestore."""
 
 from __future__ import annotations
 
@@ -9,22 +9,22 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-import workspace_storage
-from models import Workspace
-from workspace_storage import (
-    WORKSPACES_COLLECTION,
-    WORKSPACE_INVITES_SUBCOLLECTION,
-    accept_workspace_invite,
+import room_storage
+from models import Room
+from room_storage import (
+    ROOMS_COLLECTION,
+    ROOM_INVITES_SUBCOLLECTION,
+    accept_room_invite,
     add_member,
-    create_workspace,
-    create_workspace_invite,
-    delete_workspace,
-    find_workspace_invite,
+    create_room,
+    create_room_invite,
+    delete_room,
+    find_room_invite,
     get_member_role,
-    get_workspace,
-    list_workspaces_for_user,
+    get_room,
+    list_rooms_for_user,
     remove_member,
-    update_workspace,
+    update_room,
 )
 
 
@@ -32,7 +32,7 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
-def _mock_doc(exists=True, data=None, doc_id="ws-1"):
+def _mock_doc(exists=True, data=None, doc_id="rm-1"):
     doc = MagicMock()
     doc.exists = exists
     doc.id = doc_id
@@ -41,9 +41,9 @@ def _mock_doc(exists=True, data=None, doc_id="ws-1"):
     return doc
 
 
-def _ws_data(**kwargs):
+def _rm_data(**kwargs):
     defaults = {
-        "workspace_id": "ws-1",
+        "room_id": "rm-1",
         "title": "Team Standups",
         "type": "shared",
         "timezone": "UTC",
@@ -58,13 +58,13 @@ def _ws_data(**kwargs):
 
 
 # ---------------------------------------------------------------------------
-# create_workspace
+# create_room
 # ---------------------------------------------------------------------------
 
-class TestCreateWorkspace:
+class TestCreateRoom:
     def test_creates_document(self):
-        ws = Workspace(
-            workspace_id="ws-1",
+        rm = Room(
+            room_id="rm-1",
             title="Standups",
             type="shared",
             timezone="UTC",
@@ -75,16 +75,16 @@ class TestCreateWorkspace:
         mock_ref.get.return_value = _mock_doc(exists=False)
         mock_db.collection.return_value.document.return_value = mock_ref
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            result = create_workspace(ws)
+        with patch("room_storage._get_client", return_value=mock_db):
+            result = create_room(rm)
 
         mock_ref.set.assert_called_once()
-        assert result.workspace_id == "ws-1"
+        assert result.room_id == "rm-1"
         assert result.created_at is not None
 
     def test_owner_added_to_member_roles(self):
-        ws = Workspace(
-            workspace_id="ws-1",
+        rm = Room(
+            room_id="rm-1",
             title="Standups",
             type="shared",
             timezone="UTC",
@@ -96,25 +96,25 @@ class TestCreateWorkspace:
         mock_ref.get.return_value = _mock_doc(exists=False)
         mock_db.collection.return_value.document.return_value = mock_ref
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            result = create_workspace(ws)
+        with patch("room_storage._get_client", return_value=mock_db):
+            result = create_room(rm)
 
         assert result.member_roles.get("uid-alice") == "organizer"
 
     def test_raises_if_no_owners(self):
-        ws = Workspace(
-            workspace_id="ws-1",
+        rm = Room(
+            room_id="rm-1",
             title="Standups",
             type="shared",
             timezone="UTC",
             owner_uids=[],
         )
         with pytest.raises(ValueError, match="must have at least one owner"):
-            create_workspace(ws)
+            create_room(rm)
 
     def test_raises_if_already_exists(self):
-        ws = Workspace(
-            workspace_id="ws-1",
+        rm = Room(
+            room_id="rm-1",
             title="Standups",
             type="shared",
             timezone="UTC",
@@ -125,50 +125,50 @@ class TestCreateWorkspace:
         mock_ref.get.return_value = _mock_doc(exists=True)
         mock_db.collection.return_value.document.return_value = mock_ref
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
+        with patch("room_storage._get_client", return_value=mock_db):
             with pytest.raises(ValueError, match="already exists"):
-                create_workspace(ws)
+                create_room(rm)
 
 
 # ---------------------------------------------------------------------------
-# get_workspace
+# get_room
 # ---------------------------------------------------------------------------
 
-class TestGetWorkspace:
-    def test_returns_workspace(self):
+class TestGetRoom:
+    def test_returns_room(self):
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.get.return_value = (
-            _mock_doc(data=_ws_data())
+            _mock_doc(data=_rm_data())
         )
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            ws = get_workspace("ws-1")
-        assert ws is not None
-        assert ws.workspace_id == "ws-1"
-        assert ws.title == "Team Standups"
+        with patch("room_storage._get_client", return_value=mock_db):
+            rm = get_room("rm-1")
+        assert rm is not None
+        assert rm.room_id == "rm-1"
+        assert rm.title == "Team Standups"
 
     def test_returns_none_if_missing(self):
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.get.return_value = (
             _mock_doc(exists=False)
         )
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            ws = get_workspace("no-such-id")
-        assert ws is None
+        with patch("room_storage._get_client", return_value=mock_db):
+            rm = get_room("no-such-id")
+        assert rm is None
 
 
 # ---------------------------------------------------------------------------
-# update_workspace
+# update_room
 # ---------------------------------------------------------------------------
 
-class TestUpdateWorkspace:
+class TestUpdateRoom:
     def test_updates_fields(self):
         mock_db = MagicMock()
         mock_ref = MagicMock()
-        mock_ref.get.return_value = _mock_doc(data=_ws_data())
+        mock_ref.get.return_value = _mock_doc(data=_rm_data())
         mock_db.collection.return_value.document.return_value = mock_ref
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            ws = update_workspace("ws-1", {"title": "New Title"})
+        with patch("room_storage._get_client", return_value=mock_db):
+            rm = update_room("rm-1", {"title": "New Title"})
 
         mock_ref.update.assert_called_once()
         update_args = mock_ref.update.call_args[0][0]
@@ -181,9 +181,9 @@ class TestUpdateWorkspace:
         mock_ref.get.return_value = _mock_doc(exists=False)
         mock_db.collection.return_value.document.return_value = mock_ref
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
+        with patch("room_storage._get_client", return_value=mock_db):
             with pytest.raises(ValueError, match="not found"):
-                update_workspace("ws-missing", {"title": "x"})
+                update_room("rm-missing", {"title": "x"})
 
 
 # ---------------------------------------------------------------------------
@@ -194,18 +194,18 @@ class TestMemberManagement:
     def test_add_participant(self):
         mock_db = MagicMock()
         mock_ref = MagicMock()
-        mock_ref.get.return_value = _mock_doc(data=_ws_data())
+        mock_ref.get.return_value = _mock_doc(data=_rm_data())
         mock_db.collection.return_value.document.return_value = mock_ref
         mock_transaction = MagicMock()
         mock_db.transaction.return_value = mock_transaction
 
-        # get_workspace is called again after update; return updated data
-        data_after = _ws_data(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
+        # get_room is called again after update; return updated data
+        data_after = _rm_data(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            with patch("workspace_storage.get_workspace") as mock_get:
-                mock_get.return_value = Workspace.from_dict(data_after)
-                result = add_member("ws-1", "uid-bob", "participant")
+        with patch("room_storage._get_client", return_value=mock_db):
+            with patch("room_storage.get_room") as mock_get:
+                mock_get.return_value = Room.from_dict(data_after)
+                result = add_member("rm-1", "uid-bob", "participant")
 
         mock_transaction.update.assert_called_once()
         update_args = mock_transaction.update.call_args[0][1]
@@ -214,17 +214,17 @@ class TestMemberManagement:
         mock_transaction.commit.assert_called_once()
 
     def test_get_member_role_returns_none_for_nonmember(self):
-        data = _ws_data(member_roles={"uid-alice": "organizer"})
+        data = _rm_data(member_roles={"uid-alice": "organizer"})
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.get.return_value = (
             _mock_doc(data=data)
         )
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            role = get_member_role("ws-1", "uid-unknown")
+        with patch("room_storage._get_client", return_value=mock_db):
+            role = get_member_role("rm-1", "uid-unknown")
         assert role is None
 
     def test_remove_member_deletes_profile(self):
-        data = _ws_data(
+        data = _rm_data(
             member_roles={"uid-alice": "organizer", "uid-bob": "participant"},
             member_profiles={"uid-bob": {"display_name": "Bob", "email": "bob@example.com"}},
         )
@@ -234,40 +234,40 @@ class TestMemberManagement:
         fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
         fake_firestore_v1.DELETE_FIELD = object()
         with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
-            with patch("workspace_storage._get_client", return_value=mock_db):
-                with patch("workspace_storage.get_workspace", return_value=Workspace.from_dict(data)):
-                    remove_member("ws-1", "uid-bob")
+            with patch("room_storage._get_client", return_value=mock_db):
+                with patch("room_storage.get_room", return_value=Room.from_dict(data)):
+                    remove_member("rm-1", "uid-bob")
         update_args = mock_ref.update.call_args[0][0]
         assert "member_profiles.uid-bob" in update_args
 
     def test_remove_last_organizer_raises(self):
-        data = _ws_data(member_roles={"uid-alice": "organizer"})
+        data = _rm_data(member_roles={"uid-alice": "organizer"})
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.get.return_value = (
             _mock_doc(data=data)
         )
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            with patch("workspace_storage.get_workspace") as mock_get:
-                mock_get.return_value = Workspace.from_dict(data)
+        with patch("room_storage._get_client", return_value=mock_db):
+            with patch("room_storage.get_room") as mock_get:
+                mock_get.return_value = Room.from_dict(data)
                 with pytest.raises(ValueError, match="last organizer"):
-                    remove_member("ws-1", "uid-alice")
+                    remove_member("rm-1", "uid-alice")
 
 
 # ---------------------------------------------------------------------------
-# create_workspace_invite / find / accept
+# create_room_invite / find / accept
 # ---------------------------------------------------------------------------
 
-class TestWorkspaceInvites:
+class TestRoomInvites:
     def test_create_invite_returns_dict(self):
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value.set.return_value = None
         mock_db.collection.return_value.document.return_value.set.return_value = None
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            invite = create_workspace_invite("ws-1", "uid-alice", role="participant")
+        with patch("room_storage._get_client", return_value=mock_db):
+            invite = create_room_invite("rm-1", "uid-alice", role="participant")
 
         assert "invite_id" in invite
-        assert invite["workspace_id"] == "ws-1"
+        assert invite["room_id"] == "rm-1"
         assert invite["role"] == "participant"
         assert invite["accepted_by"] is None
 
@@ -275,47 +275,47 @@ class TestWorkspaceInvites:
         mock_db = MagicMock()
         lookup_doc = MagicMock()
         lookup_doc.exists = True
-        lookup_doc.to_dict.return_value = {"invite_id": "inv-1", "workspace_id": "ws-1"}
+        lookup_doc.to_dict.return_value = {"invite_id": "inv-1", "room_id": "rm-1"}
         mock_db.collection.return_value.document.return_value.get.return_value = lookup_doc
 
-        with patch("workspace_storage._get_client", return_value=mock_db):
-            invite = find_workspace_invite("inv-1")
+        with patch("room_storage._get_client", return_value=mock_db):
+            invite = find_room_invite("inv-1")
 
-        assert invite == {"invite_id": "inv-1", "workspace_id": "ws-1"}
+        assert invite == {"invite_id": "inv-1", "room_id": "rm-1"}
 
     def test_invalid_role_raises(self):
         with pytest.raises(ValueError, match="Invalid role"):
-            create_workspace_invite("ws-1", "uid-alice", role="superadmin")
+            create_room_invite("rm-1", "uid-alice", role="superadmin")
 
     def test_accept_already_accepted_raises(self):
         invite_data = {
             "invite_id": "inv-1",
-            "workspace_id": "ws-1",
+            "room_id": "rm-1",
             "created_by": "uid-alice",
             "created_at": _utcnow(),
             "expires_at": _utcnow() + timedelta(days=7),
             "accepted_by": "uid-charlie",  # already accepted
             "role": "participant",
         }
-        with patch("workspace_storage.find_workspace_invite", return_value=invite_data):
+        with patch("room_storage.find_room_invite", return_value=invite_data):
             with pytest.raises(ValueError, match="already been accepted"):
-                accept_workspace_invite("inv-1", "uid-bob")
+                accept_room_invite("inv-1", "uid-bob")
 
     def test_accept_expired_raises(self):
         invite_data = {
             "invite_id": "inv-1",
-            "workspace_id": "ws-1",
+            "room_id": "rm-1",
             "created_by": "uid-alice",
             "created_at": _utcnow() - timedelta(days=10),
             "expires_at": _utcnow() - timedelta(days=3),  # expired
             "accepted_by": None,
             "role": "participant",
         }
-        with patch("workspace_storage.find_workspace_invite", return_value=invite_data):
+        with patch("room_storage.find_room_invite", return_value=invite_data):
             with pytest.raises(ValueError, match="expired"):
-                accept_workspace_invite("inv-1", "uid-bob")
+                accept_room_invite("inv-1", "uid-bob")
 
     def test_accept_not_found_raises(self):
-        with patch("workspace_storage.find_workspace_invite", return_value=None):
+        with patch("room_storage.find_room_invite", return_value=None):
             with pytest.raises(ValueError, match="not found"):
-                accept_workspace_invite("inv-missing", "uid-bob")
+                accept_room_invite("inv-missing", "uid-bob")

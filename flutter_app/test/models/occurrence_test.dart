@@ -7,7 +7,7 @@ void main() {
       final json = {
         'occurrence_id': 'occ-1',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'scheduled_for': '2026-04-01T14:00:00+00:00',
         'status': 'scheduled',
         'location': 'Room A',
@@ -29,7 +29,7 @@ void main() {
       final json = {
         'occurrence_id': 'occ-2',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'scheduled_for': '2026-04-02T14:00:00+00:00',
         'overrides': {
           'title': 'Special Session',
@@ -52,7 +52,7 @@ void main() {
       final occ = Occurrence(
         occurrenceId: 'occ-3',
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         scheduledFor: '2026-04-03T10:00:00+00:00',
         location: 'Default Room',
         overrides: OccurrenceOverrides(
@@ -68,7 +68,7 @@ void main() {
       final occ = Occurrence(
         occurrenceId: 'occ-4',
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         scheduledFor: '2026-04-04T10:00:00+00:00',
         location: 'Default Room',
       );
@@ -82,7 +82,7 @@ void main() {
       final occ = Occurrence(
         occurrenceId: 'occ-5',
         seriesId: 's-1',
-        workspaceId: 'ws-1',
+        roomId: 'rm-1',
         scheduledFor: '2026-04-01T14:00:00+00:00',
       );
       final dt = occ.scheduledDateTime;
@@ -97,7 +97,7 @@ void main() {
       final json = {
         'occurrence_id': 'occ-6',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'scheduled_for': '2026-04-05T10:00:00+00:00',
       };
       final occ = Occurrence.fromJson(json);

@@ -24,7 +24,7 @@ export function AcceptInvite() {
           }, ACCEPT_INVITE_TIMEOUT_MS);
         }),
       ]);
-      navigate(`/w/${result.workspace_id}`, { replace: true });
+      navigate(`/room/${result.room_id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to accept invite");
     }
@@ -54,7 +54,7 @@ export function AcceptInvite() {
     return (
       <div className="invite-page">
         <h2>You've been invited!</h2>
-        <p>Click below to join this workspace.</p>
+        <p>Click below to join this room.</p>
         <button className="btn btn-primary" onClick={doAccept}>
           Accept Invite
         </button>

@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/check_in.dart';
 import '../../models/occurrence.dart';
 import '../../models/series.dart';
-import '../../models/workspace.dart';
+import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 
@@ -23,7 +23,7 @@ class OccurrenceScreen extends StatefulWidget {
 class _OccurrenceScreenState extends State<OccurrenceScreen> {
   Occurrence? _occurrence;
   Series? _series;
-  Workspace? _workspace;
+  Room? _room;
   CheckIn? _myCheckIn;
   List<CheckIn>? _allCheckIns;
   bool _loading = true;
@@ -38,9 +38,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   String get _uid => context.read<AuthService>().currentUser!.uid;
 
   bool get _canManage {
-    final ws = _workspace;
-    if (ws == null) return false;
-    final role = ws.memberRoles[_uid];
+    final room = _room;
+    if (room == null) return false;
+    final role = room.memberRoles[_uid];
     return role == 'organizer' || role == 'teacher';
   }
 
@@ -54,11 +54,11 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
       final occ = await api.getOccurrence(widget.occurrenceId);
       final results = await Future.wait([
         api.getSeries(occ.seriesId),
-        api.getWorkspace(occ.workspaceId),
+        api.getRoom(occ.roomId),
         api.getMyCheckIn(widget.occurrenceId),
       ]);
-      final ws = results[1] as Workspace;
-      final role = ws.memberRoles[_uid];
+      final room = results[1] as Room;
+      final role = room.memberRoles[_uid];
       List<CheckIn>? allCheckIns;
       if (role == 'organizer' || role == 'teacher') {
         allCheckIns = await api.listCheckIns(widget.occurrenceId);
@@ -67,7 +67,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         setState(() {
           _occurrence = occ;
           _series = results[0] as Series;
-          _workspace = ws;
+          _room = room;
           _myCheckIn = results[2] as CheckIn?;
           _allCheckIns = allCheckIns;
         });

@@ -1,5 +1,5 @@
-class Workspace {
-  final String workspaceId;
+class Room {
+  final String roomId;
   final String title;
   final String type;
   final String timezone;
@@ -11,8 +11,8 @@ class Workspace {
   final Map<String, dynamic>? seriesSchedule;
   final String? seriesDefaultTime;
 
-  const Workspace({
-    required this.workspaceId,
+  const Room({
+    required this.roomId,
     required this.title,
     required this.type,
     required this.timezone,
@@ -25,7 +25,7 @@ class Workspace {
     this.seriesDefaultTime,
   });
 
-  factory Workspace.fromJson(Map<String, dynamic> json) {
+  factory Room.fromJson(Map<String, dynamic> json) {
     final roles = <String, String>{};
     final rawRoles = json['member_roles'];
     if (rawRoles is Map) {
@@ -46,8 +46,8 @@ class Workspace {
         profiles[k.toString()] = m;
       });
     }
-    return Workspace(
-      workspaceId: json['workspace_id'] as String,
+    return Room(
+      roomId: json['room_id'] as String,
       title: json['title'] as String,
       type: json['type'] as String? ?? 'shared',
       timezone: json['timezone'] as String? ?? 'UTC',

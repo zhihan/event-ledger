@@ -37,8 +37,8 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
       final result =
           await context.read<ApiService>().acceptInvite(widget.inviteId);
       if (mounted) {
-        final workspaceId = result['workspace_id'] as String;
-        context.go('/workspaces/$workspaceId');
+        final roomId = result['room_id'] as String;
+        context.go('/rooms/$roomId');
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -59,7 +59,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
             children: [
               const Icon(Icons.mail_outline, size: 48),
               const SizedBox(height: 16),
-              const Text('You have been invited to join a workspace.'),
+              const Text('You have been invited to join a room.'),
               const SizedBox(height: 24),
               if (_loading)
                 const CircularProgressIndicator()

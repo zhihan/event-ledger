@@ -15,13 +15,13 @@ from models import Occurrence, OccurrenceOverrides, Series, ScheduleRule
 
 
 def _series(**kwargs):
-    defaults = dict(series_id='s1', workspace_id='ws1', kind='meeting', title='Team Sync', schedule_rule=ScheduleRule(frequency='weekly', weekdays=[1]), default_time='14:00', default_duration_minutes=45, default_location='Room 101', default_online_link='https://zoom.us/j/123', description='Weekly team meeting')
+    defaults = dict(series_id='s1', room_id='ws1', kind='meeting', title='Team Sync', schedule_rule=ScheduleRule(frequency='weekly', weekdays=[1]), default_time='14:00', default_duration_minutes=45, default_location='Room 101', default_online_link='https://zoom.us/j/123', description='Weekly team meeting')
     defaults.update(kwargs)
     return Series(**defaults)
 
 
 def _occ(**kwargs):
-    defaults = dict(occurrence_id=str(uuid.uuid4()), series_id='s1', workspace_id='ws1', scheduled_for='2026-04-07T14:00:00+00:00', status='scheduled')
+    defaults = dict(occurrence_id=str(uuid.uuid4()), series_id='s1', room_id='ws1', scheduled_for='2026-04-07T14:00:00+00:00', status='scheduled')
     defaults.update(kwargs)
     return Occurrence(**defaults)
 

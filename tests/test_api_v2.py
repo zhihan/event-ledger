@@ -18,7 +18,7 @@ from models import (
     OccurrenceOverrides,
     ScheduleRule,
     Series,
-    Workspace,
+    Room,
 )
 
 ORGANIZER_UID = "uid-organizer"
@@ -73,9 +73,9 @@ def outsider_client():
     app.dependency_overrides.clear()
 
 
-def _make_workspace(**kwargs) -> Workspace:
+def _make_room(**kwargs) -> Room:
     defaults = dict(
-        workspace_id="ws-1",
+        room_id="rm-1",
         title="Standups",
         type="shared",
         timezone="UTC",
@@ -87,13 +87,13 @@ def _make_workspace(**kwargs) -> Workspace:
         },
     )
     defaults.update(kwargs)
-    return Workspace(**defaults)
+    return Room(**defaults)
 
 
 def _make_series(**kwargs) -> Series:
     defaults = dict(
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="rm-1",
         kind="meeting",
         title="Weekly Standup",
         schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -108,7 +108,7 @@ def _make_occurrence(**kwargs) -> Occurrence:
     defaults = dict(
         occurrence_id="occ-1",
         series_id="s-1",
-        workspace_id="ws-1",
+        room_id="rm-1",
         scheduled_for="2026-04-06T13:00:00+00:00",
     )
     defaults.update(kwargs)
@@ -116,14 +116,15 @@ def _make_occurrence(**kwargs) -> Occurrence:
 
 
 # ---------------------------------------------------------------------------
-# Workspace endpoints
+# Room endpoints
 # ---------------------------------------------------------------------------
 
-class TestCreateWorkspace:
-    def test_creates_workspace(self, organizer_client):
-        with patch("workspace_storage.create_workspace") as mock_create,              patch("workspace_storage._get_client"):
-            mock_create.side_effect = lambda ws: ws
-            resp = organizer_client.post("/v2/workspaces", json={
+class TestCreateRoom:
+    def test_creates_room(self, organizer_client):
+        with patch("room_storage.create_room") as mock_create, \
+             patch("room_storage._get_client"):
+            mock_create.side_effect = lambda rm: rm
+            resp = organizer_client.post("/v2/rooms", json={
                 "title": "Team Standups",
                 "type": "shared",
                 "timezone": "America/New_York",
@@ -134,68 +135,69 @@ class TestCreateWorkspace:
         assert ORGANIZER_UID in data["owner_uids"]
 
     def test_returns_400_on_storage_error(self, organizer_client):
-        with patch("workspace_storage.create_workspace", side_effect=ValueError("already exists")):
-            # ValueError from create_workspace is unhandled and becomes 500
-            resp = organizer_client.post("/v2/workspaces", json={
+        with patch("room_storage.create_room", side_effect=ValueError("already exists")):
+            resp = organizer_client.post("/v2/rooms", json={
                 "title": "X", "type": "shared",
             }, headers=AUTH)
         assert resp.status_code == 409
 
 
-class TestGetWorkspace:
+class TestGetRoom:
     def test_organizer_can_read(self, organizer_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
-            resp = organizer_client.get("/v2/workspaces/ws-1", headers=AUTH)
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = organizer_client.get("/v2/rooms/rm-1", headers=AUTH)
         assert resp.status_code == 200
-        assert resp.json()["workspace_id"] == "ws-1"
+        assert resp.json()["room_id"] == "rm-1"
 
     def test_participant_can_read(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
-            resp = participant_client.get("/v2/workspaces/ws-1", headers=AUTH)
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.get("/v2/rooms/rm-1", headers=AUTH)
         assert resp.status_code == 200
 
     def test_outsider_gets_403(self, outsider_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
-            resp = outsider_client.get("/v2/workspaces/ws-1", headers=AUTH)
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = outsider_client.get("/v2/rooms/rm-1", headers=AUTH)
         assert resp.status_code == 403
 
     def test_missing_gets_404(self, organizer_client):
-        with patch("workspace_storage.get_workspace", return_value=None):
-            resp = organizer_client.get("/v2/workspaces/no-such", headers=AUTH)
+        with patch("room_storage.get_room", return_value=None):
+            resp = organizer_client.get("/v2/rooms/no-such", headers=AUTH)
         assert resp.status_code == 404
 
 
-class TestUpdateWorkspace:
+class TestUpdateRoom:
     def test_organizer_can_update(self, organizer_client):
-        ws = _make_workspace()
-        updated = _make_workspace(title="New Title")
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("workspace_storage.update_workspace", return_value=updated):
-            resp = organizer_client.patch("/v2/workspaces/ws-1",
+        rm = _make_room()
+        updated = _make_room(title="New Title")
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("room_storage.update_room", return_value=updated):
+            resp = organizer_client.patch("/v2/rooms/rm-1",
                                           json={"title": "New Title"}, headers=AUTH)
         assert resp.status_code == 200
 
     def test_participant_cannot_update(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
-            resp = participant_client.patch("/v2/workspaces/ws-1",
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.patch("/v2/rooms/rm-1",
                                             json={"title": "X"}, headers=AUTH)
         assert resp.status_code == 403
 
 
-class TestDeleteWorkspace:
+class TestDeleteRoom:
     def test_organizer_can_delete(self, organizer_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("workspace_storage.delete_workspace"):
-            resp = organizer_client.delete("/v2/workspaces/ws-1", headers=AUTH)
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("room_storage.delete_room"):
+            resp = organizer_client.delete("/v2/rooms/rm-1", headers=AUTH)
         assert resp.status_code == 204
 
     def test_participant_cannot_delete(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
-            resp = participant_client.delete("/v2/workspaces/ws-1", headers=AUTH)
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.delete("/v2/rooms/rm-1", headers=AUTH)
         assert resp.status_code == 403
 
 
@@ -205,7 +207,7 @@ class TestDeleteWorkspace:
 
 class TestMemberManagement:
     def test_list_members_includes_member_details(self, participant_client):
-        ws = _make_workspace(member_profiles={
+        rm = _make_room(member_profiles={
             PARTICIPANT_UID: {
                 "display_name": "Pat Example",
                 "email": "pat@example.com",
@@ -213,7 +215,7 @@ class TestMemberManagement:
         })
 
         with (
-            patch("workspace_storage.get_workspace", return_value=ws),
+            patch("room_storage.get_room", return_value=rm),
             patch("api_v2._get_member_details", return_value=[
                 {
                     "uid": PARTICIPANT_UID,
@@ -223,7 +225,7 @@ class TestMemberManagement:
                 },
             ]),
         ):
-            resp = participant_client.get("/v2/workspaces/ws-1/members", headers=AUTH)
+            resp = participant_client.get("/v2/rooms/rm-1/members", headers=AUTH)
 
         assert resp.status_code == 200
         data = resp.json()
@@ -232,53 +234,54 @@ class TestMemberManagement:
         assert member_details[PARTICIPANT_UID]["display_name"] == "Pat Example"
 
     def test_accept_invite_persists_member_profile(self, participant_client):
-        invite = {"workspace_id": "ws-1", "role": "participant"}
+        invite = {"room_id": "rm-1", "role": "participant"}
         with (
-            patch("workspace_storage.accept_workspace_invite", return_value=invite),
-            patch("workspace_storage.update_member_profile") as mock_update_profile,
+            patch("room_storage.accept_room_invite", return_value=invite),
+            patch("room_storage.update_member_profile") as mock_update_profile,
         ):
             resp = participant_client.post("/v2/invites/inv-1/accept", headers=AUTH)
         assert resp.status_code == 200
         mock_update_profile.assert_called_once()
 
     def test_add_member(self, organizer_client):
-        ws = _make_workspace()
-        updated = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("workspace_storage.add_member", return_value=updated):
+        rm = _make_room()
+        updated = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("room_storage.add_member", return_value=updated):
             resp = organizer_client.post(
-                "/v2/workspaces/ws-1/members",
+                "/v2/rooms/rm-1/members",
                 json={"uid": "uid-new", "role": "participant"},
                 headers=AUTH,
             )
         assert resp.status_code == 201
 
     def test_participant_cannot_add_member(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
             resp = participant_client.post(
-                "/v2/workspaces/ws-1/members",
+                "/v2/rooms/rm-1/members",
                 json={"uid": "uid-new", "role": "participant"},
                 headers=AUTH,
             )
         assert resp.status_code == 403
 
-    def test_participant_can_leave_workspace(self, participant_client):
-        ws = _make_workspace()
+    def test_participant_can_leave_room(self, participant_client):
+        rm = _make_room()
         with (
-            patch("workspace_storage.get_workspace", return_value=ws),
-            patch("workspace_storage.remove_member"),
+            patch("room_storage.get_room", return_value=rm),
+            patch("room_storage.remove_member"),
         ):
             resp = participant_client.delete(
-                f"/v2/workspaces/ws-1/members/{PARTICIPANT_UID}",
+                f"/v2/rooms/rm-1/members/{PARTICIPANT_UID}",
                 headers=AUTH,
             )
         assert resp.status_code == 204
 
     def test_participant_cannot_remove_other_member(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
             resp = participant_client.delete(
-                f"/v2/workspaces/ws-1/members/{ORGANIZER_UID}",
+                f"/v2/rooms/rm-1/members/{ORGANIZER_UID}",
                 headers=AUTH,
             )
         assert resp.status_code == 403
@@ -290,11 +293,12 @@ class TestMemberManagement:
 
 class TestSeriesEndpoints:
     def test_create_series(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.create_series", side_effect=lambda s: s):
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.create_series", side_effect=lambda s: s):
             resp = organizer_client.post(
-                "/v2/workspaces/ws-1/series",
+                "/v2/rooms/rm-1/series",
                 json={
                     "kind": "meeting",
                     "title": "Weekly Standup",
@@ -309,10 +313,10 @@ class TestSeriesEndpoints:
         assert data["title"] == "Weekly Standup"
 
     def test_participant_cannot_create_series(self, participant_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
             resp = participant_client.post(
-                "/v2/workspaces/ws-1/series",
+                "/v2/rooms/rm-1/series",
                 json={"kind": "meeting", "title": "X",
                       "schedule_rule": {"frequency": "weekly"}},
                 headers=AUTH,
@@ -320,17 +324,19 @@ class TestSeriesEndpoints:
         assert resp.status_code == 403
 
     def test_list_series(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = [_make_series()]
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_series_for_workspace", return_value=series):
-            resp = participant_client.get("/v2/workspaces/ws-1/series", headers=AUTH)
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_series_for_room", return_value=series):
+            resp = participant_client.get("/v2/rooms/rm-1/series", headers=AUTH)
         assert resp.status_code == 200
         assert len(resp.json()["series"]) == 1
 
     def test_get_series(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
             resp = participant_client.get("/v2/series/s-1", headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["series_id"] == "s-1"
@@ -347,10 +353,12 @@ class TestSeriesEndpoints:
 
 class TestOccurrenceEndpoints:
     def test_generate_occurrences(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
         new_occs = [_make_occurrence()]
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("api_v2.generate_and_save", return_value=new_occs):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.generate_and_save", return_value=new_occs):
             resp = organizer_client.post(
                 "/v2/series/s-1/occurrences/generate",
                 json={"start_date": "2026-04-01", "end_date": "2026-04-30"},
@@ -360,26 +368,30 @@ class TestOccurrenceEndpoints:
         data = resp.json()
         assert data["created"] == 1
 
-    def test_list_workspace_occurrences(self, participant_client):
-        ws = _make_workspace()
+    def test_list_room_occurrences(self, participant_client):
+        rm = _make_room()
         occs = [_make_occurrence()]
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_occurrences_for_workspace", return_value=occs):
-            resp = participant_client.get("/v2/workspaces/ws-1/occurrences", headers=AUTH)
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_room", return_value=occs):
+            resp = participant_client.get("/v2/rooms/rm-1/occurrences", headers=AUTH)
         assert resp.status_code == 200
         assert len(resp.json()["occurrences"]) == 1
 
     def test_get_occurrence(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
             resp = participant_client.get("/v2/occurrences/occ-1", headers=AUTH)
         assert resp.status_code == 200
 
     def test_skip_occurrence(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
         cancelled = _make_occurrence(status="cancelled")
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("api_v2.skip_occurrence", return_value=cancelled):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.skip_occurrence", return_value=cancelled):
             resp = organizer_client.patch(
                 "/v2/occurrences/occ-1",
                 json={"status": "cancelled"},
@@ -389,9 +401,10 @@ class TestOccurrenceEndpoints:
         assert resp.json()["status"] == "cancelled"
 
     def test_participant_cannot_skip(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
             resp = participant_client.patch(
                 "/v2/occurrences/occ-1",
                 json={"status": "cancelled"},
@@ -406,13 +419,16 @@ class TestOccurrenceEndpoints:
 
 class TestCheckInEndpoints:
     def test_confirm_check_in(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
         ci = CheckIn(
             check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
-            workspace_id="ws-1", user_id=PARTICIPANT_UID, status="confirmed",
+            room_id="rm-1", user_id=PARTICIPANT_UID, status="confirmed",
         )
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.get_check_in_for_user", return_value=None),              patch("series_storage.save_check_in", return_value=ci):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.get_check_in_for_user", return_value=None), \
+             patch("series_storage.save_check_in", return_value=ci):
             resp = participant_client.post(
                 "/v2/occurrences/occ-1/check-ins",
                 json={"status": "confirmed"},
@@ -421,9 +437,10 @@ class TestCheckInEndpoints:
         assert resp.status_code == 201
 
     def test_outsider_cannot_check_in(self, outsider_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
             resp = outsider_client.post(
                 "/v2/occurrences/occ-1/check-ins",
                 json={"status": "confirmed"},
@@ -432,47 +449,56 @@ class TestCheckInEndpoints:
         assert resp.status_code == 403
 
     def test_manager_can_list_check_ins(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
         ci = CheckIn(
             check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
-            workspace_id="ws-1", user_id=PARTICIPANT_UID,
+            room_id="rm-1", user_id=PARTICIPANT_UID,
         )
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_check_ins_for_occurrence", return_value=[ci]):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_check_ins_for_occurrence", return_value=[ci]):
             resp = organizer_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
         assert resp.status_code == 200
         assert len(resp.json()["check_ins"]) == 1
 
     def test_participant_cannot_list_check_ins(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
             resp = participant_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
         assert resp.status_code == 403
 
     def test_teacher_can_list_check_ins(self, teacher_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_check_ins_for_occurrence", return_value=[]):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_check_ins_for_occurrence", return_value=[]):
             resp = teacher_client.get("/v2/occurrences/occ-1/check-ins", headers=AUTH)
         assert resp.status_code == 200
 
     def test_member_can_get_own_check_in(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
         ci = CheckIn(
             check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
-            workspace_id="ws-1", user_id=PARTICIPANT_UID, status="confirmed",
+            room_id="rm-1", user_id=PARTICIPANT_UID, status="confirmed",
         )
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.get_check_in_for_user", return_value=ci):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.get_check_in_for_user", return_value=ci):
             resp = participant_client.get("/v2/occurrences/occ-1/my-check-in", headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["check_in"]["check_in_id"] == "ci-1"
 
     def test_member_gets_null_when_no_own_check_in(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence()
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.get_check_in_for_user", return_value=None):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.get_check_in_for_user", return_value=None):
             resp = participant_client.get("/v2/occurrences/occ-1/my-check-in", headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["check_in"] is None
@@ -482,10 +508,11 @@ class TestEnableDone:
     """Tests for enable_done on series and enable_check_in on occurrences."""
 
     def test_create_series_with_enable_done(self, organizer_client):
-        ws = _make_workspace()
-        with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.create_series", side_effect=lambda s: s):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.create_series", side_effect=lambda s: s):
             resp = organizer_client.post(
-                "/v2/workspaces/ws-1/series",
+                "/v2/rooms/rm-1/series",
                 json={
                     "kind": "meeting",
                     "title": "Study Group",
@@ -498,10 +525,13 @@ class TestEnableDone:
         assert resp.json()["enable_done"] is True
 
     def test_update_series_enable_done(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series(enable_done=False)
         updated_series = _make_series(enable_done=True)
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_series", return_value=updated_series),              patch("occurrence_service.apply_check_in_days"):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.update_series", return_value=updated_series), \
+             patch("occurrence_service.apply_check_in_days"):
             resp = organizer_client.patch(
                 "/v2/series/s-1",
                 json={"enable_done": True},
@@ -511,10 +541,12 @@ class TestEnableDone:
         assert resp.json()["enable_done"] is True
 
     def test_patch_occurrence_enable_check_in(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence(enable_check_in=False)
         updated = _make_occurrence(enable_check_in=True)
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_occurrence", return_value=updated):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.update_occurrence", return_value=updated):
             resp = organizer_client.patch(
                 "/v2/occurrences/occ-1",
                 json={"enable_check_in": True},
@@ -524,10 +556,12 @@ class TestEnableDone:
         assert resp.json()["enable_check_in"] is True
 
     def test_patch_occurrence_disable_check_in(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         occ = _make_occurrence(enable_check_in=True)
         updated = _make_occurrence(enable_check_in=False)
-        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_occurrence", return_value=updated):
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.update_occurrence", return_value=updated):
             resp = organizer_client.patch(
                 "/v2/occurrences/occ-1",
                 json={"enable_check_in": False},
@@ -541,15 +575,18 @@ class TestCheckInReport:
     """Tests for GET /v2/series/{series_id}/check-in-report."""
 
     def test_organizer_can_view_report(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
         occ1 = _make_occurrence(occurrence_id="occ-1", enable_check_in=True)
         occ2 = _make_occurrence(occurrence_id="occ-2", enable_check_in=False)
         ci = CheckIn(
             check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
-            workspace_id="ws-1", user_id=PARTICIPANT_UID, status="confirmed",
+            room_id="rm-1", user_id=PARTICIPANT_UID, status="confirmed",
         )
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_occurrences_for_series", return_value=[occ1, occ2]),              patch("series_storage.list_check_ins_for_series", return_value=[ci]):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[occ1, occ2]), \
+             patch("series_storage.list_check_ins_for_series", return_value=[ci]):
             resp = organizer_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
         assert resp.status_code == 200
         data = resp.json()
@@ -557,19 +594,23 @@ class TestCheckInReport:
         assert len(data["occurrences"]) == 1
         assert data["occurrences"][0]["occurrence_id"] == "occ-1"
         assert len(data["check_ins"]) == 1
-        assert data["members"] == ws.member_roles
+        assert data["members"] == rm.member_roles
         assert "member_profiles" in data
 
     def test_participant_cannot_view_report(self, participant_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
             resp = participant_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
         assert resp.status_code == 403
 
     def test_teacher_can_view_report(self, teacher_client):
-        ws = _make_workspace()
+        rm = _make_room()
         series = _make_series()
-        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_occurrences_for_series", return_value=[]),              patch("series_storage.list_check_ins_for_series", return_value=[]):
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[]), \
+             patch("series_storage.list_check_ins_for_series", return_value=[]):
             resp = teacher_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
         assert resp.status_code == 200

@@ -36,7 +36,7 @@ def _make_pending(
     created = created - timedelta(seconds=age_seconds)
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id="ws-1",
+        room_id="ws-1",
         requested_by_uid="uid-1",
         action_type=action_type,
         preview_summary="Test action",
@@ -66,7 +66,7 @@ class TestPendingActionSerialization:
     def test_from_dict_defaults_status(self):
         d = {
             "action_id": "x",
-            "workspace_id": "ws",
+            "room_id": "ws",
             "requested_by_uid": "u",
             "action_type": "draft_material",
             "preview_summary": "ok",
@@ -91,7 +91,7 @@ class TestBuildCreateSeriesAction:
         assert action.action_type == "create_series"
         assert "Weekly Standup" in action.preview_summary
         assert "weekly" in action.preview_summary
-        assert action.workspace_id == "ws-1"
+        assert action.room_id == "ws-1"
         assert action.requested_by_uid == "uid-1"
         assert action.status == "pending"
 
@@ -196,10 +196,10 @@ class TestExecuteAction:
                 "schedule_rule": {"frequency": "daily"},
             },
         )
-        fake_workspace = MagicMock()
+        fake_room = MagicMock()
 
         with (
-            patch("workspace_storage.get_workspace", return_value=fake_workspace),
+            patch("room_storage.get_room", return_value=fake_room),
             patch("series_storage.create_series", return_value=None),
         ):
             result = execute_action(action)
@@ -219,7 +219,7 @@ class TestExecuteAction:
         fake_occurrence = Occurrence(
             occurrence_id="occ-55",
             series_id="series-1",
-            workspace_id="ws-1",
+            room_id="ws-1",
             scheduled_for="2026-05-01T09:00:00+00:00",
             status="rescheduled",
         )
@@ -337,10 +337,10 @@ def organizer_client():
     app.dependency_overrides.clear()
 
 
-def _make_workspace(uid: str = ORGANIZER_UID):
-    from models import Workspace
-    return Workspace(
-        workspace_id="ws-1",
+def _make_room(uid: str = ORGANIZER_UID):
+    from models import Room
+    return Room(
+        room_id="ws-1",
         title="Test WS",
         type="shared",
         timezone="UTC",
@@ -353,10 +353,10 @@ class TestAssistantAPI:
     def test_assistant_endpoint_missing_env(self, organizer_client):
         """Without GEMINI_API_KEY the endpoint should error, not 500 on auth."""
         import os
-        ws = _make_workspace()
+        rm = _make_room()
 
         with (
-            patch("api_v2.workspace_storage.get_workspace", return_value=ws),
+            patch("api_v2.room_storage.get_room", return_value=rm),
             patch.dict(os.environ, {}, clear=False),
         ):
             # We won't actually call Gemini in tests; mock the stream
@@ -368,7 +368,7 @@ class TestAssistantAPI:
                 ]),
             ):
                 resp = organizer_client.post(
-                    "/v2/workspaces/ws-1/assistant",
+                    "/v2/rooms/ws-1/assistant",
                     json={"message": "Schedule weekly standup"},
                     headers=AUTH,
                 )
@@ -429,7 +429,7 @@ class TestAssistantAPI:
         mock_update.assert_called_once_with(action.action_id, "cancelled")
 
     def test_confirm_action_executes_draft(self, organizer_client):
-        ws = _make_workspace()
+        rm = _make_room()
         action = _make_pending(
             action_type="draft_material",
             payload={
@@ -448,7 +448,7 @@ class TestAssistantAPI:
                 "title": "Weekly Notes",
                 "draft_text": "Discussed Q3 goals.",
             }),
-            patch("api_v2.workspace_storage.get_workspace", return_value=ws),
+            patch("api_v2.room_storage.get_room", return_value=rm),
         ):
             resp = organizer_client.post(
                 f"/v2/assistant/actions/{action.action_id}/confirm",

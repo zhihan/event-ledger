@@ -8,7 +8,7 @@ void main() {
         'check_in_id': 'ci-1',
         'occurrence_id': 'occ-1',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'user_id': 'uid-1',
         'display_name': 'Alice',
         'status': 'confirmed',
@@ -29,7 +29,7 @@ void main() {
         'check_in_id': 'ci-2',
         'occurrence_id': 'occ-1',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'user_id': 'uid-2',
       };
       final ci = CheckIn.fromJson(json);
@@ -44,7 +44,7 @@ void main() {
         'check_in_id': 'ci-3',
         'occurrence_id': 'occ-1',
         'series_id': 's-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'user_id': 'uid-3',
         'status': 'declined',
         'note': 'Cannot attend',

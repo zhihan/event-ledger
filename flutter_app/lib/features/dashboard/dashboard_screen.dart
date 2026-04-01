@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/workspace.dart';
+import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 
@@ -14,7 +14,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  List<Workspace>? _workspaces;
+  List<Room>? _rooms;
   bool _loading = true;
   String? _error;
 
@@ -31,8 +31,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final workspaces = await api.listWorkspaces();
-      if (mounted) setState(() => _workspaces = workspaces);
+      final rooms = await api.listRooms();
+      if (mounted) setState(() => _rooms = rooms);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -58,7 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'Pacific/Auckland',
   ];
 
-  Future<void> _createWorkspace() async {
+  Future<void> _createRoom() async {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) {
@@ -66,7 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         var selectedTz = 'UTC';
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
-            title: const Text('New Workspace'),
+            title: const Text('New Room'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -102,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     if (result == null || result['title']!.trim().isEmpty) return;
     try {
-      await context.read<ApiService>().createWorkspace(
+      await context.read<ApiService>().createRoom(
           title: result['title']!.trim(),
           timezone: result['timezone']!);
       _load();
@@ -118,7 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Workspaces'),
+        title: const Text('Rooms'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -128,7 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _createWorkspace,
+        onPressed: _createRoom,
         child: const Icon(Icons.add),
       ),
       body: _buildBody(),
@@ -151,16 +151,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-    final workspaces = _workspaces ?? [];
-    if (workspaces.isEmpty) {
+    final rooms = _rooms ?? [];
+    if (rooms.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.workspaces_outlined,
+            Icon(Icons.meeting_room_outlined,
                 size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 12),
-            Text('No workspaces yet',
+            Text('No rooms yet',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text('Tap + to create one',
@@ -173,10 +173,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-        itemCount: workspaces.length,
+        itemCount: rooms.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          final ws = workspaces[index];
+          final room = rooms[index];
           final colors = [
             Colors.indigo,
             Colors.teal,
@@ -188,7 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return Card(
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () => context.push('/workspaces/${ws.workspaceId}'),
+              onTap: () => context.push('/rooms/${room.roomId}'),
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(
@@ -197,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       backgroundColor: color.withValues(alpha: 0.12),
                       radius: 22,
                       child: Text(
-                        ws.title.isNotEmpty ? ws.title[0].toUpperCase() : '?',
+                        room.title.isNotEmpty ? room.title[0].toUpperCase() : '?',
                         style: TextStyle(
                           color: color,
                           fontWeight: FontWeight.w600,
@@ -210,11 +210,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(ws.title,
+                          Text(room.title,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 15)),
                           const SizedBox(height: 2),
-                          Text(ws.seriesSubtitle,
+                          Text(room.seriesSubtitle,
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Theme.of(context).colorScheme.onSurfaceVariant)),

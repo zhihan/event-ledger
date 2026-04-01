@@ -7,7 +7,7 @@ import '../features/invites/accept_invite_screen.dart';
 import '../features/occurrence/occurrence_screen.dart';
 import '../features/occurrence/occurrence_summary_screen.dart';
 import '../features/series/series_screen.dart';
-import '../features/workspace/workspace_screen.dart';
+import '../features/room/room_screen.dart';
 import '../services/auth_service.dart';
 
 GoRouter buildRouter(AuthService auth) {
@@ -36,9 +36,9 @@ GoRouter buildRouter(AuthService auth) {
         builder: (context, state) => const DashboardScreen(),
       ),
       GoRoute(
-        path: '/workspaces/:id',
+        path: '/rooms/:id',
         builder: (context, state) =>
-            WorkspaceScreen(workspaceId: state.pathParameters['id']!),
+            RoomScreen(roomId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/series/:id',

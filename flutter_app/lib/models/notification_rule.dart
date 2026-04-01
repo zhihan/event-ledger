@@ -1,6 +1,6 @@
 class NotificationRule {
   final String ruleId;
-  final String workspaceId;
+  final String roomId;
   final String? seriesId;
   final String channel;
   final int remindBeforeMinutes;
@@ -9,7 +9,7 @@ class NotificationRule {
 
   const NotificationRule({
     required this.ruleId,
-    required this.workspaceId,
+    required this.roomId,
     this.seriesId,
     required this.channel,
     required this.remindBeforeMinutes,
@@ -20,7 +20,7 @@ class NotificationRule {
   factory NotificationRule.fromJson(Map<String, dynamic> json) {
     return NotificationRule(
       ruleId: json['rule_id'] as String,
-      workspaceId: json['workspace_id'] as String,
+      roomId: json['room_id'] as String,
       seriesId: json['series_id'] as String?,
       channel: json['channel'] as String,
       remindBeforeMinutes: json['remind_before_minutes'] as int,

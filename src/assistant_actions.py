@@ -40,7 +40,7 @@ class PendingAction:
     """A proposed but not-yet-confirmed assistant action."""
 
     action_id: str
-    workspace_id: str
+    room_id: str
     requested_by_uid: str
     action_type: ActionType
     preview_summary: str
@@ -54,7 +54,7 @@ class PendingAction:
     def to_dict(self) -> dict:
         return {
             "action_id": self.action_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "requested_by_uid": self.requested_by_uid,
             "action_type": self.action_type,
             "preview_summary": self.preview_summary,
@@ -70,7 +70,7 @@ class PendingAction:
     def from_dict(cls, data: dict) -> "PendingAction":
         return cls(
             action_id=data["action_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             requested_by_uid=data["requested_by_uid"],
             action_type=data["action_type"],
             preview_summary=data["preview_summary"],
@@ -140,7 +140,7 @@ def update_pending_action_status(
 # ---------------------------------------------------------------------------
 
 def build_create_series_action(
-    workspace_id: str, uid: str, payload: dict
+    room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     title = payload.get("title", "New Meeting")
     freq = payload.get("schedule_rule", {}).get("frequency", "weekly")
@@ -148,11 +148,11 @@ def build_create_series_action(
     at_time = f" at {time_str}" if time_str else ""
     summary = (
         f'Create a new {freq} series titled "{title}"{at_time}'
-        f' in workspace {workspace_id}.'
+        f' in room {room_id}.'
     )
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         requested_by_uid=uid,
         action_type="create_series",
         preview_summary=summary,
@@ -162,17 +162,17 @@ def build_create_series_action(
 
 def execute_create_series(action: PendingAction) -> dict:
     import series_storage
-    import workspace_storage
+    import room_storage
     from models import Series, ScheduleRule
 
     payload = action.payload
-    ws = workspace_storage.get_workspace(action.workspace_id)
-    if ws is None:
-        raise ValueError(f"Workspace not found: {action.workspace_id}")
+    rm = room_storage.get_room(action.room_id)
+    if rm is None:
+        raise ValueError(f"Room not found: {action.room_id}")
 
     series = Series(
         series_id=str(uuid.uuid4()),
-        workspace_id=action.workspace_id,
+        room_id=action.room_id,
         kind=payload.get("kind", "meeting"),
         title=payload["title"],
         schedule_rule=ScheduleRule.from_dict(
@@ -199,14 +199,14 @@ def execute_create_series(action: PendingAction) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_reschedule_occurrence_action(
-    workspace_id: str, uid: str, payload: dict
+    room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     occ_id = payload.get("occurrence_id", "?")
     new_dt = payload.get("new_scheduled_for", "?")
     summary = f"Reschedule occurrence {occ_id} to {new_dt}."
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         requested_by_uid=uid,
         action_type="reschedule_occurrence",
         preview_summary=summary,
@@ -234,14 +234,14 @@ def execute_reschedule_occurrence(action: PendingAction) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_draft_material_action(
-    workspace_id: str, uid: str, payload: dict
+    room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     kind = payload.get("material_kind", "agenda")
     title = payload.get("title", "Untitled")
     summary = f'Draft a {kind} for "{title}".'
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         requested_by_uid=uid,
         action_type="draft_material",
         preview_summary=summary,
@@ -264,13 +264,13 @@ def execute_draft_material(action: PendingAction) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_generate_reminder_text_action(
-    workspace_id: str, uid: str, payload: dict
+    room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     ref = payload.get("occurrence_id") or payload.get("series_id") or "?"
     summary = f"Generate a shareable reminder message for {ref}."
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         requested_by_uid=uid,
         action_type="generate_reminder_text",
         preview_summary=summary,
@@ -293,14 +293,14 @@ def execute_generate_reminder_text(action: PendingAction) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_update_occurrence_notes_action(
-    workspace_id: str, uid: str, payload: dict
+    room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     occ_id = payload.get("occurrence_id", "?")
     notes_preview = (payload.get("notes") or "")[:80]
     summary = f'Update agenda/notes for occurrence {occ_id}: "{notes_preview}"'
     return PendingAction(
         action_id=str(uuid.uuid4()),
-        workspace_id=workspace_id,
+        room_id=room_id,
         requested_by_uid=uid,
         action_type="update_occurrence_notes",
         preview_summary=summary,

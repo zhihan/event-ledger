@@ -18,25 +18,25 @@ db_stub = types.ModuleType('db')
 db_stub.get_client = MagicMock()
 sys.modules.setdefault('db', db_stub)
 
-from models import NotificationRule, Occurrence, OccurrenceOverrides, Series, ScheduleRule, Workspace, DeliveryLog
+from models import NotificationRule, Occurrence, OccurrenceOverrides, Series, ScheduleRule, Room, DeliveryLog
 
 
-def _ws(workspace_id='ws1', members=None):
+def _rm(room_id='ws1', members=None):
     members = members or {'uid-a': 'organizer', 'uid-b': 'participant'}
-    return Workspace(workspace_id=workspace_id, title='Test WS', type='shared', timezone='UTC', owner_uids=['uid-a'], member_roles=members)
+    return Room(room_id=room_id, title='Test WS', type='shared', timezone='UTC', owner_uids=['uid-a'], member_roles=members)
 
 
-def _series(workspace_id='ws1'):
-    return Series(series_id='series-1', workspace_id=workspace_id, kind='meeting', title='Weekly Standup', schedule_rule=ScheduleRule(frequency='weekly', weekdays=[1]), default_time='10:00', default_duration_minutes=30)
+def _series(room_id='ws1'):
+    return Series(series_id='series-1', room_id=room_id, kind='meeting', title='Weekly Standup', schedule_rule=ScheduleRule(frequency='weekly', weekdays=[1]), default_time='10:00', default_duration_minutes=30)
 
 
-def _occ(minutes_from_now=30, workspace_id='ws1'):
+def _occ(minutes_from_now=30, room_id='ws1'):
     dt = datetime.now(timezone.utc) + timedelta(minutes=minutes_from_now)
-    return Occurrence(occurrence_id=str(uuid.uuid4()), series_id='series-1', workspace_id=workspace_id, scheduled_for=dt.isoformat(), status='scheduled')
+    return Occurrence(occurrence_id=str(uuid.uuid4()), series_id='series-1', room_id=room_id, scheduled_for=dt.isoformat(), status='scheduled')
 
 
-def _rule(workspace_id='ws1', remind_before_minutes=60, target_roles=None, channel='in_app'):
-    return NotificationRule(rule_id=str(uuid.uuid4()), workspace_id=workspace_id, series_id=None, channel=channel, remind_before_minutes=remind_before_minutes, enabled=True, target_roles=target_roles or [])
+def _rule(room_id='ws1', remind_before_minutes=60, target_roles=None, channel='in_app'):
+    return NotificationRule(rule_id=str(uuid.uuid4()), room_id=room_id, series_id=None, channel=channel, remind_before_minutes=remind_before_minutes, enabled=True, target_roles=target_roles or [])
 
 
 class TestOccurrencesInWindow:
@@ -45,7 +45,7 @@ class TestOccurrencesInWindow:
         occ = _occ(minutes_from_now=30)
         rule = _rule(remind_before_minutes=60)
         now = datetime.now(timezone.utc)
-        with patch('series_storage.list_occurrences_for_workspace', return_value=[occ]):
+        with patch('series_storage.list_occurrences_for_room', return_value=[occ]):
             result = _occurrences_in_window('ws1', rule, now)
         assert len(result) == 1
         assert result[0].occurrence_id == occ.occurrence_id
@@ -55,7 +55,7 @@ class TestOccurrencesInWindow:
         occ = _occ(minutes_from_now=120)
         rule = _rule(remind_before_minutes=30)
         now = datetime.now(timezone.utc)
-        with patch('series_storage.list_occurrences_for_workspace', return_value=[occ]):
+        with patch('series_storage.list_occurrences_for_room', return_value=[occ]):
             result = _occurrences_in_window('ws1', rule, now)
         assert result == []
 
@@ -64,7 +64,7 @@ class TestOccurrencesInWindow:
         occ = _occ(minutes_from_now=-10)
         rule = _rule(remind_before_minutes=60)
         now = datetime.now(timezone.utc)
-        with patch('series_storage.list_occurrences_for_workspace', return_value=[occ]):
+        with patch('series_storage.list_occurrences_for_room', return_value=[occ]):
             result = _occurrences_in_window('ws1', rule, now)
         assert result == []
 
@@ -75,7 +75,7 @@ class TestOccurrencesInWindow:
         rule = _rule(remind_before_minutes=60)
         rule.series_id = 'series-1'
         now = datetime.now(timezone.utc)
-        with patch('series_storage.list_occurrences_for_workspace', return_value=[occ]):
+        with patch('series_storage.list_occurrences_for_room', return_value=[occ]):
             result = _occurrences_in_window('ws1', rule, now)
         assert result == []
 
@@ -83,31 +83,31 @@ class TestOccurrencesInWindow:
 class TestMembersForRule:
     def test_all_members_when_no_target_roles(self):
         from jobs.send_notifications import _members_for_rule
-        ws = _ws(members={'uid-a': 'organizer', 'uid-b': 'participant'})
+        rm = _rm(members={'uid-a': 'organizer', 'uid-b': 'participant'})
         rule = _rule(target_roles=[])
-        result = _members_for_rule(ws, rule)
+        result = _members_for_rule(rm, rule)
         assert set(result) == {'uid-a', 'uid-b'}
 
     def test_filtered_by_role(self):
         from jobs.send_notifications import _members_for_rule
-        ws = _ws(members={'uid-a': 'organizer', 'uid-b': 'participant', 'uid-c': 'organizer'})
+        rm = _rm(members={'uid-a': 'organizer', 'uid-b': 'participant', 'uid-c': 'organizer'})
         rule = _rule(target_roles=['organizer'])
-        result = _members_for_rule(ws, rule)
+        result = _members_for_rule(rm, rule)
         assert set(result) == {'uid-a', 'uid-c'}
 
     def test_no_matching_role(self):
         from jobs.send_notifications import _members_for_rule
-        ws = _ws(members={'uid-a': 'participant'})
+        rm = _rm(members={'uid-a': 'participant'})
         rule = _rule(target_roles=['teacher'])
-        result = _members_for_rule(ws, rule)
+        result = _members_for_rule(rm, rule)
         assert result == []
 
 
 class TestRunScheduler:
-    def _db_mock(self, workspace_id):
+    def _db_mock(self, room_id):
         doc_mock = MagicMock()
-        doc_mock.to_dict.return_value = {'workspace_id': workspace_id}
-        doc_mock.id = workspace_id
+        doc_mock.to_dict.return_value = {'workspace_id': room_id}
+        doc_mock.id = room_id
         coll_mock = MagicMock()
         coll_mock.stream.return_value = [doc_mock]
         db = MagicMock()
@@ -118,13 +118,13 @@ class TestRunScheduler:
         from jobs.send_notifications import run_scheduler
         occ = _occ(minutes_from_now=30)
         rule = _rule(remind_before_minutes=60, channel='in_app')
-        ws = _ws()
+        rm = _rm()
         s = _series()
         with (
             patch('db.get_client', return_value=self._db_mock('ws1')),
-            patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
-            patch('workspace_storage.get_workspace', return_value=ws),
-            patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),
+            patch('series_storage.list_notification_rules_for_room', return_value=[rule]),
+            patch('room_storage.get_room', return_value=rm),
+            patch('series_storage.list_occurrences_for_room', return_value=[occ]),
             patch('series_storage.get_series', return_value=s),
             patch('delivery_storage.has_been_delivered', return_value=False),
             patch('delivery_storage.append_delivery_log'),
@@ -137,13 +137,13 @@ class TestRunScheduler:
         from jobs.send_notifications import run_scheduler
         occ = _occ(minutes_from_now=30)
         rule = _rule(remind_before_minutes=60, channel='in_app')
-        ws = _ws()
+        rm = _rm()
         s = _series()
         with (
             patch('db.get_client', return_value=self._db_mock('ws1')),
-            patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
-            patch('workspace_storage.get_workspace', return_value=ws),
-            patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),
+            patch('series_storage.list_notification_rules_for_room', return_value=[rule]),
+            patch('room_storage.get_room', return_value=rm),
+            patch('series_storage.list_occurrences_for_room', return_value=[occ]),
             patch('series_storage.get_series', return_value=s),
             patch('delivery_storage.has_been_delivered', return_value=True),
             patch('delivery_storage.append_delivery_log'),
@@ -157,13 +157,13 @@ class TestRunScheduler:
         occ = _occ(minutes_from_now=30)
         rule = _rule(remind_before_minutes=60, channel='in_app')
         rule.enabled = False
-        ws = _ws()
+        rm = _rm()
         s = _series()
         with (
             patch('db.get_client', return_value=self._db_mock('ws1')),
-            patch('series_storage.list_notification_rules_for_workspace', return_value=[rule]),
-            patch('workspace_storage.get_workspace', return_value=ws),
-            patch('series_storage.list_occurrences_for_workspace', return_value=[occ]),
+            patch('series_storage.list_notification_rules_for_room', return_value=[rule]),
+            patch('room_storage.get_room', return_value=rm),
+            patch('series_storage.list_occurrences_for_room', return_value=[occ]),
             patch('series_storage.get_series', return_value=s),
             patch('delivery_storage.has_been_delivered', return_value=False),
             patch('delivery_storage.append_delivery_log'),

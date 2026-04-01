@@ -37,8 +37,8 @@ def _get_rotation_host(series: Series, sequence_index: int) -> str | None:
     return series.host_rotation[sequence_index % len(series.host_rotation)]
 
 
-def _to_workspace_tz(series: Series, workspace_timezone: str) -> ZoneInfo:
-    return ZoneInfo(workspace_timezone)
+def _to_room_tz(series: Series, room_timezone: str) -> ZoneInfo:
+    return ZoneInfo(room_timezone)
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ def _to_workspace_tz(series: Series, workspace_timezone: str) -> ZoneInfo:
 
 def generate_and_save(
     series: Series,
-    workspace_timezone: str,
+    room_timezone: str,
     start_date: date,
     end_date: date,
 ) -> list[Occurrence]:
@@ -59,7 +59,7 @@ def generate_and_save(
 
     Returns the list of *newly created* Occurrence objects.
     """
-    tz = _to_workspace_tz(series, workspace_timezone)
+    tz = _to_room_tz(series, room_timezone)
 
     # Generate candidate UTC datetimes
     utc_datetimes = generate_occurrences(
@@ -102,7 +102,7 @@ def generate_and_save(
         occ = Occurrence(
             occurrence_id=str(uuid.uuid4()),
             series_id=series.series_id,
-            workspace_id=series.workspace_id,
+            room_id=series.room_id,
             scheduled_for=scheduled_for,
             status="scheduled",
             location=loc,
@@ -158,7 +158,7 @@ def edit_occurrence(
 ) -> Occurrence:
     """Apply field-level overrides to a single Occurrence.
 
-    This is "edit this one instance" — the series is unchanged.
+    This is "edit this one instance" -- the series is unchanged.
     """
     return update_occurrence(
         occurrence_id,
@@ -172,7 +172,7 @@ def edit_occurrence(
 
 def regenerate_series(
     series_id: str,
-    workspace_timezone: str,
+    room_timezone: str,
     start_date: date,
     end_date: date,
 ) -> dict:
@@ -190,7 +190,7 @@ def regenerate_series(
     if series is None:
         raise ValueError(f"Series not found: {series_id}")
 
-    tz = _to_workspace_tz(series, workspace_timezone)
+    tz = _to_room_tz(series, room_timezone)
 
     # New canonical datetimes from the updated rule
     new_utc_times = generate_occurrences(
@@ -233,7 +233,7 @@ def regenerate_series(
             to_create.append(Occurrence(
                 occurrence_id=str(uuid.uuid4()),
                 series_id=series_id,
-                workspace_id=series.workspace_id,
+                room_id=series.room_id,
                 scheduled_for=scheduled_for,
                 status="scheduled",
                 location=loc,

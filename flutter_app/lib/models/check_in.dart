@@ -2,7 +2,7 @@ class CheckIn {
   final String checkInId;
   final String occurrenceId;
   final String seriesId;
-  final String workspaceId;
+  final String roomId;
   final String userId;
   final String? displayName;
   final String status;
@@ -13,7 +13,7 @@ class CheckIn {
     required this.checkInId,
     required this.occurrenceId,
     required this.seriesId,
-    required this.workspaceId,
+    required this.roomId,
     required this.userId,
     this.displayName,
     this.status = 'pending',
@@ -26,7 +26,7 @@ class CheckIn {
       checkInId: json['check_in_id'] as String,
       occurrenceId: json['occurrence_id'] as String,
       seriesId: json['series_id'] as String,
-      workspaceId: json['workspace_id'] as String,
+      roomId: json['room_id'] as String,
       userId: json['user_id'] as String,
       displayName: json['display_name'] as String?,
       status: json['status'] as String? ?? 'pending',

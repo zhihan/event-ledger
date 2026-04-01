@@ -1,31 +1,31 @@
 import 'package:test/test.dart';
-import 'package:event_ledger/models/workspace.dart';
+import 'package:event_ledger/models/room.dart';
 
 void main() {
-  group('Workspace.fromJson', () {
-    test('parses minimal workspace', () {
+  group('Room.fromJson', () {
+    test('parses minimal room', () {
       final json = {
-        'workspace_id': 'ws-1',
-        'title': 'Test Workspace',
+        'room_id': 'rm-1',
+        'title': 'Test Room',
         'type': 'shared',
         'timezone': 'Asia/Taipei',
         'owner_uids': ['uid-1'],
         'member_roles': {'uid-1': 'organizer'},
         'member_profiles': {},
       };
-      final ws = Workspace.fromJson(json);
-      expect(ws.workspaceId, 'ws-1');
-      expect(ws.title, 'Test Workspace');
-      expect(ws.type, 'shared');
-      expect(ws.timezone, 'Asia/Taipei');
-      expect(ws.ownerUids, ['uid-1']);
-      expect(ws.memberRoles, {'uid-1': 'organizer'});
-      expect(ws.description, isNull);
+      final room = Room.fromJson(json);
+      expect(room.roomId, 'rm-1');
+      expect(room.title, 'Test Room');
+      expect(room.type, 'shared');
+      expect(room.timezone, 'Asia/Taipei');
+      expect(room.ownerUids, ['uid-1']);
+      expect(room.memberRoles, {'uid-1': 'organizer'});
+      expect(room.description, isNull);
     });
 
-    test('parses workspace with member profiles', () {
+    test('parses room with member profiles', () {
       final json = {
-        'workspace_id': 'ws-2',
+        'room_id': 'rm-2',
         'title': 'Study Group',
         'type': 'study',
         'timezone': 'UTC',
@@ -37,23 +37,23 @@ void main() {
         },
         'description': 'A study group',
       };
-      final ws = Workspace.fromJson(json);
-      expect(ws.memberProfiles['uid-1']!['display_name'], 'Alice');
-      expect(ws.memberProfiles['uid-2']!['email'], isNull);
-      expect(ws.description, 'A study group');
+      final room = Room.fromJson(json);
+      expect(room.memberProfiles['uid-1']!['display_name'], 'Alice');
+      expect(room.memberProfiles['uid-2']!['email'], isNull);
+      expect(room.description, 'A study group');
     });
 
     test('handles missing optional fields', () {
       final json = {
-        'workspace_id': 'ws-3',
+        'room_id': 'rm-3',
         'title': 'Minimal',
       };
-      final ws = Workspace.fromJson(json);
-      expect(ws.type, 'shared');
-      expect(ws.timezone, 'UTC');
-      expect(ws.ownerUids, isEmpty);
-      expect(ws.memberRoles, isEmpty);
-      expect(ws.memberProfiles, isEmpty);
+      final room = Room.fromJson(json);
+      expect(room.type, 'shared');
+      expect(room.timezone, 'UTC');
+      expect(room.ownerUids, isEmpty);
+      expect(room.memberRoles, isEmpty);
+      expect(room.memberProfiles, isEmpty);
     });
   });
 

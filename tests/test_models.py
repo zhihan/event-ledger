@@ -18,7 +18,7 @@ from models import (
     OccurrenceOverrides,
     ScheduleRule,
     Series,
-    Workspace,
+    Room,
 )
 
 
@@ -57,56 +57,56 @@ class TestScheduleRule:
 
 
 # ---------------------------------------------------------------------------
-# Workspace
+# Room
 # ---------------------------------------------------------------------------
 
-class TestWorkspace:
-    def _make(self, **kwargs) -> Workspace:
+class TestRoom:
+    def _make(self, **kwargs) -> Room:
         defaults = dict(
-            workspace_id="ws-1",
+            room_id="rm-1",
             title="Team Standups",
             type="shared",
             timezone="America/New_York",
             owner_uids=["uid-alice"],
         )
         defaults.update(kwargs)
-        return Workspace(**defaults)
+        return Room(**defaults)
 
     def test_roundtrip(self):
-        ws = self._make()
-        restored = Workspace.from_dict(ws.to_dict())
-        assert restored.workspace_id == "ws-1"
+        rm = self._make()
+        restored = Room.from_dict(rm.to_dict())
+        assert restored.room_id == "rm-1"
         assert restored.title == "Team Standups"
         assert restored.type == "shared"
         assert restored.timezone == "America/New_York"
         assert restored.owner_uids == ["uid-alice"]
 
     def test_member_roles_roundtrip(self):
-        ws = self._make(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
-        restored = Workspace.from_dict(ws.to_dict())
+        rm = self._make(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
+        restored = Room.from_dict(rm.to_dict())
         assert restored.member_roles["uid-alice"] == "organizer"
         assert restored.member_roles["uid-bob"] == "participant"
 
     def test_member_profiles_roundtrip(self):
-        ws = self._make(member_profiles={
+        rm = self._make(member_profiles={
             "uid-alice": {"display_name": "Alice", "email": "alice@example.com"},
         })
-        restored = Workspace.from_dict(ws.to_dict())
+        restored = Room.from_dict(rm.to_dict())
         assert restored.member_profiles["uid-alice"]["display_name"] == "Alice"
         assert restored.member_profiles["uid-alice"]["email"] == "alice@example.com"
 
     def test_default_timezone(self):
-        ws = self._make()
-        d = ws.to_dict()
+        rm = self._make()
+        d = rm.to_dict()
         del d["timezone"]
         # Simulate loading a doc without timezone
-        restored = Workspace.from_dict({**d, "workspace_id": "ws-1"})
+        restored = Room.from_dict({**d, "room_id": "rm-1"})
         assert restored.timezone == "UTC"
 
     def test_description_optional(self):
-        ws = self._make()
-        assert ws.description is None
-        restored = Workspace.from_dict(ws.to_dict())
+        rm = self._make()
+        assert rm.description is None
+        restored = Room.from_dict(rm.to_dict())
         assert restored.description is None
 
 
@@ -118,7 +118,7 @@ class TestSeries:
     def _make(self, **kwargs) -> Series:
         defaults = dict(
             series_id="series-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             kind="meeting",
             title="Weekly Standup",
             schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
@@ -163,7 +163,7 @@ class TestOccurrence:
         defaults = dict(
             occurrence_id="occ-1",
             series_id="series-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             scheduled_for="2026-04-01T14:00:00+00:00",
         )
         defaults.update(kwargs)
@@ -219,7 +219,7 @@ class TestCheckIn:
             check_in_id="ci-1",
             occurrence_id="occ-1",
             series_id="series-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             user_id="uid-bob",
         )
         defaults.update(kwargs)
@@ -253,7 +253,7 @@ class TestNotificationRule:
     def test_roundtrip(self):
         rule = NotificationRule(
             rule_id="rule-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             series_id="series-1",
             channel="email",
             remind_before_minutes=60,
@@ -266,10 +266,10 @@ class TestNotificationRule:
         assert restored.target_roles == ["participant", "organizer"]
         assert restored.enabled is True
 
-    def test_workspace_level_rule(self):
+    def test_room_level_rule(self):
         rule = NotificationRule(
             rule_id="rule-2",
-            workspace_id="ws-1",
+            room_id="rm-1",
             series_id=None,
             channel="in_app",
             remind_before_minutes=30,
@@ -289,7 +289,7 @@ class TestDeliveryLog:
             log_id="log-1",
             rule_id="rule-1",
             occurrence_id="occ-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             recipient_uid="uid-bob",
             channel="email",
             status="sent",
@@ -306,7 +306,7 @@ class TestDeliveryLog:
             log_id="log-2",
             rule_id="rule-1",
             occurrence_id="occ-1",
-            workspace_id="ws-1",
+            room_id="rm-1",
             recipient_uid="uid-bob",
             channel="email",
             status="failed",

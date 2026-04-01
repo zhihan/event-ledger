@@ -407,7 +407,7 @@ body {
 
 .page-card a:hover { color: var(--primary); }
 
-.workspace-card { }
+.room-card { }
 
 /* Series list */
 .series-list {

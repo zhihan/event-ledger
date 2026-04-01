@@ -6,7 +6,7 @@ void main() {
     test('parses full rule', () {
       final json = {
         'rule_id': 'r-1',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'series_id': 's-1',
         'channel': 'telegram',
         'remind_before_minutes': 60,
@@ -22,10 +22,10 @@ void main() {
       expect(rule.targetRoles, ['participant', 'student']);
     });
 
-    test('handles workspace-level rule (null series_id)', () {
+    test('handles room-level rule (null series_id)', () {
       final json = {
         'rule_id': 'r-2',
-        'workspace_id': 'ws-1',
+        'room_id': 'rm-1',
         'series_id': null,
         'channel': 'email',
         'remind_before_minutes': 30,

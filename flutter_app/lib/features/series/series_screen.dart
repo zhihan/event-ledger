@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/occurrence.dart';
 import '../../models/series.dart';
-import '../../models/workspace.dart';
+import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../shared/widgets/check_in_report.dart';
@@ -22,7 +22,7 @@ class SeriesScreen extends StatefulWidget {
 
 class _SeriesScreenState extends State<SeriesScreen> {
   Series? _series;
-  Workspace? _workspace;
+  Room? _room;
   List<Occurrence>? _occurrences;
   bool _loading = true;
   String? _error;
@@ -52,9 +52,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
   String get _uid => context.read<AuthService>().currentUser!.uid;
 
   bool get _canManage {
-    final ws = _workspace;
-    if (ws == null) return false;
-    final role = ws.memberRoles[_uid];
+    final room = _room;
+    if (room == null) return false;
+    final role = room.memberRoles[_uid];
     return role == 'organizer' || role == 'teacher';
   }
 
@@ -67,13 +67,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
       final api = context.read<ApiService>();
       final series = await api.getSeries(widget.seriesId);
       final results = await Future.wait([
-        api.getWorkspace(series.workspaceId),
+        api.getRoom(series.roomId),
         api.listSeriesOccurrences(widget.seriesId),
       ]);
       if (mounted) {
         setState(() {
           _series = series;
-          _workspace = results[0] as Workspace;
+          _room = results[0] as Room;
           _occurrences = results[1] as List<Occurrence>;
         });
       }

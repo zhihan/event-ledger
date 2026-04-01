@@ -1,11 +1,11 @@
 """Domain models for the pivot to a recurring-schedule platform.
 
 New vocabulary:
-- Workspace  (replaces Page)
+- Room       (replaces Workspace/Page)
 - Series     (a recurring schedule)
 - Occurrence (a single instance of a Series)
 - CheckIn    (participant attendance/confirmation)
-- NotificationRule  (per-workspace delivery preferences)
+- NotificationRule  (per-room delivery preferences)
 - DeliveryLog       (immutable record of a sent notification)
 """
 
@@ -24,7 +24,7 @@ def _utcnow() -> datetime:
 # Literal types
 # ---------------------------------------------------------------------------
 
-WorkspaceType = Literal["personal", "shared", "study"]
+RoomType = Literal["personal", "shared", "study"]
 SeriesKind = Literal["reminder", "meeting", "study_assignment"]
 SeriesStatus = Literal["active", "paused", "archived"]
 OccurrenceStatus = Literal["scheduled", "cancelled", "completed", "rescheduled"]
@@ -35,24 +35,24 @@ DeliveryStatus = Literal["pending", "sent", "failed", "skipped"]
 
 
 # ---------------------------------------------------------------------------
-# Workspace
+# Room
 # ---------------------------------------------------------------------------
 
 @dataclass
-class Workspace:
+class Room:
     """Top-level container for a group of related recurring schedules.
 
     Maps to the Firestore ``workspaces`` collection.
     """
 
-    workspace_id: str
+    room_id: str
     title: str
-    type: WorkspaceType
+    type: RoomType
     timezone: str
     owner_uids: list[str]
     # uid -> MemberRole; owners are also listed here with role "organizer"
     member_roles: dict[str, MemberRole] = field(default_factory=dict)
-    # uid -> lightweight display metadata for workspace member lists
+    # uid -> lightweight display metadata for room member lists
     member_profiles: dict[str, dict[str, str | None]] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -61,7 +61,7 @@ class Workspace:
     def to_dict(self) -> dict:
         now = _utcnow()
         return {
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "title": self.title,
             "type": self.type,
             "timezone": self.timezone,
@@ -74,9 +74,9 @@ class Workspace:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> Workspace:
+    def from_dict(cls, data: dict) -> Room:
         return cls(
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             title=data["title"],
             type=data["type"],
             timezone=data.get("timezone", "UTC"),
@@ -98,13 +98,13 @@ class ScheduleRule:
     """Serializable recurrence rule.
 
     ``frequency`` is one of:
-      - ``"daily"``     — every day
-      - ``"weekly"``    — every week on ``weekdays``
-      - ``"weekdays"``  — Monday–Friday
-      - ``"custom"``    — specific weekday list (same as weekly but explicit)
-      - ``"once"``      — no recurrence (single-shot)
+      - ``"daily"``     -- every day
+      - ``"weekly"``    -- every week on ``weekdays``
+      - ``"weekdays"``  -- Monday-Friday
+      - ``"custom"``    -- specific weekday list (same as weekly but explicit)
+      - ``"once"``      -- no recurrence (single-shot)
 
-    ``weekdays`` is a list of ISO weekday integers (1=Monday … 7=Sunday).
+    ``weekdays`` is a list of ISO weekday integers (1=Monday ... 7=Sunday).
     For ``daily`` and ``weekdays`` frequency, ``weekdays`` is ignored.
 
     ``interval`` is how many units to skip between occurrences (default 1).
@@ -117,7 +117,7 @@ class ScheduleRule:
     """
 
     frequency: Literal["daily", "weekly", "weekdays", "custom", "once"]
-    weekdays: list[int] = field(default_factory=list)  # 1=Mon … 7=Sun
+    weekdays: list[int] = field(default_factory=list)  # 1=Mon ... 7=Sun
     interval: int = 1
     until: datetime | None = None
     count: int | None = None
@@ -145,17 +145,17 @@ class ScheduleRule:
 
 @dataclass
 class Series:
-    """A recurring schedule owned by a Workspace.
+    """A recurring schedule owned by a Room.
 
     Maps to the Firestore ``series`` collection.
     """
 
     series_id: str
-    workspace_id: str
+    room_id: str
     kind: SeriesKind
     title: str
     schedule_rule: ScheduleRule
-    # Wall-clock time of day: "HH:MM" in the workspace's timezone
+    # Wall-clock time of day: "HH:MM" in the room's timezone
     default_time: str | None = None
     default_duration_minutes: int | None = None
     default_location: str | None = None
@@ -165,7 +165,7 @@ class Series:
     # Ordered list of locations for rotation mode
     location_rotation: list[str] | None = None
     status: SeriesStatus = "active"
-    # ISO weekdays (1=Mon … 7=Sun) on which check-in is enabled; empty/None = no check-ins
+    # ISO weekdays (1=Mon ... 7=Sun) on which check-in is enabled; empty/None = no check-ins
     # DEPRECATED: kept for reading old data; use enable_done instead
     check_in_weekdays: list[int] | None = None
     # Simple boolean: when True, all generated occurrences get enable_check_in=True
@@ -184,7 +184,7 @@ class Series:
         now = _utcnow()
         return {
             "series_id": self.series_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "kind": self.kind,
             "title": self.title,
             "schedule_rule": self.schedule_rule.to_dict(),
@@ -217,7 +217,7 @@ class Series:
             enable_done = bool(check_in_weekdays)
         return cls(
             series_id=data["series_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             kind=data["kind"],
             title=data["title"],
             schedule_rule=ScheduleRule.from_dict(data["schedule_rule"]),
@@ -284,13 +284,13 @@ class Occurrence:
     Maps to the Firestore ``occurrences`` collection.
     ``scheduled_for`` is an ISO 8601 UTC datetime string representing the
     start of this occurrence.  Effective wall-clock time is determined by
-    either ``overrides.time`` or ``Series.default_time`` plus the workspace
+    either ``overrides.time`` or ``Series.default_time`` plus the room
     timezone.
     """
 
     occurrence_id: str
     series_id: str
-    workspace_id: str
+    room_id: str
     # ISO 8601 UTC datetime, e.g. "2026-04-01T14:00:00+00:00"
     scheduled_for: str
     status: OccurrenceStatus = "scheduled"
@@ -313,7 +313,7 @@ class Occurrence:
         return {
             "occurrence_id": self.occurrence_id,
             "series_id": self.series_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "scheduled_for": self.scheduled_for,
             "status": self.status,
             "location": self.location,
@@ -332,7 +332,7 @@ class Occurrence:
         return cls(
             occurrence_id=data["occurrence_id"],
             series_id=data["series_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             scheduled_for=data["scheduled_for"],
             status=data.get("status", "scheduled"),
             location=data.get("location"),
@@ -360,7 +360,7 @@ class CheckIn:
     check_in_id: str
     occurrence_id: str
     series_id: str
-    workspace_id: str
+    room_id: str
     user_id: str
     display_name: str | None = None
     status: CheckInStatus = "pending"
@@ -375,7 +375,7 @@ class CheckIn:
             "check_in_id": self.check_in_id,
             "occurrence_id": self.occurrence_id,
             "series_id": self.series_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "user_id": self.user_id,
             "display_name": self.display_name,
             "status": self.status,
@@ -391,7 +391,7 @@ class CheckIn:
             check_in_id=data["check_in_id"],
             occurrence_id=data["occurrence_id"],
             series_id=data["series_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             user_id=data["user_id"],
             display_name=data.get("display_name"),
             status=data.get("status", "pending"),
@@ -408,14 +408,14 @@ class CheckIn:
 
 @dataclass
 class NotificationRule:
-    """Per-workspace rule controlling when and how notifications are sent.
+    """Per-room rule controlling when and how notifications are sent.
 
     Maps to the Firestore ``notification_rules`` collection.
     """
 
     rule_id: str
-    workspace_id: str
-    series_id: str | None  # None means workspace-level default
+    room_id: str
+    series_id: str | None  # None means room-level default
     channel: NotificationChannel
     # Minutes before the occurrence to send the reminder (e.g. 60 = 1 hour before)
     remind_before_minutes: int
@@ -429,7 +429,7 @@ class NotificationRule:
         now = _utcnow()
         return {
             "rule_id": self.rule_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "series_id": self.series_id,
             "channel": self.channel,
             "remind_before_minutes": self.remind_before_minutes,
@@ -443,7 +443,7 @@ class NotificationRule:
     def from_dict(cls, data: dict) -> NotificationRule:
         return cls(
             rule_id=data["rule_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             series_id=data.get("series_id"),
             channel=data["channel"],
             remind_before_minutes=int(data["remind_before_minutes"]),
@@ -468,7 +468,7 @@ class DeliveryLog:
     log_id: str
     rule_id: str
     occurrence_id: str
-    workspace_id: str
+    room_id: str
     recipient_uid: str
     channel: NotificationChannel
     status: DeliveryStatus
@@ -482,7 +482,7 @@ class DeliveryLog:
             "log_id": self.log_id,
             "rule_id": self.rule_id,
             "occurrence_id": self.occurrence_id,
-            "workspace_id": self.workspace_id,
+            "room_id": self.room_id,
             "recipient_uid": self.recipient_uid,
             "channel": self.channel,
             "status": self.status,
@@ -497,7 +497,7 @@ class DeliveryLog:
             log_id=data["log_id"],
             rule_id=data["rule_id"],
             occurrence_id=data["occurrence_id"],
-            workspace_id=data["workspace_id"],
+            room_id=data.get("room_id") or data.get("workspace_id", ""),
             recipient_uid=data["recipient_uid"],
             channel=data["channel"],
             status=data["status"],

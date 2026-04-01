@@ -26,26 +26,26 @@ The mobile app should call the existing `/v2/...` API surface using a configurab
 Examples:
 
 - Production host: `https://living-memories-488001.web.app`
-- Request path: `/v2/workspaces`, `/v2/series/{id}`, `/v2/occurrences/{id}`, etc.
+- Request path: `/v2/rooms`, `/v2/series/{id}`, `/v2/occurrences/{id}`, etc.
 
 Existing endpoints already cover the main mobile flows:
 
 | Area | Endpoints |
 |------|-----------|
-| Workspaces | `POST/GET/PATCH/DELETE /v2/workspaces/...` |
-| Members & Invites | `GET/POST/DELETE /v2/workspaces/{id}/members`, `POST /v2/workspaces/{id}/invites`, `POST /v2/invites/{id}/accept` |
+| Rooms | `POST/GET/PATCH/DELETE /v2/rooms/...` |
+| Members & Invites | `GET/POST/DELETE /v2/rooms/{id}/members`, `POST /v2/rooms/{id}/invites`, `POST /v2/invites/{id}/accept` |
 | Series | `POST/GET/PATCH/DELETE /v2/series/...`, `GET /v2/series/{id}/check-in-report` |
-| Occurrences | `GET /v2/workspaces/{id}/occurrences`, `GET /v2/series/{id}/occurrences`, `POST /v2/series/{id}/occurrences/generate`, `GET/PATCH /v2/occurrences/{id}` |
+| Occurrences | `GET /v2/rooms/{id}/occurrences`, `GET /v2/series/{id}/occurrences`, `POST /v2/series/{id}/occurrences/generate`, `GET/PATCH /v2/occurrences/{id}` |
 | Check-ins | `POST/GET /v2/occurrences/{id}/check-ins`, `GET /v2/occurrences/{id}/my-check-in`, `PATCH/DELETE /v2/check-ins/{id}` |
-| Notifications | `GET/POST /v2/workspaces/{id}/notification-rules`, `DELETE /v2/notification-rules/{id}` |
+| Notifications | `GET/POST /v2/rooms/{id}/notification-rules`, `DELETE /v2/notification-rules/{id}` |
 
 ## Scope
 
 **In scope (v1):**
 
 - Google Sign-In with Firebase Auth
-- Workspace dashboard
-- Workspace detail and member/invite management
+- Room dashboard
+- Room detail and member/invite management
 - Series create/edit flows
 - Occurrence detail and organizer edits
 - Participant self check-in
@@ -65,7 +65,7 @@ Existing endpoints already cover the main mobile flows:
 
 - Mobile v1 should target the core scheduling flows, not full web parity
 - Role-aware behavior matters:
-  - `organizer`: full workspace management
+  - `organizer`: full room management
   - `teacher`: series/occurrence management and check-in reporting
   - `participant`: self-service viewing and check-in
 - Series location modes already exist in the backend and web app:
@@ -83,14 +83,14 @@ Existing endpoints already cover the main mobile flows:
 
 ### 2. Dashboard
 
-- List of user workspaces from `GET /v2/workspaces`
-- Create workspace action
-- Tap workspace to open Workspace View
+- List of user rooms from `GET /v2/rooms`
+- Create room action
+- Tap room to open Room View
 
-### 3. Workspace View
+### 3. Room View
 
-- Workspace title and timezone
-- Organizer-only workspace title editing
+- Room title and timezone
+- Organizer-only room title editing
 - List of series with schedule summary
 - New Series form
 - Members list with role badges
@@ -123,12 +123,12 @@ Existing endpoints already cover the main mobile flows:
 - Handle `/invites/{id}` deep links
 - Prompt signed-in user to accept
 - Call `POST /v2/invites/{id}/accept`
-- Navigate to the workspace on success
+- Navigate to the room on success
 
 Note:
 
 - The current API supports invite acceptance directly
-- If the app should display workspace title or invite role before acceptance, add a small invite-preview endpoint later
+- If the app should display room title or invite role before acceptance, add a small invite-preview endpoint later
 
 ## Project Structure
 
@@ -145,7 +145,7 @@ flutter_app/
 │   │   ├── api_service.dart
 │   │   └── session_service.dart
 │   ├── models/
-│   │   ├── workspace.dart
+│   │   ├── room.dart
 │   │   ├── series.dart
 │   │   ├── occurrence.dart
 │   │   ├── check_in.dart
@@ -153,7 +153,7 @@ flutter_app/
 │   ├── features/
 │   │   ├── auth/
 │   │   ├── dashboard/
-│   │   ├── workspace/
+│   │   ├── room/
 │   │   ├── series/
 │   │   ├── occurrence/
 │   │   └── invites/
@@ -202,11 +202,11 @@ Optional:
 - Firebase setup
 - Google Sign-In
 - Shared API client with token attachment and 401 retry
-- Dashboard and workspace list
+- Dashboard and room list
 
 ### Phase 2
 
-- Workspace detail
+- Room detail
 - Series create/edit
 - Member list and invite generation
 - Invite acceptance
@@ -281,7 +281,7 @@ Done when:
 - Retry once on `401` with a fresh Firebase token
 - Normalize backend errors into a consistent app error type
 - Add typed methods for:
-  - workspaces
+  - rooms
   - members
   - invites
   - series
@@ -305,7 +305,7 @@ Done when:
 
 - Port the response/request shapes used by the mobile app from the existing web API
 - Include models for:
-  - `Workspace`
+  - `Room`
   - `Series`
   - `Occurrence`
   - `CheckIn`
@@ -323,7 +323,7 @@ Done when:
 - Add routes for:
   - sign-in
   - dashboard
-  - workspace
+  - room
   - series
   - occurrence
   - accept invite
@@ -357,10 +357,10 @@ Done when:
 
 ### 7. Build the Dashboard screen
 
-- Fetch and render workspaces from `GET /v2/workspaces`
-- Add create-workspace flow
+- Fetch and render rooms from `GET /v2/rooms`
+- Add create-room flow
 - Add pull-to-refresh
-- Navigate into a workspace on tap
+- Navigate into a room on tap
 
 Primary files:
 
@@ -368,18 +368,18 @@ Primary files:
 
 Done when:
 
-- User can view workspaces
-- User can create a workspace
+- User can view rooms
+- User can create a room
 - Refresh and empty states are handled
 
-### 8. Build the Workspace screen
+### 8. Build the Room screen
 
-- Fetch workspace detail, series list, and members
-- Show workspace title and timezone
+- Fetch room detail, series list, and members
+- Show room title and timezone
 - Support organizer-only title editing
 - Render members with role badges
 - Support organizer-only invite generation
-- Support organizer-only member management if included in v1
+- Support organizer-only member management
 - Add new-series form with:
   - title
   - description
@@ -394,13 +394,13 @@ Done when:
 
 Primary files:
 
-- `lib/features/workspace/`
+- `lib/features/room/`
 
 Done when:
 
 - Organizer can create a series
 - Organizer can generate an invite link
-- Workspace loads with members and series
+- Room loads with members and series
 
 ### 9. Build the Series screen
 
@@ -431,7 +431,7 @@ Done when:
 ### 10. Build the Occurrence screen
 
 - Fetch occurrence details
-- Fetch series/workspace context if needed for rendering
+- Fetch series/room context if needed for rendering
 - Render effective title, location, link, duration, and notes
 - Support organizer/teacher updates:
   - status
@@ -459,7 +459,7 @@ Done when:
 - Route `/invites/{id}` into the accept-invite screen
 - Require sign-in before acceptance if needed
 - Call `POST /v2/invites/{id}/accept`
-- Navigate to the workspace on success
+- Navigate to the room on success
 
 Primary files:
 
@@ -469,7 +469,7 @@ Primary files:
 Done when:
 
 - Opening an invite link on a signed-out device leads through sign-in and then acceptance
-- Opening an invite link on a signed-in device lands in the workspace after acceptance
+- Opening an invite link on a signed-in device lands in the room after acceptance
 
 ### 12. Add notification rule support if kept in v1 UI
 
@@ -524,7 +524,7 @@ Done when:
 1. Scaffold app, Firebase, and auth
 2. Build API client and typed models
 3. Add routing and sign-in screen
-4. Implement dashboard and workspace flows
+4. Implement dashboard and room flows
 5. Implement series and occurrence flows
 6. Implement invite deep links
 7. Harden UX and verify role-based behavior
@@ -540,4 +540,4 @@ Done when:
 ## Known API Gap
 
 - The current backend supports invite acceptance but not invite preview metadata
-- If product requires showing workspace name or role before acceptance, add a small read endpoint such as `GET /v2/invites/{invite_id}`
+- If product requires showing room name or role before acceptance, add a small read endpoint such as `GET /v2/invites/{invite_id}`

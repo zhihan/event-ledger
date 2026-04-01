@@ -49,11 +49,11 @@ export class ApiError extends Error {
 }
 
 // ============================================================
-// Workspaces, Series, Occurrences, CheckIns
+// Rooms, Series, Occurrences, CheckIns
 // ============================================================
 
-export interface WorkspaceSummary {
-  workspace_id: string;
+export interface RoomSummary {
+  room_id: string;
   title: string;
   timezone: string;
   owner_uids: string[];
@@ -68,7 +68,7 @@ export interface WorkspaceSummary {
 
 export interface SeriesSummary {
   series_id: string;
-  workspace_id: string;
+  room_id: string;
   kind: string;
   title: string;
   description: string | null;
@@ -102,7 +102,7 @@ export interface ScheduleRule {
 export interface OccurrenceSummary {
   occurrence_id: string;
   series_id: string;
-  workspace_id: string;
+  room_id: string;
   scheduled_for: string;
   status: string;
   location: string | null;
@@ -131,14 +131,14 @@ export interface CheckInSummary {
   note: string | null;
 }
 
-// --- Workspaces ---
+// --- Rooms ---
 
-export async function createWorkspace(
+export async function createRoom(
   title: string,
   type: string = "shared",
   timezone?: string,
-): Promise<WorkspaceSummary> {
-  const resp = await apiFetch("/v2/workspaces", {
+): Promise<RoomSummary> {
+  const resp = await apiFetch("/v2/rooms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -150,22 +150,22 @@ export async function createWorkspace(
   return resp.json();
 }
 
-export async function getWorkspace(id: string): Promise<WorkspaceSummary> {
-  const resp = await apiFetch(`/v2/workspaces/${id}`);
+export async function getRoom(id: string): Promise<RoomSummary> {
+  const resp = await apiFetch(`/v2/rooms/${id}`);
   return resp.json();
 }
 
-export async function getMyWorkspaces(): Promise<WorkspaceSummary[]> {
-  const resp = await apiFetch("/v2/workspaces");
+export async function getMyRooms(): Promise<RoomSummary[]> {
+  const resp = await apiFetch("/v2/rooms");
   const data = await resp.json();
-  return (data.workspaces ?? []) as WorkspaceSummary[];
+  return (data.rooms ?? []) as RoomSummary[];
 }
 
-export async function patchWorkspace(
+export async function patchRoom(
   id: string,
   updates: { title?: string; timezone?: string },
-): Promise<WorkspaceSummary> {
-  const resp = await apiFetch(`/v2/workspaces/${id}`, {
+): Promise<RoomSummary> {
+  const resp = await apiFetch(`/v2/rooms/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),
@@ -176,7 +176,7 @@ export async function patchWorkspace(
 // --- Series ---
 
 export async function createSeries(
-  workspaceId: string,
+  roomId: string,
   payload: {
     title: string;
     kind?: string;
@@ -191,7 +191,7 @@ export async function createSeries(
     check_in_weekdays?: number[];
   },
 ): Promise<SeriesSummary> {
-  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/series`, {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/series`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kind: "meeting", ...payload }),
@@ -199,8 +199,8 @@ export async function createSeries(
   return resp.json();
 }
 
-export async function getWorkspaceSeries(workspaceId: string): Promise<SeriesSummary[]> {
-  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/series`);
+export async function getRoomSeries(roomId: string): Promise<SeriesSummary[]> {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/series`);
   const data = await resp.json();
   return (data.series ?? []) as SeriesSummary[];
 }
@@ -338,16 +338,16 @@ export async function deleteSeries(seriesId: string): Promise<void> {
   await apiFetch(`/v2/series/${seriesId}`, { method: "DELETE" });
 }
 
-export async function deleteWorkspace(workspaceId: string): Promise<void> {
-  await apiFetch(`/v2/workspaces/${workspaceId}`, { method: "DELETE" });
+export async function deleteRoom(roomId: string): Promise<void> {
+  await apiFetch(`/v2/rooms/${roomId}`, { method: "DELETE" });
 }
 
 // --- Members & Invites ---
 
-export async function getWorkspaceMembers(
-  workspaceId: string,
+export async function getRoomMembers(
+  roomId: string,
 ): Promise<{
-  workspace_id: string;
+  room_id: string;
   members: Record<string, string>;
   member_details?: Array<{
     uid: string;
@@ -356,33 +356,33 @@ export async function getWorkspaceMembers(
     email: string | null;
   }>;
 }> {
-  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/members`);
+  const resp = await apiFetch(`/v2/rooms/${roomId}/members`);
   return resp.json();
 }
 
 export async function removeMember(
-  workspaceId: string,
+  roomId: string,
   uid: string,
 ): Promise<void> {
-  await apiFetch(`/v2/workspaces/${workspaceId}/members/${uid}`, {
+  await apiFetch(`/v2/rooms/${roomId}/members/${uid}`, {
     method: "DELETE",
   });
 }
 
 export interface InviteInfo {
   invite_id: string;
-  workspace_id: string;
+  room_id: string;
   role: string;
   created_by: string;
   expires_at: string;
 }
 
-export async function createWorkspaceInvite(
-  workspaceId: string,
+export async function createRoomInvite(
+  roomId: string,
   role: string = "participant",
   expiresInDays: number = 7,
 ): Promise<InviteInfo> {
-  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/invites`, {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/invites`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role, expires_in_days: expiresInDays }),
@@ -392,7 +392,7 @@ export async function createWorkspaceInvite(
 
 export async function acceptInvite(
   inviteId: string,
-): Promise<{ accepted: boolean; workspace_id: string; role: string }> {
+): Promise<{ accepted: boolean; room_id: string; role: string }> {
   const resp = await apiFetch(`/v2/invites/${inviteId}/accept`, {
     method: "POST",
   });
@@ -419,10 +419,10 @@ export interface AssistantEvent {
  * The caller is responsible for consuming the stream.
  */
 export async function sendAssistantMessage(
-  workspaceId: string,
+  roomId: string,
   message: string,
 ): Promise<ReadableStream<Uint8Array>> {
-  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/assistant`, {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/assistant`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message }),

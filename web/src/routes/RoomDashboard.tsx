@@ -1,17 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-  getMyWorkspaces,
-  createWorkspace,
-  type WorkspaceSummary,
+  getMyRooms,
+  createRoom,
+  type RoomSummary,
   type ScheduleRule,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { TimezoneSelect } from "../components/TimezoneSelect";
 
-export function WorkspaceDashboard() {
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
+export function RoomDashboard() {
+  const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -27,8 +27,8 @@ export function WorkspaceDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const ws = await getMyWorkspaces();
-      setWorkspaces(ws);
+      const rs = await getMyRooms();
+      setRooms(rs);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -44,25 +44,25 @@ export function WorkspaceDashboard() {
     setFormSubmitting(true);
     setFormError(null);
     try {
-      await createWorkspace(formTitle.trim(), "shared", formTimezone);
+      await createRoom(formTitle.trim(), "shared", formTimezone);
       setShowForm(false);
       setFormTitle("");
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to create workspace");
+      setFormError(err instanceof Error ? err.message : "Failed to create room");
     } finally {
       setFormSubmitting(false);
     }
   }
 
-  if (loading) return <LoadingSpinner message="Loading workspaces..." />;
+  if (loading) return <LoadingSpinner message="Loading rooms..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
   return (
     <div className="dashboard">
       <section className="section">
         <div className="section-header">
-          <h2>My Workspaces</h2>
+          <h2>My Rooms</h2>
           {!showForm && (
             <button
               className="btn btn-secondary btn-sm"
@@ -76,9 +76,9 @@ export function WorkspaceDashboard() {
         {showForm && (
           <form className="create-page-form" onSubmit={handleCreate}>
             <div className="form-field">
-              <label htmlFor="ws-title">Name</label>
+              <label htmlFor="rm-title">Name</label>
               <input
-                id="ws-title"
+                id="rm-title"
                 type="text"
                 className="form-input"
                 value={formTitle}
@@ -90,9 +90,9 @@ export function WorkspaceDashboard() {
               />
             </div>
             <div className="form-field">
-              <label htmlFor="ws-tz">Timezone</label>
+              <label htmlFor="rm-tz">Timezone</label>
               <TimezoneSelect
-                id="ws-tz"
+                id="rm-tz"
                 value={formTimezone}
                 onChange={setFormTimezone}
               />
@@ -118,16 +118,16 @@ export function WorkspaceDashboard() {
           </form>
         )}
 
-        {workspaces && workspaces.length > 0 ? (
+        {rooms && rooms.length > 0 ? (
           <ul className="page-list">
-            {workspaces.map((ws) => (
-              <WorkspaceCard key={ws.workspace_id} workspace={ws} />
+            {rooms.map((rm) => (
+              <RoomCard key={rm.room_id} room={rm} />
             ))}
           </ul>
         ) : (
           !showForm && (
             <p className="placeholder">
-              No workspaces yet. Create one to start scheduling.
+              No rooms yet. Create one to start scheduling.
             </p>
           )
         )}
@@ -149,24 +149,24 @@ function formatScheduleRule(rule: ScheduleRule): string {
   return rule.frequency;
 }
 
-function seriesSubtitle(workspace: WorkspaceSummary): string {
-  const count = workspace.series_count ?? 0;
+function seriesSubtitle(room: RoomSummary): string {
+  const count = room.series_count ?? 0;
   if (count === 0) return "No series";
-  if (count === 1 && workspace.series_schedule) {
-    let text = formatScheduleRule(workspace.series_schedule);
-    if (workspace.series_default_time) text += ` at ${workspace.series_default_time}`;
+  if (count === 1 && room.series_schedule) {
+    let text = formatScheduleRule(room.series_schedule);
+    if (room.series_default_time) text += ` at ${room.series_default_time}`;
     return text;
   }
   return `${count} series`;
 }
 
-function WorkspaceCard({ workspace }: { workspace: WorkspaceSummary }) {
+function RoomCard({ room }: { room: RoomSummary }) {
   return (
-    <li className="page-card workspace-card">
-      <Link to={`/w/${workspace.workspace_id}`}>
-        <strong>{workspace.title}</strong>
+    <li className="page-card room-card">
+      <Link to={`/room/${room.room_id}`}>
+        <strong>{room.title}</strong>
       </Link>
-      <p className="page-meta-tz">{seriesSubtitle(workspace)}</p>
+      <p className="page-meta-tz">{seriesSubtitle(room)}</p>
     </li>
   );
 }

@@ -1,7 +1,7 @@
 [project]
 name = "event-ledger"
 version = "0.1.0"
-description = "A recurring-schedule platform with workspaces, series, and check-ins"
+description = "A recurring-schedule platform with rooms, series, and check-ins"
 requires-python = ">=3.11"
 dependencies = [
     "google-genai>=1.0.0",
