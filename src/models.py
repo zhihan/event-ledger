@@ -135,9 +135,22 @@ class ScheduleRule:
     @classmethod
     def from_dict(cls, data: dict) -> ScheduleRule:
         until_raw = data.get("until")
+        # Normalize weekdays: AI may return day-name strings like "WED"
+        _DAY_MAP = {"MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6, "SUN": 7}
+        raw_days = data.get("weekdays", [])
+        weekdays: list[int] = []
+        for d in raw_days:
+            if isinstance(d, int):
+                weekdays.append(d)
+            elif isinstance(d, str):
+                upper = d.strip().upper()
+                if upper in _DAY_MAP:
+                    weekdays.append(_DAY_MAP[upper])
+                elif upper.isdigit():
+                    weekdays.append(int(upper))
         return cls(
             frequency=data["frequency"],
-            weekdays=list(data.get("weekdays", [])),
+            weekdays=sorted(set(weekdays)),
             interval=int(data.get("interval", 1)),
             until=datetime.fromisoformat(until_raw) if until_raw else None,
             count=data.get("count"),

@@ -37,7 +37,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import ClassVar, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, field_validator
@@ -199,19 +199,36 @@ def _merge_member_details(room: Room) -> list[dict]:
 
 class ScheduleRuleIn(BaseModel):
     frequency: str
-    weekdays: list[int] = []
+    weekdays: list[int | str] = []
     interval: int = 1
     until: Optional[str] = None
     count: Optional[int] = None
 
+    _DAY_MAP: ClassVar[dict[str, int]] = {
+        "MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6, "SUN": 7,
+    }
+
     @field_validator('weekdays')
     @classmethod
     def validate_weekdays(cls, v):
-        """Ensure all weekdays are valid ISO weekday values (1-7)."""
+        """Normalize weekday values: accept ints 1-7 or day-name strings."""
+        result: list[int] = []
         for day in v:
-            if not isinstance(day, int) or day < 1 or day > 7:
-                raise ValueError(f"Invalid weekday value: {day}. Must be 1-7 (1=Monday, 7=Sunday)")
-        return v
+            if isinstance(day, int):
+                if day < 1 or day > 7:
+                    raise ValueError(f"Invalid weekday value: {day}. Must be 1-7 (1=Monday, 7=Sunday)")
+                result.append(day)
+            elif isinstance(day, str):
+                upper = day.strip().upper()
+                if upper in cls._DAY_MAP:
+                    result.append(cls._DAY_MAP[upper])
+                elif upper.isdigit() and 1 <= int(upper) <= 7:
+                    result.append(int(upper))
+                else:
+                    raise ValueError(f"Invalid weekday value: {day}. Use 1-7 or MON/TUE/WED/THU/FRI/SAT/SUN")
+            else:
+                raise ValueError(f"Invalid weekday value: {day}")
+        return sorted(set(result))
 
     def to_model(self) -> ScheduleRule:
         until_dt = None

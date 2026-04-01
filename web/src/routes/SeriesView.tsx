@@ -167,7 +167,7 @@ export function SeriesView() {
     setEditHostRotation(series.host_rotation ?? []);
     setEditHostAddresses(series.host_addresses ?? {});
     setEditFreq(series.schedule_rule?.frequency ?? "weekly");
-    setEditDays(series.schedule_rule?.weekdays ?? [1]);
+    setEditDays((series.schedule_rule?.weekdays ?? [1]).map(Number).filter((n) => n >= 1 && n <= 7));
     setEditCheckInDays(series.check_in_weekdays ?? []);
     setScheduleConfirmMode(null);
     setEditing(true);
