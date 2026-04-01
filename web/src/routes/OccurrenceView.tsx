@@ -10,9 +10,9 @@ import {
   getMyOccurrenceCheckIn,
   deleteCheckIn,
   deleteOccurrence,
+  regenerateRotationFrom,
   type OccurrenceSummary,
   type SeriesSummary,
-  type OccurrenceOverrides,
   type CheckInSummary,
   type RoomSummary,
 } from "../api";
@@ -49,15 +49,13 @@ export function OccurrenceView() {
   const [checkIns, setCheckIns] = useState<CheckInSummary[]>([]);
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
 
-  // Edit overrides
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editLocation, setEditLocation] = useState("");
-  const [editLink, setEditLink] = useState("");
-  const [editNotes, setEditNotes] = useState("");
-  const [editDuration, setEditDuration] = useState("");
+  // Inline editing state — each field is independently editable
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
+
+  // Rotation prompt after host change
+  const [showRotationPrompt, setShowRotationPrompt] = useState(false);
 
 
 
@@ -104,36 +102,62 @@ export function OccurrenceView() {
     return () => window.removeEventListener("keydown", handler);
   }, [occurrence?.prev_occurrence_id, occurrence?.next_occurrence_id, navigate]);
 
-  function startEdit() {
-    if (!occurrence) return;
-    setEditTitle(occurrence.overrides?.title ?? "");
-    setEditLocation(occurrence.location ?? occurrence.overrides?.location ?? "");
-    setEditLink(occurrence.overrides?.online_link ?? "");
-    setEditNotes(occurrence.overrides?.notes ?? "");
-    setEditDuration(occurrence.overrides?.duration_minutes?.toString() ?? "");
-    setEditing(true);
-    setEditError(null);
+  function startInlineEdit(field: string, currentValue: string) {
+    setEditingField(field);
+    setEditValue(currentValue);
   }
 
-  async function handleSaveEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!occurrenceId) return;
+  function cancelInlineEdit() {
+    setEditingField(null);
+    setEditValue("");
+  }
+
+  async function saveInlineEdit(field: string, value: string) {
+    if (!occurrenceId || !occurrence) return;
     setEditSubmitting(true);
-    setEditError(null);
-    const overrides: OccurrenceOverrides = {};
-    if (editTitle.trim()) overrides.title = editTitle.trim();
-    if (editLink.trim()) overrides.online_link = editLink.trim();
-    if (editNotes.trim()) overrides.notes = editNotes.trim();
-    if (editDuration) overrides.duration_minutes = parseInt(editDuration, 10);
     try {
-      const updated = await patchOccurrence(occurrenceId, {
-        location: editLocation.trim() || null,
-        overrides,
-      });
+      let updates: Parameters<typeof patchOccurrence>[1] = {};
+      if (field === "host") {
+        updates.host = value.trim() || null;
+        // If host_and_location, auto-update location from host_addresses
+        if (series?.rotation_mode === "host_and_location" && value.trim()) {
+          const newLocation = series.host_addresses?.[value.trim()] ?? series.default_location ?? null;
+          updates.location = newLocation;
+        }
+      } else if (field === "location") {
+        updates.location = value.trim() || null;
+      } else if (field === "notes") {
+        updates.overrides = { ...occurrence.overrides, notes: value.trim() || null };
+      } else if (field === "online_link") {
+        updates.overrides = { ...occurrence.overrides, online_link: value.trim() || null };
+      } else if (field === "title") {
+        updates.overrides = { ...occurrence.overrides, title: value.trim() || null };
+      }
+      const updated = await patchOccurrence(occurrenceId, updates);
       setOccurrence(updated);
-      setEditing(false);
+      setEditingField(null);
+      setEditValue("");
+
+      // After host change, check if we should prompt for rotation regeneration
+      if (field === "host" && value.trim() && series?.host_rotation?.includes(value.trim())) {
+        setShowRotationPrompt(true);
+      }
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Failed to save");
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleRegenerateRotation() {
+    if (!occurrence || !series) return;
+    setEditSubmitting(true);
+    try {
+      await regenerateRotationFrom(series.series_id, occurrence.occurrence_id);
+      setShowRotationPrompt(false);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
     } finally {
       setEditSubmitting(false);
     }
@@ -189,17 +213,6 @@ export function OccurrenceView() {
           >
             &larr; Series
           </Link>
-          {!editing && isManager && (
-            <div className="header-actions">
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={startEdit}
-              >
-                Edit this occurrence
-              </button>
-            </div>
-          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
           <button
@@ -210,7 +223,32 @@ export function OccurrenceView() {
           >
             ‹
           </button>
-          <h1 className="page-title" style={{ margin: 0 }}>{effectiveTitle}</h1>
+          {editingField === "title" ? (
+            <div className="inline-edit-title">
+              <input
+                className="form-input page-title-input"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveInlineEdit("title", editValue);
+                  if (e.key === "Escape") cancelInlineEdit();
+                }}
+                disabled={editSubmitting}
+                autoFocus
+              />
+              <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("title", editValue)} disabled={editSubmitting}>Save</button>
+              <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
+            </div>
+          ) : (
+            <h1
+              className={`page-title${isManager ? " page-title-editable" : ""}`}
+              style={{ margin: 0 }}
+              onClick={isManager ? () => startInlineEdit("title", effectiveTitle) : undefined}
+              title={isManager ? "Click to edit title" : undefined}
+            >
+              {effectiveTitle}
+            </h1>
+          )}
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => navigate(`/occurrences/${occ.next_occurrence_id}`)}
@@ -266,22 +304,78 @@ export function OccurrenceView() {
       )}
 
       {/* Host */}
-      {occurrence?.host && (
+      {(occurrence?.host || (isManager && series?.host_rotation?.length)) && (
         <section className="section">
           <div className="host-banner">
             <span className="host-label">Hosted by</span>
-            <span className="host-name">{occurrence.host}</span>
+            {editingField === "host" ? (
+              <div className="inline-edit-row">
+                {series?.host_rotation?.length ? (
+                  <select
+                    className="form-input"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    disabled={editSubmitting}
+                    autoFocus
+                  >
+                    <option value="">-- Select host --</option>
+                    {series.host_rotation.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="form-input"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveInlineEdit("host", editValue);
+                      if (e.key === "Escape") cancelInlineEdit();
+                    }}
+                    disabled={editSubmitting}
+                    autoFocus
+                  />
+                )}
+                <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("host", editValue)} disabled={editSubmitting}>Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
+              </div>
+            ) : (
+              <span
+                className={`host-name${isManager ? " page-title-editable" : ""}`}
+                onClick={isManager ? () => startInlineEdit("host", occurrence?.host ?? "") : undefined}
+                title={isManager ? "Click to change host" : undefined}
+              >
+                {occurrence?.host || "(none)"}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Rotation regeneration prompt */}
+      {showRotationPrompt && (
+        <section className="section">
+          <div className="rotation-prompt">
+            <p>Continue the rotation from this host for all following occurrences?</p>
+            <div className="form-actions">
+              <button className="btn btn-primary btn-sm" onClick={handleRegenerateRotation} disabled={editSubmitting}>
+                {editSubmitting ? "Updating..." : "Yes, continue rotation"}
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowRotationPrompt(false)} disabled={editSubmitting}>
+                No, just this one
+              </button>
+            </div>
           </div>
         </section>
       )}
 
       {/* Add location prompt for "none" series with no location set */}
-      {series?.location_type === "none" && !effectiveLocation && !editing && isManager && (
+      {series?.location_type === "none" && !effectiveLocation && isManager && editingField !== "location" && (
         <section className="section">
           <button
             type="button"
             className="btn btn-secondary btn-sm"
-            onClick={startEdit}
+            onClick={() => startInlineEdit("location", "")}
           >
             + Add location
           </button>
@@ -289,22 +383,35 @@ export function OccurrenceView() {
       )}
 
       {/* Location & Link */}
-      {(effectiveLocation || effectiveLink) && (
+      {(effectiveLocation || effectiveLink || (isManager && editingField === "location")) && (
         <section className="section">
           <div className="section-header">
             <h2>Location</h2>
-            {series?.location_type === "rotation" && (
-              <Link
-                to={`/room/${occurrence?.room_id}/series/${occurrence?.series_id}`}
-                className="btn btn-secondary btn-xs"
-              >
-                Edit rotation
-              </Link>
-            )}
           </div>
           <div className="location-detail">
-            {effectiveLocation && (
-              <div className="location-detail-item">
+            {editingField === "location" ? (
+              <div className="inline-edit-row">
+                <input
+                  className="form-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveInlineEdit("location", editValue);
+                    if (e.key === "Escape") cancelInlineEdit();
+                  }}
+                  placeholder={series?.default_location ?? "Enter location"}
+                  disabled={editSubmitting}
+                  autoFocus
+                />
+                <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("location", editValue)} disabled={editSubmitting}>Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
+              </div>
+            ) : effectiveLocation ? (
+              <div
+                className={`location-detail-item${isManager ? " page-title-editable" : ""}`}
+                onClick={isManager ? () => startInlineEdit("location", effectiveLocation) : undefined}
+                title={isManager ? "Click to edit location" : undefined}
+              >
                 <span className="location-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
@@ -313,9 +420,31 @@ export function OccurrenceView() {
                 </span>
                 {effectiveLocation}
               </div>
-            )}
-            {effectiveLink && (
-              <div className="location-detail-item">
+            ) : null}
+            {editingField === "online_link" ? (
+              <div className="inline-edit-row">
+                <input
+                  className="form-input"
+                  type="url"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveInlineEdit("online_link", editValue);
+                    if (e.key === "Escape") cancelInlineEdit();
+                  }}
+                  placeholder={series?.default_online_link ?? "https://..."}
+                  disabled={editSubmitting}
+                  autoFocus
+                />
+                <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("online_link", editValue)} disabled={editSubmitting}>Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
+              </div>
+            ) : effectiveLink ? (
+              <div
+                className={`location-detail-item${isManager ? " page-title-editable" : ""}`}
+                onClick={isManager ? () => startInlineEdit("online_link", effectiveLink) : undefined}
+                title={isManager ? "Click to edit link" : undefined}
+              >
                 <span className="location-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
@@ -325,109 +454,56 @@ export function OccurrenceView() {
                   Join online meeting
                 </a>
               </div>
-            )}
+            ) : null}
           </div>
         </section>
       )}
 
       {/* Notes */}
-      {effectiveNotes && (
-        <section className="section">
-          <div className="section-header"><h2>Notes</h2></div>
-          <p className="occurrence-notes">{effectiveNotes}</p>
-        </section>
-      )}
-
-      {/* Edit form for this occurrence only */}
-      {editing && (
-        <section className="section">
-          <div className="section-header">
-            <h2>Edit This Occurrence</h2>
-            <span className="edit-scope-note">Changes apply to this meeting only</span>
-          </div>
-          <form className="create-page-form" onSubmit={handleSaveEdit}>
-            <div className="form-field">
-              <label htmlFor="eo-title">Title override</label>
-              <input
-                id="eo-title"
-                type="text"
-                className="form-input"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder={series?.title ?? ""}
-                disabled={editSubmitting}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="eo-duration">Duration (min)</label>
-              <input
-                id="eo-duration"
-                type="number"
-                className="form-input"
-                value={editDuration}
-                onChange={(e) => setEditDuration(e.target.value)}
-                min="5"
-                max="480"
-                disabled={editSubmitting}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="eo-location">Location</label>
-              <input
-                id="eo-location"
-                type="text"
-                className="form-input"
-                value={editLocation}
-                onChange={(e) => setEditLocation(e.target.value)}
-                placeholder={series?.default_location ?? ""}
-                disabled={editSubmitting}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="eo-link">Online link override</label>
-              <input
-                id="eo-link"
-                type="url"
-                className="form-input"
-                value={editLink}
-                onChange={(e) => setEditLink(e.target.value)}
-                placeholder={series?.default_online_link ?? ""}
-                disabled={editSubmitting}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="eo-notes">Notes</label>
+      <section className="section">
+        {editingField === "notes" ? (
+          <>
+            <div className="section-header"><h2>Notes</h2></div>
+            <div className="inline-edit-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
               <textarea
-                id="eo-notes"
                 className="form-input form-textarea"
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") cancelInlineEdit();
+                }}
                 rows={3}
                 placeholder="Agenda, reminders, etc."
                 disabled={editSubmitting}
+                autoFocus
               />
+              <div className="form-actions">
+                <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("notes", editValue)} disabled={editSubmitting}>Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
+              </div>
             </div>
-            {editError && <p className="form-error">{editError}</p>}
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={editSubmitting}
-              >
-                {editSubmitting ? "Saving..." : "Save"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => { setEditing(false); setEditError(null); }}
-                disabled={editSubmitting}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
+          </>
+        ) : effectiveNotes ? (
+          <>
+            <div className="section-header"><h2>Notes</h2></div>
+            <p
+              className={`occurrence-notes${isManager ? " page-title-editable" : ""}`}
+              onClick={isManager ? () => startInlineEdit("notes", effectiveNotes) : undefined}
+              title={isManager ? "Click to edit notes" : undefined}
+            >
+              {effectiveNotes}
+            </p>
+          </>
+        ) : isManager ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => startInlineEdit("notes", "")}
+          >
+            + Add notes
+          </button>
+        ) : null}
+      </section>
 
 
 
