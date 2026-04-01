@@ -608,8 +608,8 @@ class _RoomScreenState extends State<RoomScreen> {
             const SizedBox(height: 4),
             Text(
               mode == 'read_only'
-                  ? 'Bot reads chat history but won\'t send messages'
-                  : 'Bot can read and send messages in linked chats',
+                  ? 'Bot can answer questions, but it won\'t propose write actions.'
+                  : 'Bot can answer questions and propose changes for confirmation.',
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
@@ -650,7 +650,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Send this code in your Telegram group. Expires in ${_tgLinkExpiry ~/ 60}:${(_tgLinkExpiry % 60).toString().padLeft(2, '0')}',
+                    'Send this code in a private chat with your bot. Expires in ${_tgLinkExpiry ~/ 60}:${(_tgLinkExpiry % 60).toString().padLeft(2, '0')}',
                     style: TextStyle(
                         fontSize: 11, color: cs.onSurfaceVariant),
                   ),

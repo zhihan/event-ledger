@@ -726,8 +726,8 @@ export function RoomView() {
                 </div>
                 <span className="form-hint">
                   {tgBot.mode === "read_only"
-                    ? "Bot reads chat history but won\u2019t send messages"
-                    : "Bot can read and send messages in linked chats"}
+                    ? "Bot can answer questions, but it won’t propose write actions."
+                    : "Bot can answer questions and propose changes for confirmation."}
                 </span>
               </div>
               <div className="form-field">
@@ -760,7 +760,7 @@ export function RoomView() {
                 )}
                 {tgLinkCode && tgLinkExpiry > 0 && (
                   <span className="form-hint">
-                    Send this code in your Telegram group. Expires in {Math.floor(tgLinkExpiry / 60)}:{String(tgLinkExpiry % 60).padStart(2, "0")}
+                    Send this code in a private chat with your bot. Expires in {Math.floor(tgLinkExpiry / 60)}:{String(tgLinkExpiry % 60).padStart(2, "0")}
                   </span>
                 )}
               </div>
