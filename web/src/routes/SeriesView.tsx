@@ -4,16 +4,19 @@ import {
   getSeries,
   getSeriesOccurrences,
   getSeriesCheckInReport,
+  getRoom,
   patchSeries,
   deleteSeries,
   patchOccurrence,
   generateOccurrences,
   regenerateRotationFrom,
+  type RoomSummary,
   type SeriesSummary,
   type OccurrenceSummary,
   type CheckInReport,
   type ScheduleRule,
 } from "../api";
+import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
@@ -59,7 +62,9 @@ export function SeriesView() {
     seriesId: string;
   }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
+  const [room, setRoom] = useState<RoomSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,12 +116,14 @@ export function SeriesView() {
     setLoading(true);
     setError(null);
     try {
-      const [s, occ] = await Promise.all([
+      const [s, occ, rm] = await Promise.all([
         getSeries(seriesId),
         getSeriesOccurrences(seriesId),
+        getRoom(roomId),
       ]);
       setSeries(s);
       setOccurrences(occ);
+      setRoom(rm);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -139,6 +146,10 @@ export function SeriesView() {
   }
 
   useEffect(() => { load(); }, [load]);
+
+  const isOrganizer = user?.uid && room?.member_roles[user.uid] === "organizer";
+  const occurrencePath = (id: string) =>
+    isOrganizer ? `/occurrences/${id}` : `/occurrences/${id}/summary`;
 
   // Furthest scheduled occurrence date
   const lastOccurrence = occurrences?.length
@@ -772,7 +783,7 @@ export function SeriesView() {
           return (
             <div className="meeting-card meeting-card-past">
               <div className="meeting-card-label">Last</div>
-              <Link to={`/occurrences/${last.occurrence_id}`} className="meeting-card-date">
+              <Link to={occurrencePath(last.occurrence_id)} className="meeting-card-date">
                 {formatDate(last.scheduled_for)}
               </Link>
               {/* status badge hidden – issue #114 */}
@@ -788,7 +799,7 @@ export function SeriesView() {
             <h3 className="upcoming-list-heading">Past</h3>
             {past.slice().reverse().slice(1, 7).map((o) => (
               <div key={o.occurrence_id} className="upcoming-row">
-                <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
+                <Link to={occurrencePath(o.occurrence_id)} className="upcoming-date">
                   {formatDate(o.scheduled_for)}
                 </Link>
                 {o.overrides?.notes && (
@@ -821,7 +832,7 @@ export function SeriesView() {
                   </button>
                 )}
               </div>
-              <Link to={`/occurrences/${next.occurrence_id}`} className="meeting-card-date">
+              <Link to={occurrencePath(next.occurrence_id)} className="meeting-card-date">
                 {formatDate(next.scheduled_for)}
               </Link>
               {(series?.location_type !== "none" || next.location) && (
@@ -1017,7 +1028,7 @@ export function SeriesView() {
             <h3 className="upcoming-list-heading">Upcoming</h3>
             {upcoming.slice(1, 7).map((o) => (
               <div key={o.occurrence_id} className="upcoming-row">
-                <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
+                <Link to={occurrencePath(o.occurrence_id)} className="upcoming-date">
                   {formatDate(o.scheduled_for)}
                 </Link>
                 {(series?.location_type !== "none" || o.location) && (
@@ -1226,7 +1237,7 @@ export function SeriesView() {
                       <th className="report-name-col">Name</th>
                       {occs.map((o) => (
                         <th key={o.occurrence_id} className="report-date-col">
-                          <Link to={`/occurrences/${o.occurrence_id}`}>
+                          <Link to={occurrencePath(o.occurrence_id)}>
                             {new Date(o.scheduled_for).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
