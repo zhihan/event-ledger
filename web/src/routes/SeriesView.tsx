@@ -184,7 +184,7 @@ export function SeriesView() {
   function hasScheduleChanged(): boolean {
     if (!series) return false;
     const origFreq = series.schedule_rule?.frequency ?? "weekly";
-    const origDays = series.schedule_rule?.weekdays ?? [];
+    const origDays = series.schedule_rule?.weekdays ?? [1];
     if (editFreq !== origFreq) return true;
     if (editFreq === "weekly") {
       const sortedOrig = [...origDays].sort();
@@ -439,29 +439,7 @@ export function SeriesView() {
               </div>
             </div>
           )}
-          {editDays.length > 0 && (
-            <div className="form-field">
-              <label>Self-practice days (enable check-in)</label>
-              <div className="days-toggle">
-                {DAYS.map((day, i) => {
-                  const dv = DAY_VALUES[i];
-                  if (!editDays.includes(dv)) return null;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => toggleEditCheckInDay(dv)}
-                      disabled={editSubmitting}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="form-hint">Occurrences on these days will show a check-in button</span>
-            </div>
-          )}
+          {/* "Done" button + day filter moved below rotation fields */}
           <div className="form-row">
             <div className="form-field form-field-half">
               <label htmlFor="edit-time">Start Time</label>
@@ -691,12 +669,41 @@ export function SeriesView() {
               <input
                 type="checkbox"
                 checked={editEnableDone}
-                onChange={(e) => setEditEnableDone(e.target.checked)}
+                onChange={(e) => {
+                  setEditEnableDone(e.target.checked);
+                  if (!e.target.checked) setEditCheckInDays([]);
+                }}
                 disabled={editSubmitting}
               />
               <span>Show "Done" button</span>
             </label>
-            <span className="form-hint">Members can mark each occurrence as done</span>
+            {editEnableDone && editDays.length > 0 && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <label style={{ fontSize: "0.9rem", color: "#666", marginBottom: "0.25rem", display: "block" }}>on:</label>
+                <div className="days-toggle">
+                  {DAYS.map((day, i) => {
+                    const dv = DAY_VALUES[i];
+                    if (!editDays.includes(dv)) return null;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
+                        onClick={() => toggleEditCheckInDay(dv)}
+                        disabled={editSubmitting}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="form-hint">
+                  {editCheckInDays.length === 0
+                    ? "All occurrences — or edit individual occurrences to choose"
+                    : "Only occurrences on selected days"}
+                </span>
+              </div>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="edit-extend">Extend schedule to</label>

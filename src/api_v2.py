@@ -310,6 +310,7 @@ class UpdateSeriesRequest(BaseModel):
     host_addresses: Optional[dict[str, str]] = None
     status: Optional[str] = None
     description: Optional[str] = None
+    check_in_weekdays: Optional[list[int]] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
     schedule_mode: Optional[str] = None  # "adjust" or "regenerate"
 
@@ -650,7 +651,8 @@ def update_series(
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
                   "enable_done", "rotation_mode",
-                  "host_rotation", "host_addresses", "status", "description"):
+                  "host_rotation", "host_addresses", "status", "description",
+                  "check_in_weekdays"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
