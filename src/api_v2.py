@@ -1409,22 +1409,6 @@ async def telegram_bot_webhook(
     return {"ok": True}
 
 
-# ---------------------------------------------------------------------------
-# Channel / Telegram webhook endpoint (legacy global)
-# ---------------------------------------------------------------------------
-
-@router.post("/channels/telegram/webhook", status_code=200)
-def telegram_webhook(raw_update: dict, x_telegram_bot_api_secret_token: str = Header(None)) -> dict:
-    """Legacy global Telegram webhook, retired in favor of per-room bots."""
-    raise HTTPException(
-        status_code=410,
-        detail=(
-            "The legacy global Telegram webhook is retired. "
-            "Configure a room bot with POST /v2/rooms/{room_id}/telegram-bot instead."
-        ),
-    )
-
-
 # Assistant endpoints
 # ---------------------------------------------------------------------------
 
