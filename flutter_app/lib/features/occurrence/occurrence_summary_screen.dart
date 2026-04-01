@@ -54,7 +54,7 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
 
   Future<void> _copyLink() async {
     final link =
-        'https://living-memories-488001.web.app/occurrences/${widget.occurrenceId}/summary';
+        'https://small-group.ai/occurrences/${widget.occurrenceId}/summary';
     await Clipboard.setData(ClipboardData(text: link));
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {

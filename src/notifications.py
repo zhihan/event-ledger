@@ -10,7 +10,7 @@ Environment variables for email:
   SMTP_PORT          default: 587
   SMTP_USER          optional
   SMTP_PASSWORD      optional
-  FROM_EMAIL         default: noreply@event-ledger.app
+  FROM_EMAIL         default: noreply@small-group.ai
   APP_BASE_URL       used to build occurrence links in email body
 """
 
@@ -38,7 +38,7 @@ def _smtp_config() -> dict[str, Any]:
         "port": int(os.environ.get("SMTP_PORT", 587)),
         "user": os.environ.get("SMTP_USER"),
         "password": os.environ.get("SMTP_PASSWORD"),
-        "from_email": os.environ.get("FROM_EMAIL", "noreply@event-ledger.app"),
+        "from_email": os.environ.get("FROM_EMAIL", "noreply@small-group.ai"),
     }
 
 
@@ -48,7 +48,7 @@ def _smtp_available() -> bool:
 
 
 def _build_email_body(occurrence: Occurrence, series: Series) -> str:
-    base_url = os.environ.get("APP_BASE_URL", "https://app.event-ledger.app")
+    base_url = os.environ.get("APP_BASE_URL", "https://small-group.ai")
     link = f"{base_url}/occurrences/{occurrence.occurrence_id}"
     title = (occurrence.overrides and occurrence.overrides.title) or series.title
     location = (occurrence.overrides and occurrence.overrides.location) or series.default_location or ""
@@ -62,7 +62,7 @@ def _build_email_body(occurrence: Occurrence, series: Series) -> str:
         lines.append(f"Location: {location}")
     if online_link:
         lines.append(f"Online link: {online_link}")
-    lines += ["", f"View details: {link}", "", "— Meeting Assistant"]
+    lines += ["", f"View details: {link}", "", "— Small Group"]
     return "\n".join(lines)
 
 

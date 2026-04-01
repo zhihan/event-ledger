@@ -20,7 +20,7 @@
 	<key>GIDClientID</key>
 	<string>404986156809-kd9f7aae71eehmrtqb92oknjo29opb2b.apps.googleusercontent.com</string>
 	<key>CFBundleDisplayName</key>
-	<string>Meeting Assistant</string>
+	<string>Small Group</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,7 +28,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>event_ledger</string>
+	<string>Small Group</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

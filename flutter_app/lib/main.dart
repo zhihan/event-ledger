@@ -11,11 +11,11 @@ import 'services/auth_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const MeetingAssistantApp());
+  runApp(const SmallGroupApp());
 }
 
-class MeetingAssistantApp extends StatelessWidget {
-  const MeetingAssistantApp({super.key});
+class SmallGroupApp extends StatelessWidget {
+  const SmallGroupApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class MeetingAssistantApp extends StatelessWidget {
           return Provider(
             create: (_) => ApiService(auth),
             child: MaterialApp.router(
-              title: 'Meeting Assistant',
+              title: 'Small Group',
               theme: AppTheme.light,
               routerConfig: buildRouter(auth),
               debugShowCheckedModeBanner: false,

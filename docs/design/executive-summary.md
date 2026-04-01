@@ -1,4 +1,4 @@
-# Executive Summary: Study, Reminder, and Meeting Assistant
+# Executive Summary: Study, Reminder, and Small Group
 
 ## What We're Building
 

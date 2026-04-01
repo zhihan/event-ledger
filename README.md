@@ -1,8 +1,8 @@
-# Meeting Assistant
+# Small Group
 
-Meeting Assistant is a Firebase- and Firestore-backed recurring-schedule platform with rooms, series, occurrences, check-ins, notifications, and an organizer assistant.
+Small Group is a Firebase- and Firestore-backed recurring-schedule platform with rooms, series, occurrences, check-ins, notifications, and an organizer assistant.
 
-The current web app is deployed at `https://living-memories-488001.web.app`.
+The current web app is deployed at `https://small-group.ai`.
 
 ## Architecture
 
@@ -129,7 +129,7 @@ Authenticated routes require a Firebase ID token in `Authorization: Bearer <toke
 ### Example: create a room
 
 ```bash
-curl -X POST https://living-memories-488001.web.app/v2/rooms \
+curl -X POST https://small-group.ai/v2/rooms \
   -H "Authorization: Bearer $(login token)" \
   -H "Content-Type: application/json" \
   -d '{"title": "Weekly Standup", "type": "shared", "timezone": "America/New_York"}'

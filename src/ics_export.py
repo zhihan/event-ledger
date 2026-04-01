@@ -24,7 +24,7 @@ except ImportError as exc:
 
 from models import Occurrence, Series
 
-_PROD_ID = "-//Meeting Assistant//Meeting Assistant 1.0//EN"
+_PROD_ID = "-//Small Group//Small Group 1.0//EN"
 
 
 def _parse_utc(iso_str: str) -> datetime:
@@ -38,7 +38,7 @@ def _build_event(occurrence: Occurrence, series: Series) -> Event:
     ev = Event()
     title = (occurrence.overrides and occurrence.overrides.title) or series.title
     ev.add("summary", title)
-    ev.add("uid", f"{occurrence.occurrence_id}@event-ledger.app")
+    ev.add("uid", f"{occurrence.occurrence_id}@small-group.ai")
     dtstart = _parse_utc(occurrence.scheduled_for)
     duration_minutes = (
         (occurrence.overrides and occurrence.overrides.duration_minutes)
@@ -79,7 +79,7 @@ def _build_event(occurrence: Occurrence, series: Series) -> Event:
         "cancelled": "CANCELLED",
     }
     ev.add("status", status_map.get(occurrence.status, "CONFIRMED"))
-    base_url = os.environ.get("APP_BASE_URL", "https://app.event-ledger.app")
+    base_url = os.environ.get("APP_BASE_URL", "https://small-group.ai")
     ev.add("url", f"{base_url}/occurrences/{occurrence.occurrence_id}")
     return ev
 

@@ -1,8 +1,8 @@
-# PRD: Pivot to Study, Reminder, and Meeting Assistant
+# PRD: Pivot to Study, Reminder, and Small Group
 
 ## 1. Product Summary
 
-Pivot Meeting Assistant from a page-based event board into a product with three connected use cases:
+Pivot Small Group from a page-based event board into a product with three connected use cases:
 
 1. Personal reminders for recurring study and daily habits
 2. Shared meeting coordination for Christian groups

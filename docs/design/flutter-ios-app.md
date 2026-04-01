@@ -25,7 +25,7 @@ The mobile app should call the existing `/v2/...` API surface using a configurab
 
 Examples:
 
-- Production host: `https://living-memories-488001.web.app`
+- Production host: `https://small-group.ai`
 - Request path: `/v2/rooms`, `/v2/series/{id}`, `/v2/occurrences/{id}`, etc.
 
 Existing endpoints already cover the main mobile flows:
@@ -188,11 +188,11 @@ Support invite links on both platforms:
 
 - iOS: Universal Links
 - Android: App Links
-- Existing web invite URL shape: `https://living-memories-488001.web.app/invites/{id}`
+- Existing web invite URL shape: `https://small-group.ai/invites/{id}`
 
 Optional:
 
-- Add a custom scheme such as `eventledger://invites/{id}` for debugging or non-web entry points
+- Add a custom scheme such as `ai.smallgroup://invites/{id}` for debugging or non-web entry points
 
 ## Delivery Plan
 

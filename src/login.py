@@ -103,7 +103,7 @@ def get_id_token() -> str:
 
 _LOGIN_HTML = """\
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Living Memory — Sign In</title>
+<html><head><meta charset="utf-8"><title>Small Group — Sign In</title>
 <style>
   body { font-family: system-ui, sans-serif; display: flex; justify-content: center;
          align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
@@ -115,7 +115,7 @@ _LOGIN_HTML = """\
   #status { margin-top: 1rem; color: #666; }
 </style></head><body>
 <div class="card">
-  <h2>Living Memory CLI</h2>
+  <h2>Small Group CLI</h2>
   <p>Sign in with your Google account to continue.</p>
   <button id="signin">Sign in with Google</button>
   <div id="status"></div>
@@ -226,7 +226,7 @@ def run_login_flow(timeout: int = 120) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="login", description="Authenticate with Living Memory")
+    parser = argparse.ArgumentParser(prog="login", description="Authenticate with Small Group")
     parser.add_argument("command", nargs="?", default="login",
                         choices=["login", "whoami", "logout", "token"],
                         help="Subcommand (default: login)")

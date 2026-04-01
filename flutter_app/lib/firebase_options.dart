@@ -22,7 +22,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '404986156809',
     projectId: 'living-memories-488001',
     storageBucket: 'living-memories-488001.firebasestorage.app',
-    iosBundleId: 'net.cicmusic.meeting-assistant',
+    iosBundleId: 'ai.smallgroup.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
