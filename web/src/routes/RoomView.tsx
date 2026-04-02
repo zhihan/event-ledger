@@ -97,6 +97,8 @@ export function RoomView() {
     if (!roomId) return;
     setLoading(true);
     setError(null);
+    setTgLoading(true);
+    setTgError(null);
     try {
       const [rm, sr, mem] = await Promise.all([
         getRoom(roomId),
@@ -115,9 +117,13 @@ export function RoomView() {
         ),
       );
       // Load telegram bot (non-blocking)
-      getTelegramBot(roomId).then(setTgBot).catch(() => {}).finally(() => setTgLoading(false));
+      getTelegramBot(roomId).then(setTgBot).catch((err) => {
+        console.error("Failed to load Telegram bot:", err);
+        setTgError(err instanceof Error ? err.message : "Failed to load bot settings");
+      }).finally(() => setTgLoading(false));
     } catch (err) {
       setError(err as Error);
+      setTgLoading(false);
     } finally {
       setLoading(false);
     }
