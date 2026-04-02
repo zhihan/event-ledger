@@ -155,8 +155,7 @@ export function SeriesView() {
   useEffect(() => { load(); }, [load]);
 
   const isOrganizer = user?.uid && room?.member_roles[user.uid] === "organizer";
-  const occurrencePath = (id: string) =>
-    isOrganizer ? `/occurrences/${id}` : `/occurrences/${id}/summary`;
+  const occurrencePath = (id: string) => `/occurrences/${id}`;
 
   // Furthest scheduled occurrence date
   const lastOccurrence = occurrences?.length

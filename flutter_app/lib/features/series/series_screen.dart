@@ -921,8 +921,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     );
   }
 
-  String _occurrencePath(String id) =>
-      _canManage ? '/occurrences/$id' : '/occurrences/$id/summary';
+  String _occurrencePath(String id) => '/occurrences/$id';
 
   Widget _meetingCard(Occurrence occ, ColorScheme cs,
       {bool isNext = false, bool isPast = false}) {
