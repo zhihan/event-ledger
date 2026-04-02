@@ -982,7 +982,7 @@ export function SeriesView() {
                         setOccurrences((prev) =>
                           prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
                         );
-                        if (series?.host_rotation && series.host_rotation.length > 0) {
+                        if (newHost && series?.host_rotation?.includes(newHost)) {
                           const toastMsg = hostAddress
                             ? `Host updated to "${newHost}" · Location: ${hostAddress}`
                             : `Host updated to "${newHost}"`;
@@ -1201,8 +1201,8 @@ export function SeriesView() {
                           setOccurrences((prev) =>
                             prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
                           );
-                          // Show toast if series has rotation configured
-                          if (series?.host_rotation && series.host_rotation.length > 0) {
+                          // Show rotation prompt only if host is in the rotation list
+                          if (newHost && series?.host_rotation?.includes(newHost)) {
                             const toastMsg = hostAddress
                               ? `Host updated to "${newHost}" · Location: ${hostAddress}`
                               : `Host updated to "${newHost}"`;
