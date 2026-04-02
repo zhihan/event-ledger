@@ -5,6 +5,7 @@ try:
     import httpx
 except ImportError:
     httpx = None
+    logging.getLogger(__name__).warning("httpx not installed; Telegram sending will be unavailable", exc_info=True)
 from .base import ChannelAdapter, IncomingMessage, OutgoingMessage, ParsedCommand
 logger = logging.getLogger(__name__)
 _API = "https://api.telegram.org/bot{token}/{method}"

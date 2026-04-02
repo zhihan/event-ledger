@@ -131,6 +131,7 @@ export function OccurrenceView() {
         setShowRotationPrompt(true);
       }
     } catch (err) {
+      console.error("Failed to save inline edit:", err);
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setEditSubmitting(false);
@@ -145,6 +146,7 @@ export function OccurrenceView() {
       setShowRotationPrompt(false);
       await load();
     } catch (err) {
+      console.error("Failed to regenerate rotation:", err);
       alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
     } finally {
       setEditSubmitting(false);
@@ -161,6 +163,7 @@ export function OccurrenceView() {
         return [...filtered, ci];
       });
     } catch (err) {
+      console.error("Failed to check in:", err);
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setCheckInSubmitting(false);
@@ -172,6 +175,7 @@ export function OccurrenceView() {
       await deleteCheckIn(checkInId);
       setCheckIns((prev) => prev.filter((c) => c.check_in_id !== checkInId));
     } catch (err) {
+      console.error("Failed to undo check-in:", err);
       alert(err instanceof Error ? err.message : "Failed to undo");
     }
   }
@@ -267,10 +271,15 @@ export function OccurrenceView() {
                 type="checkbox"
                 checked={occ.enable_check_in}
                 onChange={async (e) => {
-                  const updated = await patchOccurrence(occ.occurrence_id, {
-                    enable_check_in: e.target.checked,
-                  });
-                  setOccurrence(updated);
+                  try {
+                    const updated = await patchOccurrence(occ.occurrence_id, {
+                      enable_check_in: e.target.checked,
+                    });
+                    setOccurrence(updated);
+                  } catch (err) {
+                    console.error("Failed to toggle check-in:", err);
+                    alert(err instanceof Error ? err.message : "Failed to update");
+                  }
                 }}
               />
               <span>Show "Done" button</span>
@@ -281,8 +290,13 @@ export function OccurrenceView() {
               className="btn btn-sm btn-danger"
               onClick={async () => {
                 if (!confirm("Delete this occurrence? This cannot be undone.")) return;
-                await deleteOccurrence(occ.occurrence_id);
-                navigate(`/room/${occ.room_id}/series/${occ.series_id}`);
+                try {
+                  await deleteOccurrence(occ.occurrence_id);
+                  navigate(`/room/${occ.room_id}/series/${occ.series_id}`);
+                } catch (err) {
+                  console.error("Failed to delete occurrence:", err);
+                  alert(err instanceof Error ? err.message : "Failed to delete occurrence");
+                }
               }}
             >
               Delete occurrence

@@ -35,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final rooms = await api.listRooms();
       if (mounted) setState(() => _rooms = rooms);
     } catch (e) {
+      debugPrint('WARN: Failed to load rooms: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -114,6 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           timezone: result['timezone']!);
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to create room: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));

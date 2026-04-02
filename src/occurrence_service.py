@@ -10,6 +10,7 @@ Bridges the pure recurrence engine (recurrence.py) and Firestore storage
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
@@ -28,6 +29,8 @@ from series_storage import (
     save_occurrences_batch,
     update_occurrence,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_rotation_host(series: Series, sequence_index: int) -> str | None:
@@ -436,6 +439,7 @@ def _in_window(
     try:
         utc_dt = datetime.fromisoformat(scheduled_for)
     except ValueError:
+        logger.warning("Unparseable scheduled_for value: %s", scheduled_for, exc_info=True)
         return False
     if utc_dt.tzinfo is None:
         utc_dt = utc_dt.replace(tzinfo=timezone.utc)

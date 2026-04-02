@@ -84,10 +84,11 @@ class _RoomScreenState extends State<RoomScreen> {
       // Load telegram bot (non-blocking)
       api.getTelegramBot(widget.roomId).then((bot) {
         if (mounted) setState(() => _tgBot = bot);
-      }).catchError((_) {}).whenComplete(() {
+      }).catchError((e) { debugPrint('Failed to load Telegram bot: $e'); }).whenComplete(() {
         if (mounted) setState(() => _tgLoading = false);
       });
     } catch (e) {
+      debugPrint('ERROR: Failed to load room: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -118,6 +119,7 @@ class _RoomScreenState extends State<RoomScreen> {
           widget.roomId, {'title': newTitle.trim()});
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to edit room title: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -139,6 +141,7 @@ class _RoomScreenState extends State<RoomScreen> {
             const SnackBar(content: Text('Invite link copied!')));
       }
     } catch (e) {
+      debugPrint('WARN: Failed to create invite: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -156,6 +159,7 @@ class _RoomScreenState extends State<RoomScreen> {
       await context.read<ApiService>().createSeries(widget.roomId, body);
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to create series: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -170,6 +174,7 @@ class _RoomScreenState extends State<RoomScreen> {
           .connectTelegramBot(widget.roomId, token, mode: mode);
       if (mounted) setState(() => _tgBot = bot);
     } catch (e) {
+      debugPrint('WARN: Failed to connect Telegram bot: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -184,6 +189,7 @@ class _RoomScreenState extends State<RoomScreen> {
           .updateTelegramBotMode(widget.roomId, mode);
       if (mounted) setState(() => _tgBot = bot);
     } catch (e) {
+      debugPrint('ERROR: Failed to update Telegram bot mode: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -220,6 +226,7 @@ class _RoomScreenState extends State<RoomScreen> {
         });
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to disconnect Telegram bot: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -251,6 +258,7 @@ class _RoomScreenState extends State<RoomScreen> {
         });
       }
     } catch (e) {
+      debugPrint('WARN: Failed to generate Telegram link code: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -466,6 +474,7 @@ class _RoomScreenState extends State<RoomScreen> {
                       await context.read<ApiService>().removeMember(room.roomId, _uid);
                       if (mounted) context.go('/');
                     } catch (e) {
+                      debugPrint('ERROR: Failed to leave room: $e');
                       if (mounted) {
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(content: Text('Error: $e')));

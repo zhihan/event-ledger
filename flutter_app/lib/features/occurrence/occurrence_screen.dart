@@ -89,6 +89,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         });
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to load occurrence: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -101,6 +102,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
           widget.occurrenceId, 'confirmed');
       _load();
     } catch (e) {
+      debugPrint('WARN: Failed to check in: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -115,6 +117,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
       await context.read<ApiService>().deleteCheckIn(ci.checkInId);
       _load();
     } catch (e) {
+      debugPrint('WARN: Failed to undo check-in: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -128,6 +131,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
           widget.occurrenceId, {'enable_check_in': enable});
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to toggle check-in: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -202,6 +206,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
           .updateOccurrence(widget.occurrenceId, result);
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to update occurrence overrides: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -284,6 +289,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         }
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to edit host: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -364,6 +370,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         _load();
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to repopulate rotation: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));

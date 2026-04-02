@@ -187,6 +187,7 @@ export function RoomView() {
       // Navigate to series detail
       navigate(`/room/${roomId}/series/${created.series_id}`);
     } catch (err) {
+      console.error("Failed to create series:", err);
       setFormError(err instanceof Error ? err.message : "Failed to create series");
     } finally {
       setFormSubmitting(false);
@@ -200,6 +201,7 @@ export function RoomView() {
       const invite = await createRoomInvite(roomId, inviteRole);
       setInviteLink(`${window.location.origin}/invites/${invite.invite_id}`);
     } catch (err) {
+      console.error("Failed to create invite:", err);
       alert(err instanceof Error ? err.message : "Failed to create invite");
     } finally {
       setInviteCreating(false);
@@ -233,6 +235,7 @@ export function RoomView() {
         return next;
       });
     } catch (err) {
+      console.error("Failed to remove member:", err);
       alert(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
       setRemovingUid(null);
@@ -264,6 +267,7 @@ export function RoomView() {
       setTgBot(bot);
       setTgToken("");
     } catch (err) {
+      console.error("Failed to connect Telegram bot:", err);
       setTgError(err instanceof Error ? err.message : "Failed to connect bot");
     } finally {
       setTgConnecting(false);
@@ -277,6 +281,7 @@ export function RoomView() {
       const bot = await updateTelegramBotMode(roomId, mode);
       setTgBot(bot);
     } catch (err) {
+      console.error("Failed to update Telegram bot mode:", err);
       setTgError(err instanceof Error ? err.message : "Failed to update mode");
     }
   }
@@ -290,6 +295,7 @@ export function RoomView() {
       setTgLinkCode(null);
       setTgLinkExpiry(0);
     } catch (err) {
+      console.error("Failed to disconnect Telegram bot:", err);
       setTgError(err instanceof Error ? err.message : "Failed to disconnect bot");
     }
   }
@@ -302,6 +308,7 @@ export function RoomView() {
       setTgLinkCode(code);
       setTgLinkExpiry(expires_in);
     } catch (err) {
+      console.error("Failed to generate Telegram link code:", err);
       setTgError(err instanceof Error ? err.message : "Failed to generate link code");
     }
   }
@@ -328,6 +335,7 @@ export function RoomView() {
                 setRoom(updated);
                 setEditingTitle(false);
               } catch (err) {
+                console.error("Failed to rename room:", err);
                 alert(err instanceof Error ? err.message : "Failed to rename");
               }
             }}
@@ -683,7 +691,9 @@ export function RoomView() {
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => {
-                    navigator.clipboard.writeText(inviteLink);
+                    navigator.clipboard.writeText(inviteLink).catch((err) => {
+                      console.warn("Clipboard write failed:", err);
+                    });
                   }}
                 >
                   Copy
@@ -751,7 +761,7 @@ export function RoomView() {
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
-                      onClick={() => navigator.clipboard.writeText(tgLinkCode)}
+                      onClick={() => navigator.clipboard.writeText(tgLinkCode).catch((err) => console.warn("Clipboard write failed:", err))}
                     >
                       Copy
                     </button>
@@ -845,8 +855,13 @@ export function RoomView() {
             className="btn btn-sm btn-danger"
             onClick={async () => {
               if (!confirm("Delete this room and all its data? This cannot be undone.")) return;
-              await deleteRoom(roomId!);
-              navigate("/");
+              try {
+                await deleteRoom(roomId!);
+                navigate("/");
+              } catch (err) {
+                console.error("Failed to delete room:", err);
+                alert(err instanceof Error ? err.message : "Failed to delete room");
+              }
             }}
           >
             Delete room

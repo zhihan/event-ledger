@@ -28,6 +28,7 @@ class _CheckInReportWidgetState extends State<CheckInReportWidget> {
           .getCheckInReport(widget.seriesId);
       if (mounted) setState(() => _report = data);
     } catch (e) {
+      debugPrint('WARN: Failed to load check-in report: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error loading report: $e')));

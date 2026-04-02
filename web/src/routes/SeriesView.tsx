@@ -136,6 +136,7 @@ export function SeriesView() {
       setReport(r);
       setShowReport(true);
     } catch (err) {
+      console.error("Failed to load check-in report:", err);
       alert(err instanceof Error ? err.message : "Failed to load report");
     } finally {
       setReportLoading(false);
@@ -270,6 +271,7 @@ export function SeriesView() {
       setScheduleConfirmMode(null);
       setEditing(false);
     } catch (err) {
+      console.error("Failed to save series:", err);
       setEditError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setEditSubmitting(false);
@@ -285,6 +287,7 @@ export function SeriesView() {
       const newOcc = await generateOccurrences(seriesId, end.toISOString().slice(0, 10));
       setOccurrences(newOcc);
     } catch (err) {
+      console.error("Failed to generate occurrences:", err);
       alert(err instanceof Error ? err.message : "Failed to generate");
     } finally {
       setGenerating(false);
@@ -302,6 +305,7 @@ export function SeriesView() {
       );
       setEditingAgenda(false);
     } catch (err) {
+      console.error("Failed to save agenda:", err);
       alert(err instanceof Error ? err.message : "Failed to save agenda");
     } finally {
       setAgendaSaving(false);
@@ -329,6 +333,7 @@ export function SeriesView() {
       setAddOccDate("");
       setAddOccTime("");
     } catch (err) {
+      console.error("Failed to create occurrence:", err);
       alert(err instanceof Error ? err.message : "Failed to create occurrence");
     } finally {
       setAddOccSubmitting(false);
@@ -366,8 +371,13 @@ export function SeriesView() {
                 className="btn btn-sm btn-danger"
                 onClick={async () => {
                   if (!confirm("Delete this series and all its occurrences? This cannot be undone.")) return;
-                  await deleteSeries(seriesId!);
-                  navigate(`/room/${roomId}`);
+                  try {
+                    await deleteSeries(seriesId!);
+                    navigate(`/room/${roomId}`);
+                  } catch (err) {
+                    console.error("Failed to delete series:", err);
+                    alert(err instanceof Error ? err.message : "Failed to delete series");
+                  }
                 }}
               >
                 Delete
@@ -906,6 +916,7 @@ export function SeriesView() {
                           prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
                         );
                       } catch (err) {
+                        console.error("Failed to save occurrence:", err);
                         alert(err instanceof Error ? err.message : "Failed to save");
                       }
                       setEditingLocationId(null);
@@ -976,6 +987,7 @@ export function SeriesView() {
                                     message: `Updated ${result.updated_count} upcoming occurrences`,
                                   });
                                 } catch (err) {
+                                  console.error("Failed to regenerate rotation:", err);
                                   alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
                                 }
                               },
@@ -983,6 +995,7 @@ export function SeriesView() {
                           });
                         }
                       } catch (err) {
+                        console.error("Failed to save occurrence:", err);
                         alert(err instanceof Error ? err.message : "Failed to save");
                       }
                       setEditingHostId(null);

@@ -38,9 +38,13 @@ export function OccurrenceSummaryPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.warn("Clipboard write failed:", err);
+    }
   }
 
   if (loading) return <LoadingSpinner message="Loading meeting details..." />;

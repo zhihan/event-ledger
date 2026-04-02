@@ -81,6 +81,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
         });
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to load series: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -102,6 +103,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
         _load();
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to generate occurrences: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -119,6 +121,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
           occ.occurrenceId, {'location': newLoc.isNotEmpty ? newLoc : null});
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to save inline location: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -178,6 +181,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
         _load();
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to add occurrence: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -653,6 +657,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
       }
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to update series: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -1104,6 +1109,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
           occ.occurrenceId, result);
       _load();
     } catch (e) {
+      debugPrint('ERROR: Failed to update occurrence: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));

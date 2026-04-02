@@ -49,6 +49,7 @@ export function RoomDashboard() {
       setFormTitle("");
       await load();
     } catch (err) {
+      console.error("Failed to create room:", err);
       setFormError(err instanceof Error ? err.message : "Failed to create room");
     } finally {
       setFormSubmitting(false);

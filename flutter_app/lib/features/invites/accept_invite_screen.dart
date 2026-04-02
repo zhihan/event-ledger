@@ -24,6 +24,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
       try {
         await auth.signInWithGoogle();
       } catch (e) {
+        debugPrint('WARN: Sign-in failed during invite accept: $e');
         if (mounted) setState(() => _error = 'Sign-in failed: $e');
         return;
       }
@@ -41,6 +42,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
         context.go('/rooms/$roomId');
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to accept invite: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);

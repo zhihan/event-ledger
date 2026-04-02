@@ -26,6 +26,7 @@ export function AcceptInvite() {
       ]);
       navigate(`/room/${result.room_id}`, { replace: true });
     } catch (err) {
+      console.error("Failed to accept invite:", err);
       setError(err instanceof Error ? err.message : "Failed to accept invite");
     }
   }

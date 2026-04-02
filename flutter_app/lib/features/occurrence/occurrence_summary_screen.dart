@@ -46,6 +46,7 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
         });
       }
     } catch (e) {
+      debugPrint('ERROR: Failed to load occurrence summary: $e');
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);

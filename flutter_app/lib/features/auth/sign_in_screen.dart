@@ -22,6 +22,7 @@ class _SignInScreenState extends State<SignInScreen> {
     try {
       await context.read<AuthService>().signInWithGoogle();
     } catch (e) {
+      debugPrint('WARN: Sign-in failed: $e');
       if (mounted) {
         setState(() => _error = e.toString());
       }

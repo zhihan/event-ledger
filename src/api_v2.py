@@ -36,6 +36,7 @@ Route overview:
 from __future__ import annotations
 
 import os
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import ClassVar, Optional
@@ -67,6 +68,8 @@ from occurrence_service import (
     reschedule_occurrence,
     skip_occurrence,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v2", tags=["v2"])
 
@@ -158,6 +161,7 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
     except Exception:
+        logger.warning("Firebase Admin SDK init failed; member lookups will be skipped", exc_info=True)
         firebase_auth = None  # type: ignore[assignment]
 
     for uid, role in member_roles.items():
@@ -169,7 +173,7 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
                 display_name = user.display_name
                 email = user.email
             except Exception:
-                pass
+                logger.warning("Failed to look up Firebase user %s", uid, exc_info=True)
         details.append({
             "uid": uid,
             "role": role,
