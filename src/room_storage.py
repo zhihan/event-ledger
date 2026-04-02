@@ -42,7 +42,8 @@ def create_room(room: Room) -> Room:
     for uid in room.owner_uids:
         room.member_roles.setdefault(uid, "organizer")
     data = room.to_dict()
-    data["member_uids"] = list(room.member_roles.keys())
+    data["organizers"] = [uid for uid, r in room.member_roles.items() if r == "organizer"]
+    data["participants"] = [uid for uid, r in room.member_roles.items() if r != "organizer"]
     ref.set(data)
     return room
 
@@ -79,30 +80,55 @@ def list_rooms_for_user(uid: str) -> list[Room]:
     db = _get_client()
     col = db.collection(ROOMS_COLLECTION)
     seen: dict[str, Room] = {}
-    # Primary query: member_uids array (new rooms)
-    for doc in col.where("member_uids", "array_contains", uid).stream():
+    for doc in col.where("organizers", "array_contains", uid).stream():
         seen[doc.id] = Room.from_dict(doc.to_dict())
-    # Fallback: owner_uids (rooms created before member_uids was added)
+    for doc in col.where("participants", "array_contains", uid).stream():
+        if doc.id not in seen:
+            seen[doc.id] = Room.from_dict(doc.to_dict())
+    # Fallback: owner_uids for rooms not yet migrated
     for doc in col.where("owner_uids", "array_contains", uid).stream():
         if doc.id not in seen:
             seen[doc.id] = Room.from_dict(doc.to_dict())
     return list(seen.values())
 
 
+def backfill_member_arrays() -> int:
+    """Populate organizers/participants arrays from member_roles for all rooms."""
+    db = _get_client()
+    count = 0
+    for doc in db.collection(ROOMS_COLLECTION).stream():
+        data = doc.to_dict()
+        roles = data.get("member_roles", {})
+        if not roles:
+            continue
+        organizers = [uid for uid, r in roles.items() if r == "organizer"]
+        participants = [uid for uid, r in roles.items() if r != "organizer"]
+        doc.reference.update({
+            "organizers": organizers,
+            "participants": participants,
+        })
+        count += 1
+    return count
+
+
 def add_member(room_id: str, uid: str, role: MemberRole) -> Room:
     """Add or update uid role in room_id."""
+    from google.cloud.firestore_v1 import ArrayRemove, ArrayUnion
     db = _get_client()
     ref = db.collection(ROOMS_COLLECTION).document(room_id)
     if not ref.get().exists:
         raise ValueError(f"Room not found: {room_id}")
-    from google.cloud.firestore_v1 import ArrayUnion
     updates: dict = {
         f"member_roles.{uid}": role,
-        "member_uids": ArrayUnion([uid]),
         "updated_at": _utcnow(),
     }
     if role == "organizer":
+        updates["organizers"] = ArrayUnion([uid])
+        updates["participants"] = ArrayRemove([uid])
         updates["owner_uids"] = ArrayUnion([uid])
+    else:
+        updates["participants"] = ArrayUnion([uid])
+        updates["organizers"] = ArrayRemove([uid])
     ref.update(updates)
     return get_room(room_id)  # type: ignore[return-value]
 
@@ -145,16 +171,17 @@ def remove_member(room_id: str, uid: str) -> Room:
             raise ValueError("Cannot remove the last organizer of a room")
     db = _get_client()
     ref = db.collection(ROOMS_COLLECTION).document(room_id)
-    from google.cloud.firestore_v1 import DELETE_FIELD
+    from google.cloud.firestore_v1 import ArrayRemove, DELETE_FIELD
     updates: dict = {
         f"member_roles.{uid}": DELETE_FIELD,
         f"member_profiles.{uid}": DELETE_FIELD,
         "updated_at": _utcnow(),
     }
-    from google.cloud.firestore_v1 import ArrayRemove
-    updates["member_uids"] = ArrayRemove([uid])
     if current_role == "organizer":
+        updates["organizers"] = ArrayRemove([uid])
         updates["owner_uids"] = ArrayRemove([uid])
+    else:
+        updates["participants"] = ArrayRemove([uid])
     ref.update(updates)
     return get_room(room_id)  # type: ignore[return-value]
 

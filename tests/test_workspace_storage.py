@@ -202,6 +202,7 @@ class TestMemberManagement:
 
         fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
         fake_firestore_v1.ArrayUnion = lambda vals: ("__array_union__", vals)
+        fake_firestore_v1.ArrayRemove = lambda vals: ("__array_remove__", vals)
         with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
             with patch("room_storage._get_client", return_value=mock_db):
                 with patch("room_storage.get_room") as mock_get:
@@ -212,7 +213,7 @@ class TestMemberManagement:
         update_args = mock_ref.update.call_args[0][0]
         assert "member_roles.uid-bob" in update_args
         assert update_args["member_roles.uid-bob"] == "participant"
-        assert "member_uids" in update_args
+        assert "participants" in update_args
 
     def test_get_member_role_returns_none_for_nonmember(self):
         data = _rm_data(member_roles={"uid-alice": "organizer"})
@@ -241,7 +242,7 @@ class TestMemberManagement:
                     remove_member("rm-1", "uid-bob")
         update_args = mock_ref.update.call_args[0][0]
         assert "member_profiles.uid-bob" in update_args
-        assert "member_uids" in update_args
+        assert "participants" in update_args
 
     def test_remove_last_organizer_raises(self):
         data = _rm_data(member_roles={"uid-alice": "organizer"})

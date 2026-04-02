@@ -459,6 +459,15 @@ def list_rooms(
     return {"rooms": results}
 
 
+@router.post("/admin/backfill-member-arrays", status_code=200)
+def backfill_member_arrays(
+    token: dict = Depends(_require_token),
+) -> dict:
+    """One-time migration: populate organizers/participants arrays for all rooms."""
+    count = room_storage.backfill_member_arrays()
+    return {"backfilled": count}
+
+
 @router.get("/rooms/{room_id}")
 def get_room(
     room_id: str,
