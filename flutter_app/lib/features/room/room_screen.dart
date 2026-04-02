@@ -422,6 +422,50 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ),
 
+            // Leave room (non-organizers)
+            if (!_isOrganizer(room)) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Leave room'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: cs.error,
+                  ),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Leave room?'),
+                        content: const Text('You will lose access to this room.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: FilledButton.styleFrom(backgroundColor: cs.error),
+                            child: const Text('Leave'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed != true) return;
+                    try {
+                      await context.read<ApiService>().removeMember(room.roomId, _uid);
+                      if (mounted) context.go('/');
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    }
+                  },
+                ),
+              ),
+            ],
+
             // Telegram bot (organizer only)
             if (_isOrganizer(room)) ...[
               const SizedBox(height: 16),
