@@ -410,6 +410,9 @@ class UpdateTelegramBotRequest(BaseModel):
 # Room endpoints
 # ---------------------------------------------------------------------------
 
+MAX_ROOMS_PER_USER = 10
+
+
 @router.post("/rooms", status_code=201)
 def create_room(
     body: CreateRoomRequest,
@@ -417,6 +420,12 @@ def create_room(
 ) -> dict:
     """Create a new room. The caller becomes the first organizer."""
     uid = token["uid"]
+    existing = room_storage.list_rooms_for_user(uid)
+    if len(existing) >= MAX_ROOMS_PER_USER:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Room limit reached. Each user can create up to {MAX_ROOMS_PER_USER} rooms.",
+        )
     rm = Room(
         room_id=str(uuid.uuid4()),
         title=body.title,

@@ -122,6 +122,7 @@ def _make_occurrence(**kwargs) -> Occurrence:
 class TestCreateRoom:
     def test_creates_room(self, organizer_client):
         with patch("room_storage.create_room") as mock_create, \
+             patch("room_storage.list_rooms_for_user", return_value=[]), \
              patch("room_storage._get_client"):
             mock_create.side_effect = lambda rm: rm
             resp = organizer_client.post("/v2/rooms", json={
@@ -135,11 +136,21 @@ class TestCreateRoom:
         assert ORGANIZER_UID in data["owner_uids"]
 
     def test_returns_400_on_storage_error(self, organizer_client):
-        with patch("room_storage.create_room", side_effect=ValueError("already exists")):
+        with patch("room_storage.create_room", side_effect=ValueError("already exists")), \
+             patch("room_storage.list_rooms_for_user", return_value=[]):
             resp = organizer_client.post("/v2/rooms", json={
                 "title": "X", "type": "shared",
             }, headers=AUTH)
         assert resp.status_code == 409
+
+    def test_rejects_when_room_limit_reached(self, organizer_client):
+        existing_rooms = [_make_room(room_id=f"rm-{i}") for i in range(10)]
+        with patch("room_storage.list_rooms_for_user", return_value=existing_rooms):
+            resp = organizer_client.post("/v2/rooms", json={
+                "title": "One Too Many", "type": "shared",
+            }, headers=AUTH)
+        assert resp.status_code == 429
+        assert "limit" in resp.json()["detail"].lower()
 
 
 class TestGetRoom:
