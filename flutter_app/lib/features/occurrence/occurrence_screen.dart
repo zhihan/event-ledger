@@ -35,6 +35,14 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(OccurrenceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.occurrenceId != widget.occurrenceId) {
+      _load();
+    }
+  }
+
   String get _uid => context.read<AuthService>().currentUser!.uid;
 
   bool get _canManage {
