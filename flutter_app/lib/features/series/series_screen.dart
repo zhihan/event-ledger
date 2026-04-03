@@ -618,6 +618,10 @@ class _SeriesScreenState extends State<SeriesScreen> {
                             onPressed: () => Navigator.pop(dialogCtx, 'regenerate'),
                             child: const Text('Delete future & regenerate'),
                           ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx, 'keep'),
+                            child: const Text('Leave existing as-is'),
+                          ),
                           FilledButton(
                             onPressed: () => Navigator.pop(dialogCtx, 'adjust'),
                             child: const Text('Adjust schedule'),
@@ -631,7 +635,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       if (editFreq == 'weekly') 'weekdays': sortedEditWeekdays,
                       'interval': 1,
                     };
-                    updates['schedule_mode'] = chosenMode;
+                    if (chosenMode != 'keep') {
+                      updates['schedule_mode'] = chosenMode;
+                    }
                   }
 
                   Navigator.pop(

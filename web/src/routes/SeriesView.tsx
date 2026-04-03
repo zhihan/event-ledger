@@ -773,6 +773,9 @@ export function SeriesView() {
                 <button type="button" className="btn btn-primary" onClick={() => doSave("adjust")} disabled={editSubmitting}>
                   Adjust schedule
                 </button>
+                <button type="button" className="btn btn-secondary" onClick={() => doSave()} disabled={editSubmitting}>
+                  Leave existing as-is
+                </button>
                 <button type="button" className="btn btn-secondary" style={{ color: "#c62828" }} onClick={() => doSave("regenerate")} disabled={editSubmitting}>
                   Delete future &amp; regenerate
                 </button>

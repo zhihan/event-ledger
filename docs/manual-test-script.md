@@ -212,16 +212,20 @@ which surface to test on. Unless noted otherwise, test both.
 3. Change the title, frequency, or duration.
 4. Tap **Save**.
 
-**Expected:** Changes are reflected. If frequency/days changed, a confirmation dialog asks whether to adjust or regenerate occurrences.
+**Expected:** Changes are reflected. If frequency/days changed, a confirmation dialog asks whether to adjust, leave as-is, or regenerate occurrences.
 
-### 4.3 Edit series schedule — adjust vs regenerate
+### 4.3 Edit series schedule — adjust vs leave as-is vs regenerate
 
 1. Edit a series and change the day-of-week selection.
 2. On the confirmation dialog, choose **Adjust schedule**.
 
 **Expected:** Existing occurrences are kept; new pattern applies going forward.
 
-3. Repeat, but choose **Delete future & regenerate**.
+3. Repeat, but choose **Leave existing as-is**.
+
+**Expected:** The schedule rule is updated but all existing occurrences remain unchanged.
+
+4. Repeat, but choose **Delete future & regenerate**.
 
 **Expected:** Unmodified future occurrences are deleted and new ones are created matching the new schedule.
 
