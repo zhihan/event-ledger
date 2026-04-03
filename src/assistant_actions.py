@@ -5,8 +5,8 @@ Each action follows the preview/confirm pattern:
   2. The user confirms via /v2/assistant/actions/{id}/confirm.
   3. On confirmation, execute() is called.
 
-Action types: create_series, reschedule_occurrence, draft_material,
-              generate_reminder_text
+Action types: create_series, create_occurrence, reschedule_occurrence,
+              draft_material, generate_reminder_text
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 ActionType = Literal[
     "create_series",
+    "create_occurrence",
     "reschedule_occurrence",
     "draft_material",
     "generate_reminder_text",
@@ -195,6 +196,62 @@ def execute_create_series(action: PendingAction) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# CreateOccurrenceAction
+# ---------------------------------------------------------------------------
+
+def build_create_occurrence_action(
+    room_id: str, uid: str, payload: dict
+) -> PendingAction:
+    series_id = payload.get("series_id", "?")
+    scheduled_for = payload.get("scheduled_for", "?")
+    host = payload.get("host")
+    notes = payload.get("notes")
+    parts = [f"Create a new occurrence in series {series_id} on {scheduled_for}"]
+    if host:
+        parts.append(f"hosted by {host}")
+    if notes:
+        preview = notes[:60]
+        parts.append(f'with agenda "{preview}"')
+    summary = ", ".join(parts) + "."
+    return PendingAction(
+        action_id=str(uuid.uuid4()),
+        room_id=room_id,
+        requested_by_uid=uid,
+        action_type="create_occurrence",
+        preview_summary=summary,
+        payload=payload,
+    )
+
+
+def execute_create_occurrence(action: PendingAction) -> dict:
+    from models import OccurrenceOverrides
+    from occurrence_service import create_single_occurrence
+
+    payload = action.payload
+    series_id = payload["series_id"]
+
+    # Build overrides from notes if provided
+    overrides = None
+    notes = payload.get("notes")
+    if notes:
+        overrides = OccurrenceOverrides(notes=notes)
+
+    occ = create_single_occurrence(
+        series_id=series_id,
+        scheduled_for=payload["scheduled_for"],
+        host=payload.get("host"),
+        location=payload.get("location"),
+        overrides=overrides,
+    )
+    logger.info(
+        "Created occurrence %s via assistant action %s",
+        occ.occurrence_id,
+        action.action_id,
+    )
+    return {"created": "occurrence", "occurrence": occ.to_dict()}
+
+
+# ---------------------------------------------------------------------------
 # RescheduleOccurrenceAction
 # ---------------------------------------------------------------------------
 
@@ -339,6 +396,7 @@ def execute_action(action: PendingAction) -> dict:
     """Dispatch to the correct execute function based on action.action_type."""
     dispatch = {
         "create_series": execute_create_series,
+        "create_occurrence": execute_create_occurrence,
         "reschedule_occurrence": execute_reschedule_occurrence,
         "draft_material": execute_draft_material,
         "generate_reminder_text": execute_generate_reminder_text,

@@ -590,6 +590,15 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The assistant responds with relevant schedule info without proposing changes.
 
+### 13.5 Create a single occurrence via assistant
+
+1. Open the assistant chat for a room with an existing series (web or Telegram bot in read-write mode).
+2. Send: "Create an occurrence of the series on 4/5, the agenda is Unit 4 Lesson 9, hosts are Zhi Han and Augustine Ho."
+3. Review the proposed action.
+4. Tap **Confirm**.
+
+**Expected:** The assistant proposes a `create_occurrence` action with the correct series, date, agenda/notes, and hosts. After confirmation, a new occurrence appears in the series at the specified date with the provided agenda and hosts.
+
 ---
 
 ## 14 Cross-Cutting Concerns
