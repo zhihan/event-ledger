@@ -419,18 +419,31 @@ which surface to test on. Unless noted otherwise, test both.
 
 ## 9 Occurrence Summary (Shareable Page)
 
-### 9.1 View the shareable summary
+### 9.1 Open the share panel
 
 1. Open an occurrence with a location or online link.
-2. Tap **View shareable page**.
+2. Tap **Share**.
 
-**Expected:** A clean read-only page displays the meeting title, date/time, duration, location, online link, and notes.
+**Expected:** A share panel expands showing the summary URL, a **Copy** button, and a **Preview** link. For organizers, an **Include invite link** checkbox is also shown.
 
-### 9.2 Copy the summary link
+### 9.2 Copy the share link
 
-1. On the summary page, tap **Copy link**.
+1. In the share panel, tap **Copy**.
 
 **Expected:** The URL is copied to the clipboard. The button text briefly changes to "Copied!"
+
+### 9.2a Include invite link (organizer only)
+
+1. As an organizer, open the share panel.
+2. Check **Include invite link (joins as participant)**.
+
+**Expected:** The displayed URL updates to include `?invite={inviteId}`. The invite is created with the **participant** role. Unchecking removes the invite param.
+
+### 9.2b Include invite — non-organizer cannot see toggle
+
+1. As a participant or teacher, open the share panel.
+
+**Expected:** The **Include invite link** checkbox is not visible.
 
 ### 9.3 Join online meeting from summary
 
@@ -447,8 +460,8 @@ which surface to test on. Unless noted otherwise, test both.
 
 ### 9.5 Summary with invite link — join button and QR code (Web only)
 
-1. Create an invite link for the room.
-2. Open the summary URL with the invite query param: `/occurrences/{id}/summary?invite={inviteId}`.
+1. As an organizer, open the share panel and check **Include invite link**.
+2. Tap **Preview** or open the copied URL in an incognito window.
 
 **Expected:** The summary page shows a **Join this group** button and a QR code. Tapping the button navigates to the invite acceptance flow. The QR code encodes the invite URL.
 
