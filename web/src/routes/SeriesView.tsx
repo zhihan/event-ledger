@@ -145,7 +145,8 @@ export function SeriesView() {
 
   useEffect(() => { load(); }, [load]);
 
-  const isOrganizer = user?.uid && room?.member_roles[user.uid] === "organizer";
+  const role = user?.uid ? room?.member_roles[user.uid] : undefined;
+  const isOrganizer = role === "organizer" || role === "teacher";
   const occurrencePath = (id: string) => `/occurrences/${id}`;
 
   // Furthest scheduled occurrence date
