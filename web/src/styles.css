@@ -306,6 +306,22 @@ body {
   justify-content: space-between;
   margin-bottom: 8px;
 }
+.section-header-collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+.section-header-collapsible:hover {
+  opacity: 0.7;
+}
+.collapse-chevron {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.collapse-chevron-open {
+  transform: rotate(90deg);
+}
 
 .section-header h2 {
   font-size: 0.8rem;

@@ -89,6 +89,10 @@ export function RoomView() {
   const [inviteCreating, setInviteCreating] = useState(false);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
 
+  // Collapsible sections
+  const [membersExpanded, setMembersExpanded] = useState(false);
+  const [telegramExpanded, setTelegramExpanded] = useState(false);
+
   // Telegram bot
   const [tgBot, setTgBot] = useState<TelegramBotInfo | null>(null);
   const [tgLoading, setTgLoading] = useState(true);
@@ -706,87 +710,93 @@ export function RoomView() {
 
       {/* Members */}
       <section className="section">
-        <div className="section-header">
-          <h2>Members</h2>
+        <div className="section-header section-header-collapsible" onClick={() => setMembersExpanded(!membersExpanded)}>
+          <h2>Members {members ? `(${Object.keys(members).length})` : ""}</h2>
+          <span className={`collapse-chevron ${membersExpanded ? "collapse-chevron-open" : ""}`}>&#9654;</span>
         </div>
-        {members && (
-          <ul className="members-list">
-            {Object.entries(members).map(([uid, role]) => (
-              <li key={uid} className="member-item">
-                <span className="member-uid">
-                  {uid === user?.uid
-                    ? "You"
-                    : memberDetails[uid]?.display_name
-                      || memberDetails[uid]?.email
-                      || uid.slice(0, 8)}
-                </span>
-                <span className={`badge badge-role-${role}`}>{role}</span>
-                {(isOrganizer || uid === user?.uid) && (
+        {membersExpanded && (
+          <>
+            {members && (
+              <ul className="members-list">
+                {Object.entries(members).map(([uid, role]) => (
+                  <li key={uid} className="member-item">
+                    <span className="member-uid">
+                      {uid === user?.uid
+                        ? "You"
+                        : memberDetails[uid]?.display_name
+                          || memberDetails[uid]?.email
+                          || uid.slice(0, 8)}
+                    </span>
+                    <span className={`badge badge-role-${role}`}>{role}</span>
+                    {(isOrganizer || uid === user?.uid) && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-xs"
+                        onClick={() => handleRemoveMember(uid)}
+                        disabled={removingUid === uid}
+                      >
+                        {removingUid === uid ? "Removing..." : uid === user?.uid ? "Leave" : "Remove"}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {isOrganizer && (
+              <div className="invite-section">
+                <div className="invite-controls">
+                  <select
+                    className="form-input form-input-inline"
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                  >
+                    <option value="participant">Participant</option>
+                    <option value="organizer">Organizer</option>
+                  </select>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-xs"
-                    onClick={() => handleRemoveMember(uid)}
-                    disabled={removingUid === uid}
+                    className="btn btn-primary btn-sm"
+                    onClick={handleCreateInvite}
+                    disabled={inviteCreating}
                   >
-                    {removingUid === uid ? "Removing..." : uid === user?.uid ? "Leave" : "Remove"}
+                    {inviteCreating ? "Creating..." : "Create Invite Link"}
                   </button>
+                </div>
+                {inviteLink && (
+                  <div className="invite-link-box">
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={inviteLink}
+                      readOnly
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteLink).catch((err) => {
+                          console.warn("Clipboard write failed:", err);
+                        });
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
                 )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {isOrganizer && (
-          <div className="invite-section">
-            <div className="invite-controls">
-              <select
-                className="form-input form-input-inline"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-              >
-                <option value="participant">Participant</option>
-                <option value="organizer">Organizer</option>
-              </select>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleCreateInvite}
-                disabled={inviteCreating}
-              >
-                {inviteCreating ? "Creating..." : "Create Invite Link"}
-              </button>
-            </div>
-            {inviteLink && (
-              <div className="invite-link-box">
-                <input
-                  type="text"
-                  className="form-input"
-                  value={inviteLink}
-                  readOnly
-                  onFocus={(e) => e.target.select()}
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(inviteLink).catch((err) => {
-                      console.warn("Clipboard write failed:", err);
-                    });
-                  }}
-                >
-                  Copy
-                </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </section>
 
       {isOrganizer && (
         <section className="section">
-          <div className="section-header">
+          <div className="section-header section-header-collapsible" onClick={() => setTelegramExpanded(!telegramExpanded)}>
             <h2>AI Assistant (Telegram)</h2>
+            <span className={`collapse-chevron ${telegramExpanded ? "collapse-chevron-open" : ""}`}>&#9654;</span>
           </div>
-          {tgLoading ? (
+          {telegramExpanded && (tgLoading ? (
             <p className="placeholder">Loading bot settings...</p>
           ) : tgBot ? (
             <div className="telegram-bot-config">
@@ -919,7 +929,7 @@ export function RoomView() {
                 </button>
               </div>
             </form>
-          )}
+          ))}
         </section>
       )}
 

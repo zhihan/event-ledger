@@ -29,6 +29,10 @@ class _RoomScreenState extends State<RoomScreen> {
   String? _error;
   String _deviceTz = 'UTC';
 
+  // Collapsible sections
+  bool _membersExpanded = false;
+  bool _telegramExpanded = false;
+
   // Telegram bot state
   Map<String, dynamic>? _tgBot;
   bool _tgLoading = true;
@@ -96,31 +100,90 @@ class _RoomScreenState extends State<RoomScreen> {
     }
   }
 
-  Future<void> _editTitle() async {
+  Future<void> _editRoom() async {
     final room = _room;
     if (room == null || !_isOrganizer(room)) return;
-    final controller = TextEditingController(text: room.title);
-    final newTitle = await showDialog<String>(
+    final titleCtrl = TextEditingController(text: room.title);
+    final descCtrl = TextEditingController(text: room.description ?? '');
+
+    // Timezone list
+    const defaultZones = [
+      'America/New_York', 'America/Chicago', 'America/Denver',
+      'America/Los_Angeles', 'America/Toronto', 'America/Vancouver',
+      'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+      'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Taipei',
+      'Asia/Singapore', 'Asia/Kolkata', 'Asia/Seoul',
+      'Australia/Sydney', 'Pacific/Auckland',
+    ];
+    final zones = <String>{...defaultZones, room.timezone, _deviceTz}.toList()..sort();
+    var selectedTz = room.timezone;
+
+    final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Title'),
-        content: TextField(controller: controller, autofocus: true,
-            onSubmitted: (v) => Navigator.pop(ctx, v)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('Save')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Edit Room'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedTz,
+                  decoration: const InputDecoration(labelText: 'Timezone'),
+                  isExpanded: true,
+                  items: zones.map((tz) => DropdownMenuItem(
+                    value: tz,
+                    child: Text(tz, style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedTz = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes',
+                    hintText: 'Add a description or notes for this room.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, {
+                'title': titleCtrl.text,
+                'timezone': selectedTz,
+                'description': descCtrl.text,
+              }),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
-    if (newTitle == null || newTitle.trim().isEmpty || newTitle.trim() == room.title) return;
+    if (result == null) return;
+    final updates = <String, dynamic>{};
+    final newTitle = result['title']?.trim() ?? '';
+    if (newTitle.isNotEmpty && newTitle != room.title) updates['title'] = newTitle;
+    if (result['timezone'] != room.timezone) updates['timezone'] = result['timezone'];
+    final newDesc = result['description']?.trim() ?? '';
+    if (newDesc != (room.description ?? '')) updates['description'] = newDesc;
+    if (updates.isEmpty) return;
     try {
-      await context.read<ApiService>().updateRoom(
-          widget.roomId, {'title': newTitle.trim()});
+      await context.read<ApiService>().updateRoom(widget.roomId, updates);
       _load();
     } catch (e) {
-      debugPrint('ERROR: Failed to edit room title: $e');
+      debugPrint('ERROR: Failed to edit room: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -334,10 +397,11 @@ class _RoomScreenState extends State<RoomScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onTap: _isOrganizer(room) ? _editTitle : null,
-          child: Text(room.title),
-        ),
+        title: Text(room.title),
+        actions: [
+          if (_isOrganizer(room))
+            IconButton(onPressed: _editRoom, icon: const Icon(Icons.edit)),
+        ],
       ),
       floatingActionButton: _canManageSeries(room)
           ? FloatingActionButton(
@@ -350,27 +414,22 @@ class _RoomScreenState extends State<RoomScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
           children: [
-            // Room info
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    if (!timezonesMatch(room.timezone, _deviceTz)) ...[
+            // Room info — only show when timezone differs
+            if (!timezonesMatch(room.timezone, _deviceTz)) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
                       Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text(room.timezone,
                           style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                     ],
-                    const Spacer(),
-                    Icon(Icons.people_outline, size: 16, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                    Text('${room.memberRoles.length} members',
-                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
             if (room.description != null && room.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Card(
@@ -438,23 +497,35 @@ class _RoomScreenState extends State<RoomScreen> {
               },
             ),
 
-            // Members section
+            // Members section (collapsible)
             const SizedBox(height: 16),
-            _SectionHeader(
-              icon: Icons.people_outline,
-              title: 'Members',
-              trailing: _isOrganizer(room)
-                  ? TextButton.icon(
-                      onPressed: _createInvite,
-                      icon: const Icon(Icons.person_add, size: 16),
-                      label: const Text('Invite'),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        textStyle: const TextStyle(fontSize: 13),
+            GestureDetector(
+              onTap: () => setState(() => _membersExpanded = !_membersExpanded),
+              child: _SectionHeader(
+                icon: Icons.people_outline,
+                title: 'Members (${room.memberRoles.length})',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_membersExpanded && _isOrganizer(room))
+                      TextButton.icon(
+                        onPressed: _createInvite,
+                        icon: const Icon(Icons.person_add, size: 16),
+                        label: const Text('Invite'),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          textStyle: const TextStyle(fontSize: 13),
+                        ),
                       ),
-                    )
-                  : null,
+                    Icon(
+                      _membersExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
             ),
+            if (_membersExpanded) ...[
             const SizedBox(height: 6),
             Card(
               clipBehavior: Clip.antiAlias,
@@ -509,6 +580,8 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ),
 
+            ], // end _membersExpanded
+
             // Leave room (non-organizers)
             if (!_isOrganizer(room)) ...[
               const SizedBox(height: 12),
@@ -554,29 +627,39 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ],
 
-            // Telegram bot (organizer only)
+            // Telegram bot (organizer only, collapsible)
             if (_isOrganizer(room)) ...[
               const SizedBox(height: 16),
-              _SectionHeader(
+              GestureDetector(
+                onTap: () => setState(() => _telegramExpanded = !_telegramExpanded),
+                child: _SectionHeader(
                   icon: Icons.smart_toy_outlined,
-                  title: 'AI Assistant (Telegram)'),
-              const SizedBox(height: 6),
-              if (_tgLoading)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Center(
-                        child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2))),
+                  title: 'AI Assistant (Telegram)',
+                  trailing: Icon(
+                    _telegramExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: cs.onSurfaceVariant,
                   ),
-                )
-              else if (_tgBot != null)
-                _telegramBotCard(_tgBot!, cs)
-              else
-                _telegramConnectCard(cs),
+                ),
+              ),
+              if (_telegramExpanded) ...[
+                const SizedBox(height: 6),
+                if (_tgLoading)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(
+                          child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))),
+                    ),
+                  )
+                else if (_tgBot != null)
+                  _telegramBotCard(_tgBot!, cs)
+                else
+                  _telegramConnectCard(cs),
+              ],
             ],
 
             // Delete room (organizer only)
