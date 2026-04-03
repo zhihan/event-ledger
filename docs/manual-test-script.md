@@ -599,6 +599,15 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The assistant proposes a `create_occurrence` action with the correct series, date, agenda/notes, and hosts. After confirmation, a new occurrence appears in the series at the specified date with the provided agenda and hosts.
 
+### 13.6 Update hosts on multiple occurrences via assistant
+
+1. Open the assistant chat for a room with a series that has at least 3 upcoming occurrences (web or Telegram bot in read-write mode).
+2. Send: "Update the hosts for the next three meetings: Augustine Ho and Sharon Ho; Sharon Ho and Indigo Kuo; Indigo Kuo and Sybil Li."
+3. Review the proposed action(s).
+4. Tap **Confirm**.
+
+**Expected:** The assistant proposes an `update_occurrence` action (batch of 3) mapping each host pair to the correct occurrence. After confirmation, the three occurrences show their updated hosts.
+
 ---
 
 ## 14 Cross-Cutting Concerns

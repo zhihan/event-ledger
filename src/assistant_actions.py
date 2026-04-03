@@ -28,6 +28,7 @@ ActionType = Literal[
     "draft_material",
     "generate_reminder_text",
     "update_occurrence_notes",
+    "update_occurrence",
 ]
 
 ActionStatus = Literal["pending", "confirmed", "cancelled", "executed", "failed"]
@@ -346,7 +347,8 @@ def execute_generate_reminder_text(action: PendingAction) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# UpdateOccurrenceNotesAction
+# UpdateOccurrenceNotesAction (DEPRECATED — use update_occurrence instead)
+# Kept for backwards compatibility with pending actions already in Firestore.
 # ---------------------------------------------------------------------------
 
 def build_update_occurrence_notes_action(
@@ -389,6 +391,65 @@ def execute_update_occurrence_notes(action: PendingAction) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# UpdateOccurrenceAction (general: host, location, notes, etc.)
+# ---------------------------------------------------------------------------
+
+def build_update_occurrence_action(
+    room_id: str, uid: str, payload: dict
+) -> PendingAction:
+    occ_id = payload.get("occurrence_id", "?")
+    changes: list[str] = []
+    if payload.get("host"):
+        changes.append(f'host to "{payload["host"]}"')
+    if payload.get("location"):
+        changes.append(f'location to "{payload["location"]}"')
+    if payload.get("notes"):
+        preview = payload["notes"][:60]
+        changes.append(f'notes to "{preview}"')
+    detail = ", ".join(changes) if changes else "fields"
+    summary = f"Update {detail} for occurrence {occ_id}."
+    return PendingAction(
+        action_id=str(uuid.uuid4()),
+        room_id=room_id,
+        requested_by_uid=uid,
+        action_type="update_occurrence",
+        preview_summary=summary,
+        payload=payload,
+    )
+
+
+def execute_update_occurrence(action: PendingAction) -> dict:
+    import series_storage
+
+    payload = action.payload
+    occ_id = payload["occurrence_id"]
+
+    occ = series_storage.get_occurrence(occ_id)
+    if occ is None:
+        raise ValueError(f"Occurrence not found: {occ_id}")
+
+    updates: dict = {}
+    if "host" in payload:
+        updates["host"] = payload["host"]
+    if "location" in payload:
+        updates["location"] = payload["location"]
+    if "notes" in payload:
+        overrides = occ.overrides.to_dict() if occ.overrides else {}
+        overrides["notes"] = payload["notes"]
+        updates["overrides"] = overrides
+
+    if updates:
+        series_storage.update_occurrence(occ_id, updates)
+
+    logger.info(
+        "Updated occurrence %s via assistant action %s",
+        occ_id,
+        action.action_id,
+    )
+    return {"updated": "occurrence", "occurrence_id": occ_id, "fields": list(updates.keys())}
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -401,6 +462,7 @@ def execute_action(action: PendingAction) -> dict:
         "draft_material": execute_draft_material,
         "generate_reminder_text": execute_generate_reminder_text,
         "update_occurrence_notes": execute_update_occurrence_notes,
+        "update_occurrence": execute_update_occurrence,
     }
     fn = dispatch.get(action.action_type)
     if fn is None:
