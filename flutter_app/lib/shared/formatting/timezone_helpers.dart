@@ -1,5 +1,6 @@
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 /// Cached device timezone (IANA string).
 String? _cachedDeviceTz;
@@ -12,10 +13,18 @@ Future<String> getDeviceTimezone() async {
 
 /// Check whether two IANA timezone names refer to the same timezone.
 ///
-/// This is a simple string comparison. For most practical purposes it works
-/// because the backend and the device both use canonical IANA names.
+/// Uses the `timezone` package to resolve both names and compare their
+/// current UTC offsets, so equivalent zones like Asia/Taipei and
+/// Asia/Shanghai are correctly treated as matching.
 bool timezonesMatch(String roomTimezone, String deviceTimezone) {
-  return roomTimezone == deviceTimezone;
+  if (roomTimezone == deviceTimezone) return true;
+  try {
+    final roomLoc = tz.getLocation(roomTimezone);
+    final deviceLoc = tz.getLocation(deviceTimezone);
+    return roomLoc.currentTimeZone.offset == deviceLoc.currentTimeZone.offset;
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Format a UTC datetime for display.
