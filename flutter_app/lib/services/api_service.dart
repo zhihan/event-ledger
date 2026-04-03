@@ -350,5 +350,4 @@ class ApiService {
         await _request('POST', '/v2/rooms/$roomId/telegram-bot/link-code');
     return data as Map<String, dynamic>;
   }
-
 }
