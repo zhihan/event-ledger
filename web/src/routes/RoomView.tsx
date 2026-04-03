@@ -92,6 +92,7 @@ export function RoomView() {
   // Collapsible sections
   const [membersExpanded, setMembersExpanded] = useState(false);
   const [telegramExpanded, setTelegramExpanded] = useState(false);
+  const [dangerZoneExpanded, setDangerZoneExpanded] = useState(false);
 
   // Telegram bot
   const [tgBot, setTgBot] = useState<TelegramBotInfo | null>(null);
@@ -935,24 +936,27 @@ export function RoomView() {
 
       {isOrganizer && (
         <section className="section">
-          <div className="section-header">
+          <div className="section-header section-header-collapsible" onClick={() => setDangerZoneExpanded(!dangerZoneExpanded)}>
             <h2>Danger Zone</h2>
+            <span className={`collapse-chevron ${dangerZoneExpanded ? "collapse-chevron-open" : ""}`}>&#9654;</span>
           </div>
-          <button
-            className="btn btn-sm btn-danger"
-            onClick={async () => {
-              if (!confirm("Delete this room and all its data? This cannot be undone.")) return;
-              try {
-                await deleteRoom(roomId!);
-                navigate("/");
-              } catch (err) {
-                console.error("Failed to delete room:", err);
-                alert(err instanceof Error ? err.message : "Failed to delete room");
-              }
-            }}
-          >
-            Delete room
-          </button>
+          {dangerZoneExpanded && (
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={async () => {
+                if (!confirm("Delete this room and all its data? This cannot be undone.")) return;
+                try {
+                  await deleteRoom(roomId!);
+                  navigate("/");
+                } catch (err) {
+                  console.error("Failed to delete room:", err);
+                  alert(err instanceof Error ? err.message : "Failed to delete room");
+                }
+              }}
+            >
+              Delete room
+            </button>
+          )}
         </section>
       )}
 
