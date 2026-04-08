@@ -4,6 +4,7 @@ import {
   getPublicOccurrenceSummary,
   type PublicOccurrenceSummary,
 } from "../api";
+import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate } from "../dateFormat";
@@ -11,6 +12,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 export function OccurrenceSummaryPage() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
+  const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get("invite");
 
@@ -63,6 +65,12 @@ export function OccurrenceSummaryPage() {
 
   return (
     <div className="summary-page">
+      {!authLoading && user && (
+        <div className="summary-auth-banner">
+          <span>You're signed in.</span>
+          <Link to={`/occurrences/${occurrenceId}`}>Open full view &rarr;</Link>
+        </div>
+      )}
       {isCancelled && (
         <div className="summary-cancelled-banner">
           This meeting has been {occ.status}.

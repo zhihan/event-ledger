@@ -65,9 +65,9 @@ export function OccurrenceView() {
         getRoom(occ.room_id),
       ]);
       const role = user?.uid ? ws.member_roles[user.uid] : undefined;
-      const isManager = role === "organizer" || role === "teacher";
+      const isOrganizer = role === "organizer" || role === "teacher";
       let cis: CheckInSummary[];
-      if (isManager) {
+      if (isOrganizer) {
         cis = await getOccurrenceCheckIns(occurrenceId);
       } else {
         const myCheckIn = await getMyOccurrenceCheckIn(occurrenceId);
@@ -197,8 +197,7 @@ export function OccurrenceView() {
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
   const role = user?.uid ? room?.member_roles[user.uid] : undefined;
-  const isManager = role === "organizer" || role === "teacher";
-  const isOrganizer = role === "organizer";
+  const isOrganizer = role === "organizer" || role === "teacher";
   const isPracticeDay = occ.enable_check_in;
   const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
@@ -273,10 +272,10 @@ export function OccurrenceView() {
             </div>
           ) : (
             <h1
-              className={`page-title${isManager ? " page-title-editable" : ""}`}
+              className={`page-title${isOrganizer ? " page-title-editable" : ""}`}
               style={{ margin: 0 }}
-              onClick={isManager ? () => startInlineEdit("title", effectiveTitle) : undefined}
-              title={isManager ? "Click to edit title" : undefined}
+              onClick={isOrganizer ? () => startInlineEdit("title", effectiveTitle) : undefined}
+              title={isOrganizer ? "Click to edit title" : undefined}
             >
               {effectiveTitle}
             </h1>
@@ -302,7 +301,7 @@ export function OccurrenceView() {
       </div>
 
       {/* Status & Actions (manager only) */}
-      {isManager && (
+      {isOrganizer && (
         <section className="section">
           {/* status buttons hidden – issue #114 */}
           {series?.enable_done && (
@@ -346,7 +345,7 @@ export function OccurrenceView() {
       )}
 
       {/* Host */}
-      {(occurrence?.host || (isManager && series?.host_rotation?.length)) && (
+      {(occurrence?.host || isOrganizer) && (
         <section className="section">
           <div className="host-banner">
             <span className="host-label">Hosted by</span>
@@ -377,9 +376,9 @@ export function OccurrenceView() {
               </div>
             ) : (
               <span
-                className={`host-name${isManager ? " page-title-editable" : ""}`}
-                onClick={isManager ? () => startInlineEdit("host", occurrence?.host ?? "") : undefined}
-                title={isManager ? "Click to change host" : undefined}
+                className={`host-name${isOrganizer ? " page-title-editable" : ""}`}
+                onClick={isOrganizer ? () => startInlineEdit("host", occurrence?.host ?? "") : undefined}
+                title={isOrganizer ? "Click to change host" : undefined}
               >
                 {occurrence?.host || "(none)"}
               </span>
@@ -405,21 +404,8 @@ export function OccurrenceView() {
         </section>
       )}
 
-      {/* Add location prompt for "none" series with no location set */}
-      {series?.location_type === "none" && !effectiveLocation && isManager && editingField !== "location" && (
-        <section className="section">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => startInlineEdit("location", "")}
-          >
-            + Add location
-          </button>
-        </section>
-      )}
-
       {/* Location & Link */}
-      {(effectiveLocation || effectiveLink || (isManager && editingField === "location")) && (
+      {(effectiveLocation || effectiveLink || isOrganizer) && (
         <section className="section">
           <div className="section-header">
             <h2>Location</h2>
@@ -444,9 +430,9 @@ export function OccurrenceView() {
               </div>
             ) : effectiveLocation ? (
               <div
-                className={`location-detail-item${isManager ? " page-title-editable" : ""}`}
-                onClick={isManager ? () => startInlineEdit("location", effectiveLocation) : undefined}
-                title={isManager ? "Click to edit location" : undefined}
+                className={`location-detail-item${isOrganizer ? " page-title-editable" : ""}`}
+                onClick={isOrganizer ? () => startInlineEdit("location", effectiveLocation) : undefined}
+                title={isOrganizer ? "Click to edit location" : undefined}
               >
                 <span className="location-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -456,6 +442,14 @@ export function OccurrenceView() {
                 </span>
                 {effectiveLocation}
               </div>
+            ) : isOrganizer ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => startInlineEdit("location", "")}
+              >
+                + Add location
+              </button>
             ) : null}
             {editingField === "online_link" ? (
               <div className="inline-edit-row">
@@ -477,9 +471,9 @@ export function OccurrenceView() {
               </div>
             ) : effectiveLink ? (
               <div
-                className={`location-detail-item${isManager ? " page-title-editable" : ""}`}
-                onClick={isManager ? () => startInlineEdit("online_link", effectiveLink) : undefined}
-                title={isManager ? "Click to edit link" : undefined}
+                className={`location-detail-item${isOrganizer ? " page-title-editable" : ""}`}
+                onClick={isOrganizer ? () => startInlineEdit("online_link", effectiveLink) : undefined}
+                title={isOrganizer ? "Click to edit link" : undefined}
               >
                 <span className="location-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -490,6 +484,14 @@ export function OccurrenceView() {
                   Join online meeting
                 </a>
               </div>
+            ) : isOrganizer ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => startInlineEdit("online_link", "")}
+              >
+                + Add online link
+              </button>
             ) : null}
           </div>
         </section>
@@ -523,14 +525,14 @@ export function OccurrenceView() {
           <>
             <div className="section-header"><h2>Notes</h2></div>
             <p
-              className={`occurrence-notes${isManager ? " page-title-editable" : ""}`}
-              onClick={isManager ? () => startInlineEdit("notes", effectiveNotes) : undefined}
-              title={isManager ? "Click to edit notes" : undefined}
+              className={`occurrence-notes${isOrganizer ? " page-title-editable" : ""}`}
+              onClick={isOrganizer ? () => startInlineEdit("notes", effectiveNotes) : undefined}
+              title={isOrganizer ? "Click to edit notes" : undefined}
             >
               {effectiveNotes}
             </p>
           </>
-        ) : isManager ? (
+        ) : isOrganizer ? (
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -543,7 +545,7 @@ export function OccurrenceView() {
 
       <ResourceLinks
         links={occ.links ?? null}
-        canEdit={isManager}
+        canEdit={isOrganizer}
         onSave={async (links) => {
           if (!occurrenceId) return;
           const updated = await patchOccurrence(occurrenceId, { links });
@@ -579,7 +581,7 @@ export function OccurrenceView() {
       )}
 
       {/* Organizer: check-in report */}
-      {isManager && checkIns.length > 0 && (
+      {isOrganizer && checkIns.length > 0 && (
         <section className="section">
           <div className="section-header">
             <h2>Completions ({checkIns.length})</h2>
@@ -641,7 +643,7 @@ export function OccurrenceView() {
                   {shareCopied ? "Copied!" : "Copy"}
                 </button>
               </div>
-              {isOrganizer && (
+              {role === "organizer" && (
                 <label className="share-invite-toggle">
                   <input
                     type="checkbox"

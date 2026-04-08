@@ -902,6 +902,24 @@ body {
   padding: 16px 12px;
 }
 
+.summary-auth-banner {
+  background: var(--primary-container, #e8def8);
+  color: var(--on-primary-container, #1d192b);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.summary-auth-banner a {
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
 .summary-cancelled-banner {
   background: rgba(179,38,30,0.08);
   color: var(--error);

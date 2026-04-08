@@ -1,4 +1,4 @@
-# Manual Test Script
+# Harness
 
 End-to-end use cases for manual testing. Each case lists **preconditions**, numbered
 **steps**, and **expected results**. Columns marked **Web** and **App** indicate
@@ -372,6 +372,13 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The occurrence detail screen loads with date, time, duration, location, online link, host, and notes.
 
+### 6.1a Occurrence view — organizer controls visible
+
+1. Sign in as an **organizer**.
+2. From the series view, tap any occurrence.
+
+**Expected:** The occurrence detail screen shows organizer controls: editable title (click to edit), host, location, and notes fields, a **Delete occurrence** button, and (if the series has "Done" enabled) a **Show "Done" button** toggle. These controls are not visible to participants.
+
 ### 6.2 Navigate between occurrences — prev / next buttons
 
 1. Open any occurrence that has both a previous and next sibling.
@@ -514,6 +521,13 @@ which surface to test on. Unless noted otherwise, test both.
 2. Navigate directly to an occurrence summary URL (`/occurrences/{id}/summary`).
 
 **Expected:** The page loads without requiring sign-in. All read-only fields (title, date, duration, location, link, notes) display correctly. (The app still requires sign-in for the summary screen.)
+
+### 9.4a View summary while signed in (Web only)
+
+1. Sign in as any user (organizer or participant).
+2. Navigate directly to an occurrence summary URL (`/occurrences/{id}/summary`).
+
+**Expected:** The summary page loads with read-only fields. A banner at the top shows "You're signed in" with a link to open the full occurrence view (`/occurrences/{id}`). Tapping the link navigates to the authenticated occurrence page with the appropriate role-based controls.
 
 ### 9.5 Summary with invite link — join button and QR code (Web only)
 

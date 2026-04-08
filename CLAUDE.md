@@ -121,12 +121,12 @@ login logout
 
 ## Change Review
 
-Every code change must be reviewed against the manual test script at `docs/manual-test-script.md` at two checkpoints:
+Every code change must be reviewed against the harness at `docs/harness.md` at two checkpoints:
 
-1. **Before implementation**: Read the relevant test cases in the manual test script, identify which ones cover the affected functionality, and produce a plan. Present the plan to the user for review before writing any code.
+1. **Before implementation**: Read the relevant test cases in the harness, identify which ones cover the affected functionality, and produce a plan. Present the plan to the user for review before writing any code.
 2. **After implementation**: Re-read the same test cases and verify the change does not break them. Confirm coverage in your summary to the user.
 
-If a change adds new user-facing behavior, add corresponding test cases to the script.
+If a change adds new user-facing behavior, add corresponding test cases to the harness at `docs/harness.md`.
 
 ## Documentation Guidance
 
