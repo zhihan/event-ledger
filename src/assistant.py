@@ -194,6 +194,17 @@ def _execute_query_tool(name: str, args: dict, room_id: str) -> dict:
 # Gemini call (function-calling loop + JSON final response)
 # ---------------------------------------------------------------------------
 
+def _extract_json_object(text: str) -> str:
+    """Pull the first {...} block out of text that may have prose or markdown fences."""
+    start = text.find("{")
+    if start == -1:
+        return text
+    end = text.rfind("}")
+    if end < start:
+        return text[start:]
+    return text[start : end + 1]
+
+
 def _call_ai(contents: list, room_id: str) -> dict:
     from google import genai
     from google.genai import types
@@ -323,7 +334,7 @@ def _call_ai(contents: list, room_id: str) -> dict:
             if not text or not text.strip():
                 raise ValueError("Gemini returned an empty response")
 
-            result = json.loads(text)
+            result = json.loads(_extract_json_object(text))
             if not isinstance(result, dict) or "intent" not in result:
                 raise ValueError(f"Unexpected AI response shape: {result!r}")
             return result
