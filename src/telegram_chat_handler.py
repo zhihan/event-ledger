@@ -64,23 +64,15 @@ async def _answer_callback_query(bot_token: str, callback_query_id: str) -> None
 
 
 def _build_room_context(room_id: str) -> dict | None:
-    """Build a room context dict for the assistant, matching the app's pattern."""
-    from datetime import timedelta
+    """Build a room context dict for the assistant (series metadata only).
 
+    Occurrences are not pre-fetched; the assistant queries them on demand
+    via the list_occurrences / get_occurrence tools.
+    """
     room = room_storage.get_room(room_id)
     if room is None:
         return None
     all_series = series_storage.list_series_for_room(room_id)
-
-    # Include both scheduled and recent past occurrences so the AI can
-    # update agendas for occurrences that just happened or are today.
-    all_occs = series_storage.list_occurrences_for_room(room_id)
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    occs = [
-        o for o in all_occs
-        if o.status == "scheduled" or o.scheduled_for >= cutoff
-    ]
-
     return {
         "room_id": room.room_id,
         "title": room.title,
@@ -96,19 +88,6 @@ def _build_room_context(room_id: str) -> dict | None:
                 "status": s.status,
             }
             for s in all_series
-        ],
-        "upcoming_occurrences": [
-            {
-                "occurrence_id": o.occurrence_id,
-                "series_id": o.series_id,
-                "scheduled_for": o.scheduled_for,
-                "status": o.status,
-                "host": o.host,
-                "location": o.location,
-                "notes": o.overrides.notes if o.overrides else None,
-                "title_override": o.overrides.title if o.overrides else None,
-            }
-            for o in occs[:20]
         ],
     }
 

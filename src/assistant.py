@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "gemini-2.5-flash"
 _MAX_RETRIES = 2
+_MAX_TOOL_ROUNDS = 5
 
 # ---------------------------------------------------------------------------
 # Prompt
@@ -44,11 +45,10 @@ _MAX_RETRIES = 2
 _SYSTEM_PROMPT = """You are an AI assistant for a meeting organizer. Help organizers manage recurring
 meetings, schedules, and materials through natural conversation.
 
-You have access to the room's current data provided in the "Room context" section below.
-Use this data to answer questions about series, occurrences, schedules, hosts, and locations.
-When the user asks about meetings or series, always check the room context first — it contains
-the list of series, upcoming occurrences, and recent past occurrences (last 7 days) for this room.
-You can update agendas/notes for both upcoming AND recent past occurrences.
+The room's series are listed in the "Room context" section. To find specific occurrences,
+use the list_occurrences tool with a series_id and optional date range. Use get_occurrence
+to fetch full details of a specific occurrence. Always look up occurrence IDs via these tools
+before proposing update_occurrence or reschedule_occurrence actions.
 
 Available actions:
   create_series            — create a new recurring meeting series
@@ -62,10 +62,11 @@ Available actions:
   general_question         — answer without performing any state change
 
 For each message:
-  1. Determine the INTENT (one of the six above).
-  2. Write a short, friendly RESPONSE (1-3 sentences).
-  3. If the intent is state-changing, produce a structured ACTION PAYLOAD.
-  4. If no action is needed, set "action" to null.
+  1. If you need occurrence IDs, call list_occurrences (and optionally get_occurrence) first.
+  2. Determine the INTENT (one of the actions above).
+  3. Write a short, friendly RESPONSE (1-3 sentences).
+  4. If the intent is state-changing, produce a structured ACTION PAYLOAD.
+  5. If no action is needed, set "action" to null.
 
 IMPORTANT: When the intent is state-changing, your response_text should describe what
 you WILL do (e.g. "I'll update the agenda for..."), NOT what you HAVE done. The action
@@ -112,34 +113,87 @@ All items will be executed together when the user confirms.
 """
 
 
-def _build_prompt(
+def _build_contents(
     message: str,
     room_context: dict[str, Any] | None,
     history: list[dict[str, str]] | None = None,
-) -> str:
+) -> list:
+    from google.genai import types
     from datetime import datetime, timezone
+
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    ctx = f"\nToday's date: {today}\n"
+    ctx = f"Today's date: {today}\n"
     if room_context:
         ctx += "\nRoom context:\n" + json.dumps(room_context, indent=2, default=str) + "\n"
-    conv = ""
+
+    contents = []
     if history:
-        for turn in history:
-            role = turn.get("role", "user")
+        for i, turn in enumerate(history):
+            role = "model" if turn.get("role") == "assistant" else "user"
             text = turn.get("text", "")
-            if role == "user":
-                conv += f"\nUser: {text}"
-            else:
-                conv += f"\nAssistant: {text}"
-        conv += "\n"
-    return _SYSTEM_PROMPT + ctx + conv + f"\nUser: {message}"
+            if i == 0 and role == "user":
+                text = ctx + text
+            contents.append(types.Content(role=role, parts=[types.Part(text=text)]))
+        contents.append(types.Content(role="user", parts=[types.Part(text=message)]))
+    else:
+        contents.append(types.Content(role="user", parts=[types.Part(text=ctx + message)]))
+
+    return contents
 
 
 # ---------------------------------------------------------------------------
-# Gemini call (JSON mode)
+# Query tools
 # ---------------------------------------------------------------------------
 
-def _call_ai(prompt: str) -> dict:
+def _execute_query_tool(name: str, args: dict, room_id: str) -> dict:
+    """Execute a query tool call against series_storage and return a result dict."""
+    import series_storage as _ss
+    if name == "list_occurrences":
+        series_id = args.get("series_id", "")
+        occs = _ss.list_occurrences_for_series(series_id)
+        after = args.get("scheduled_after")
+        before = args.get("scheduled_before")
+        if after:
+            occs = [o for o in occs if o.scheduled_for >= after]
+        if before:
+            occs = [o for o in occs if o.scheduled_for < before]
+        limit = min(int(args.get("limit", 10)), 50)
+        return {
+            "occurrences": [
+                {
+                    "occurrence_id": o.occurrence_id,
+                    "series_id": o.series_id,
+                    "scheduled_for": o.scheduled_for,
+                    "status": o.status,
+                    "host": o.host,
+                    "location": o.location,
+                    "notes": o.overrides.notes if o.overrides else None,
+                }
+                for o in occs[:limit]
+            ]
+        }
+    if name == "get_occurrence":
+        occ = _ss.get_occurrence(args.get("occurrence_id", ""))
+        if occ is None:
+            return {"error": f"Occurrence not found: {args.get('occurrence_id')}"}
+        return {
+            "occurrence_id": occ.occurrence_id,
+            "series_id": occ.series_id,
+            "scheduled_for": occ.scheduled_for,
+            "status": occ.status,
+            "host": occ.host,
+            "location": occ.location,
+            "notes": occ.overrides.notes if occ.overrides else None,
+            "links": occ.links,
+        }
+    return {"error": f"Unknown tool: {name}"}
+
+
+# ---------------------------------------------------------------------------
+# Gemini call (function-calling loop + JSON final response)
+# ---------------------------------------------------------------------------
+
+def _call_ai(contents: list, room_id: str) -> dict:
     from google import genai
     from google.genai import types
 
@@ -152,31 +206,115 @@ def _call_ai(prompt: str) -> dict:
     model = os.environ.get("GEMINI_MODEL", _DEFAULT_MODEL)
     client = genai.Client(api_key=api_key)
 
+    query_tools = types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="list_occurrences",
+                description="List occurrences for a series, filtered by optional date range.",
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "series_id": types.Schema(
+                            type=types.Type.STRING,
+                            description="Series ID to query",
+                        ),
+                        "scheduled_after": types.Schema(
+                            type=types.Type.STRING,
+                            description="ISO 8601 UTC lower bound (inclusive)",
+                        ),
+                        "scheduled_before": types.Schema(
+                            type=types.Type.STRING,
+                            description="ISO 8601 UTC upper bound (exclusive)",
+                        ),
+                        "limit": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="Max results to return (default 10, max 50)",
+                        ),
+                    },
+                    required=["series_id"],
+                ),
+            ),
+            types.FunctionDeclaration(
+                name="get_occurrence",
+                description="Get full details of a single occurrence by ID.",
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "occurrence_id": types.Schema(
+                            type=types.Type.STRING,
+                            description="Occurrence ID",
+                        ),
+                    },
+                    required=["occurrence_id"],
+                ),
+            ),
+        ]
+    )
+
+    config = types.GenerateContentConfig(
+        system_instruction=_SYSTEM_PROMPT,
+        tools=[query_tools],
+    )
+
     last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES):
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-            ),
-        )
-        text = response.text
-        if not text or not text.strip():
-            last_exc = ValueError("Gemini returned an empty response")
-            logger.warning("assistant AI attempt %d: empty response", attempt + 1)
-            continue
+        working_contents = list(contents)
+        response = None
         try:
+            for _ in range(_MAX_TOOL_ROUNDS):
+                response = client.models.generate_content(
+                    model=model,
+                    contents=working_contents,
+                    config=config,
+                )
+                working_contents.append(response.candidates[0].content)
+
+                fn_calls = [
+                    p for p in (response.candidates[0].content.parts or [])
+                    if p.function_call
+                ]
+                if not fn_calls:
+                    break
+
+                tool_parts = []
+                for part in fn_calls:
+                    result = _execute_query_tool(
+                        part.function_call.name,
+                        dict(part.function_call.args),
+                        room_id,
+                    )
+                    logger.info(
+                        "Tool %s args=%s → %d keys",
+                        part.function_call.name,
+                        dict(part.function_call.args),
+                        len(result),
+                    )
+                    tool_parts.append(
+                        types.Part(
+                            function_response=types.FunctionResponse(
+                                name=part.function_call.name,
+                                response=result,
+                            )
+                        )
+                    )
+                working_contents.append(types.Content(role="user", parts=tool_parts))
+
+            if response is None:
+                raise ValueError("No response from AI")
+
+            text = response.text
+            if not text or not text.strip():
+                raise ValueError("Gemini returned an empty response")
+
             result = json.loads(text)
-        except (json.JSONDecodeError, TypeError) as exc:
+            if not isinstance(result, dict) or "intent" not in result:
+                raise ValueError(f"Unexpected AI response shape: {result!r}")
+            return result
+
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             last_exc = exc
-            logger.warning("assistant AI attempt %d: invalid JSON: %s", attempt + 1, exc)
+            logger.warning("assistant AI attempt %d failed: %s", attempt + 1, exc)
             continue
-        if not isinstance(result, dict) or "intent" not in result:
-            last_exc = ValueError(f"Unexpected AI response shape: {result!r}")
-            logger.warning("assistant AI attempt %d: bad shape", attempt + 1)
-            continue
-        return result
 
     raise last_exc or ValueError("AI call failed after retries")
 
@@ -240,9 +378,9 @@ def run_assistant_stream(
     """Stream assistant events for an organizer message."""
     yield {"type": "status", "message": "Thinking\u2026"}
 
-    prompt = _build_prompt(message, room_context, history)
+    contents = _build_contents(message, room_context, history)
     try:
-        ai_result = _call_ai(prompt)
+        ai_result = _call_ai(contents, room_id)
     except Exception as exc:
         logger.exception("AI call failed in assistant stream")
         yield {"type": "error", "message": str(exc)}
