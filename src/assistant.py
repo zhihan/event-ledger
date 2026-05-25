@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "gemini-2.5-flash"
 _MAX_RETRIES = 2
-_MAX_TOOL_ROUNDS = 5
+_MAX_TOOL_ROUNDS = 15
 
 # ---------------------------------------------------------------------------
 # Prompt
@@ -46,9 +46,10 @@ _SYSTEM_PROMPT = """You are an AI assistant for a meeting organizer. Help organi
 meetings, schedules, and materials through natural conversation.
 
 The room's series are listed in the "Room context" section. To find specific occurrences,
-use the list_occurrences tool with a series_id and optional date range. Use get_occurrence
-to fetch full details of a specific occurrence. Always look up occurrence IDs via these tools
-before proposing update_occurrence or reschedule_occurrence actions.
+use the list_occurrences tool with a series_id and optional date range. list_occurrences
+already returns occurrence_id, scheduled_for, host, location, and notes — that is enough
+to propose update_occurrence or reschedule_occurrence actions for any number of occurrences.
+Only call get_occurrence when you specifically need the links field for a single occurrence.
 
 Available actions:
   create_series            — create a new recurring meeting series
@@ -62,7 +63,7 @@ Available actions:
   general_question         — answer without performing any state change
 
 For each message:
-  1. If you need occurrence IDs, call list_occurrences (and optionally get_occurrence) first.
+  1. If you need occurrence data, call list_occurrences first. Avoid get_occurrence unless you need the links field.
   2. Determine the INTENT (one of the actions above).
   3. Write a short, friendly RESPONSE (1-3 sentences).
   4. If the intent is state-changing, produce a structured ACTION PAYLOAD.
@@ -260,6 +261,7 @@ def _call_ai(contents: list, room_id: str) -> dict:
     for attempt in range(_MAX_RETRIES):
         working_contents = list(contents)
         response = None
+        text: str | None = None
         try:
             for _ in range(_MAX_TOOL_ROUNDS):
                 response = client.models.generate_content(
@@ -298,6 +300,21 @@ def _call_ai(contents: list, room_id: str) -> dict:
                         )
                     )
                 working_contents.append(types.Content(role="user", parts=tool_parts))
+            else:
+                # Loop exhausted all rounds without a clean text response.
+                # Do one final call without tools so the model is forced to produce JSON.
+                logger.warning(
+                    "Tool call loop exhausted after %d rounds; doing final text-only call",
+                    _MAX_TOOL_ROUNDS,
+                )
+                text_only_config = types.GenerateContentConfig(
+                    system_instruction=_SYSTEM_PROMPT,
+                )
+                response = client.models.generate_content(
+                    model=model,
+                    contents=working_contents,
+                    config=text_only_config,
+                )
 
             if response is None:
                 raise ValueError("No response from AI")
@@ -313,7 +330,10 @@ def _call_ai(contents: list, room_id: str) -> dict:
 
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             last_exc = exc
-            logger.warning("assistant AI attempt %d failed: %s", attempt + 1, exc)
+            logger.warning(
+                "assistant AI attempt %d failed: %s | raw response text: %r",
+                attempt + 1, exc, text,
+            )
             continue
 
     raise last_exc or ValueError("AI call failed after retries")
