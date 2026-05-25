@@ -3,23 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, patch
 
 from models import (
     ChatSession,
-    ChatTurn,
     Room,
     TelegramBotConfig,
-    TelegramUserLink,
 )
-
-
-def _utcnow():
-    return datetime.now(timezone.utc)
 
 
 def _make_bot_config(mode="read_write", **kwargs) -> TelegramBotConfig:
@@ -92,7 +82,6 @@ class TestHandleTelegramMessage:
             mock_storage.get_recent_turns.return_value = []
             mock_room_storage.get_room.return_value = _make_room()
             mock_series_storage.list_series_for_room.return_value = []
-            mock_series_storage.list_occurrences_for_room.return_value = []
             mock_stream.return_value = iter([
                 {"type": "text_chunk", "text": "Your next meeting is tomorrow."},
                 {"type": "done"},
@@ -148,7 +137,6 @@ class TestHandleTelegramMessage:
             mock_storage.get_recent_turns.return_value = []
             mock_room_storage.get_room.return_value = _make_room()
             mock_series_storage.list_series_for_room.return_value = []
-            mock_series_storage.list_occurrences_for_room.return_value = []
             mock_stream.return_value = iter([
                 {"type": "text_chunk", "text": "I'll create that series."},
                 {"type": "action_proposal", "action_id": "act-1",
@@ -186,7 +174,6 @@ class TestHandleTelegramMessage:
             mock_storage.get_recent_turns.return_value = []
             mock_room_storage.get_room.return_value = _make_room()
             mock_series_storage.list_series_for_room.return_value = []
-            mock_series_storage.list_occurrences_for_room.return_value = []
             mock_stream.return_value = iter([
                 {"type": "text_chunk", "text": "I'll create that."},
                 {"type": "action_proposal", "action_id": "act-1",
@@ -231,7 +218,6 @@ class TestHandleTelegramMessage:
             mock_storage.get_recent_turns.return_value = []
             mock_room_storage.get_room.return_value = _make_room()
             mock_series_storage.list_series_for_room.return_value = []
-            mock_series_storage.list_occurrences_for_room.return_value = []
 
             from telegram_chat_handler import handle_telegram_message
             _run(handle_telegram_message(
@@ -262,7 +248,6 @@ class TestHandleTelegramMessage:
             mock_storage.get_recent_turns.return_value = []
             mock_room_storage.get_room.return_value = _make_room(room_id="rm-correct")
             mock_series_storage.list_series_for_room.return_value = []
-            mock_series_storage.list_occurrences_for_room.return_value = []
             mock_stream.return_value = iter([
                 {"type": "text_chunk", "text": "ok"},
                 {"type": "done"},
@@ -280,6 +265,24 @@ class TestHandleTelegramMessage:
         mock_room_storage.get_room.assert_called_with("rm-correct")
         call_kwargs = mock_stream.call_args
         assert call_kwargs[1]["room_id"] == "rm-correct"
+
+    def test_room_context_does_not_prefetch_occurrences(self):
+        """_build_room_context should only fetch series, not occurrences."""
+        from telegram_chat_handler import _build_room_context
+
+        with (
+            patch("telegram_chat_handler.room_storage") as mock_room_storage,
+            patch("telegram_chat_handler.series_storage") as mock_series_storage,
+        ):
+            mock_room_storage.get_room.return_value = _make_room()
+            mock_series_storage.list_series_for_room.return_value = []
+
+            ctx = _build_room_context("rm-1")
+
+        assert ctx is not None
+        assert "series" in ctx
+        assert "upcoming_occurrences" not in ctx
+        mock_series_storage.list_occurrences_for_room.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

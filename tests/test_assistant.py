@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from assistant import _execute_query_tool
 from assistant_actions import (
     ACTION_TTL_SECONDS,
     PendingAction,
@@ -502,3 +503,65 @@ class TestAssistantAPI:
         data = resp.json()
         assert data["status"] == "executed"
         assert data["result"]["material_kind"] == "notes"
+
+
+# ---------------------------------------------------------------------------
+# _execute_query_tool
+# ---------------------------------------------------------------------------
+
+class TestExecuteQueryTool:
+    def _make_occurrence(self, occ_id="occ-1", series_id="s-1", scheduled_for="2026-06-01T10:00:00+00:00"):
+        from models import Occurrence
+        return Occurrence(
+            occurrence_id=occ_id,
+            series_id=series_id,
+            room_id="rm-1",
+            scheduled_for=scheduled_for,
+            host="Alice",
+        )
+
+    def test_list_occurrences_returns_summaries(self):
+        occ = self._make_occurrence()
+        with patch("series_storage.list_occurrences_for_series", return_value=[occ]):
+            result = _execute_query_tool("list_occurrences", {"series_id": "s-1"}, "rm-1")
+        assert len(result["occurrences"]) == 1
+        assert result["occurrences"][0]["occurrence_id"] == "occ-1"
+        assert result["occurrences"][0]["host"] == "Alice"
+
+    def test_list_occurrences_date_filter(self):
+        occs = [
+            self._make_occurrence("occ-1", scheduled_for="2026-05-01T10:00:00+00:00"),
+            self._make_occurrence("occ-2", scheduled_for="2026-06-01T10:00:00+00:00"),
+            self._make_occurrence("occ-3", scheduled_for="2026-07-01T10:00:00+00:00"),
+        ]
+        with patch("series_storage.list_occurrences_for_series", return_value=occs):
+            result = _execute_query_tool(
+                "list_occurrences",
+                {"series_id": "s-1", "scheduled_after": "2026-05-15T00:00:00+00:00", "scheduled_before": "2026-06-15T00:00:00+00:00"},
+                "rm-1",
+            )
+        assert len(result["occurrences"]) == 1
+        assert result["occurrences"][0]["occurrence_id"] == "occ-2"
+
+    def test_list_occurrences_respects_limit(self):
+        occs = [self._make_occurrence(f"occ-{i}") for i in range(20)]
+        with patch("series_storage.list_occurrences_for_series", return_value=occs):
+            result = _execute_query_tool("list_occurrences", {"series_id": "s-1", "limit": 5}, "rm-1")
+        assert len(result["occurrences"]) == 5
+
+    def test_get_occurrence_found(self):
+        occ = self._make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ):
+            result = _execute_query_tool("get_occurrence", {"occurrence_id": "occ-1"}, "rm-1")
+        assert result["occurrence_id"] == "occ-1"
+        assert result["host"] == "Alice"
+
+    def test_get_occurrence_not_found(self):
+        with patch("series_storage.get_occurrence", return_value=None):
+            result = _execute_query_tool("get_occurrence", {"occurrence_id": "missing"}, "rm-1")
+        assert "error" in result
+        assert "missing" in result["error"]
+
+    def test_unknown_tool(self):
+        result = _execute_query_tool("do_something", {}, "rm-1")
+        assert "error" in result
