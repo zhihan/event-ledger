@@ -266,7 +266,6 @@ def _call_ai(contents: list, room_id: str) -> dict:
     config = types.GenerateContentConfig(
         system_instruction=_SYSTEM_PROMPT,
         tools=[query_tools],
-        response_mime_type="application/json",
     )
 
     last_exc: Exception | None = None
@@ -321,7 +320,6 @@ def _call_ai(contents: list, room_id: str) -> dict:
                 )
                 text_only_config = types.GenerateContentConfig(
                     system_instruction=_SYSTEM_PROMPT,
-                    response_mime_type="application/json",
                 )
                 response = client.models.generate_content(
                     model=model,
