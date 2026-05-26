@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import uuid
 from typing import Any, Generator
 
 from assistant_actions import (
@@ -146,7 +147,7 @@ def _build_contents(
 # Query tools
 # ---------------------------------------------------------------------------
 
-def _execute_query_tool(name: str, args: dict, room_id: str) -> dict:
+def _execute_query_tool(name: str, args: dict, room_id: str, trace_id: str = "") -> dict:
     """Execute a query tool call against series_storage and return a result dict."""
     import series_storage as _ss
     if name == "list_occurrences":
@@ -205,7 +206,7 @@ def _extract_json_object(text: str) -> str:
     return text[start : end + 1]
 
 
-def _call_ai(contents: list, room_id: str) -> dict:
+def _call_ai(contents: list, room_id: str, trace_id: str = "") -> dict:
     from google import genai
     from google.genai import types
 
@@ -295,13 +296,24 @@ def _call_ai(contents: list, room_id: str) -> dict:
                         part.function_call.name,
                         dict(part.function_call.args),
                         room_id,
+                        trace_id,
                     )
-                    logger.info(
-                        "Tool %s args=%s → %d keys",
-                        part.function_call.name,
-                        dict(part.function_call.args),
-                        len(result),
-                    )
+                    if "error" in result:
+                        logger.warning(
+                            "[trace=%s] Tool %s args=%s returned error: %s",
+                            trace_id,
+                            part.function_call.name,
+                            dict(part.function_call.args),
+                            result["error"],
+                        )
+                    else:
+                        logger.info(
+                            "[trace=%s] Tool %s args=%s → %d keys",
+                            trace_id,
+                            part.function_call.name,
+                            dict(part.function_call.args),
+                            len(result),
+                        )
                     tool_parts.append(
                         types.Part(
                             function_response=types.FunctionResponse(
@@ -315,7 +327,8 @@ def _call_ai(contents: list, room_id: str) -> dict:
                 # Loop exhausted all rounds without a clean text response.
                 # Do one final call without tools so the model is forced to produce JSON.
                 logger.warning(
-                    "Tool call loop exhausted after %d rounds; doing final text-only call",
+                    "[trace=%s] Tool call loop exhausted after %d rounds; doing final text-only call",
+                    trace_id,
                     _MAX_TOOL_ROUNDS,
                 )
                 text_only_config = types.GenerateContentConfig(
@@ -342,8 +355,8 @@ def _call_ai(contents: list, room_id: str) -> dict:
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             last_exc = exc
             logger.warning(
-                "assistant AI attempt %d failed: %s | raw response text: %r",
-                attempt + 1, exc, text,
+                "[trace=%s] assistant AI attempt %d failed: %s | raw response text: %r",
+                trace_id, attempt + 1, exc, text,
             )
             continue
 
@@ -407,22 +420,29 @@ def run_assistant_stream(
     history: list[dict[str, str]] | None = None,
 ) -> Generator[dict, None, None]:
     """Stream assistant events for an organizer message."""
+    trace_id = uuid.uuid4().hex[:12]
+    logger.info(
+        "[trace=%s] assistant stream start room=%s uid=%s", trace_id, room_id, uid
+    )
     yield {"type": "status", "message": "Thinking\u2026"}
 
     contents = _build_contents(message, room_context, history)
     try:
-        ai_result = _call_ai(contents, room_id)
+        ai_result = _call_ai(contents, room_id, trace_id)
     except Exception as exc:
-        logger.exception("AI call failed in assistant stream")
-        yield {"type": "error", "message": str(exc)}
+        logger.exception("[trace=%s] AI call failed in assistant stream", trace_id)
+        yield {"type": "error", "message": str(exc), "trace_id": trace_id}
         return
 
     intent = ai_result.get("intent", "general_question")
     response_text = ai_result.get("response_text", "")
     ai_action = ai_result.get("action")
 
-    logger.info("AI result: intent=%s, has_action=%s, action=%s",
-                intent, ai_action is not None, json.dumps(ai_action, default=str)[:500] if ai_action else None)
+    logger.info(
+        "[trace=%s] AI result: intent=%s, has_action=%s, action=%s",
+        trace_id, intent, ai_action is not None,
+        json.dumps(ai_action, default=str)[:500] if ai_action else None,
+    )
 
     if response_text:
         yield {"type": "text_chunk", "text": response_text}
@@ -441,7 +461,13 @@ def run_assistant_stream(
                     "payload": actions[0].payload,
                 }
         except Exception as exc:
-            logger.exception("Failed to build/save action proposal")
-            yield {"type": "status", "message": f"Could not prepare action: {exc}"}
+            logger.exception(
+                "[trace=%s] Failed to build/save action proposal", trace_id
+            )
+            yield {
+                "type": "error",
+                "message": f"Could not prepare action: {exc}",
+                "trace_id": trace_id,
+            }
 
     yield {"type": "done"}

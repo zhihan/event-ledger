@@ -158,6 +158,15 @@ export function AssistantChat({ roomId, context }: Props) {
                   payload: event.payload as Record<string, unknown>,
                 },
               }));
+            } else if (event.type === "error") {
+              const errMsg = (event.message as string) || "Something went wrong";
+              const traceId = event.trace_id as string | undefined;
+              setError(traceId ? `${errMsg} (trace: ${traceId})` : errMsg);
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant" && !last.text) return prev.slice(0, -1);
+                return prev;
+              });
             }
           } catch (err) {
             console.warn("Failed to parse SSE chunk:", trimmedLine, err);

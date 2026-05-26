@@ -141,13 +141,20 @@ async def handle_telegram_message(
                 # In read_only mode, discard action proposals
             elif event_type == "error":
                 error_msg = event.get("message", "unknown error")
+                trace_id = event.get("trace_id", "")
                 logger.error(
-                    "Assistant error for room %s: %s",
+                    "[trace=%s] Assistant error for room %s: %s",
+                    trace_id,
                     bot_config.room_id,
                     error_msg,
                 )
-                if not response_text:
-                    response_text = f"Sorry, something went wrong: {error_msg}"
+                suffix = f"\nTrace: {trace_id}" if trace_id else ""
+                if response_text:
+                    response_text = (
+                        f"{response_text}\n\nCould not complete: {error_msg}{suffix}"
+                    )
+                else:
+                    response_text = f"Sorry, something went wrong: {error_msg}{suffix}"
     except Exception as exc:
         logger.exception("Assistant stream failed for room %s", bot_config.room_id)
         response_text = f"Sorry, something went wrong: {exc}"

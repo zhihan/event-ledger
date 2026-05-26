@@ -489,6 +489,7 @@ export interface AssistantEvent {
   action_type?: string;
   preview_summary?: string;
   payload?: Record<string, unknown>;
+  trace_id?: string;
 }
 
 /**
