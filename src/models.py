@@ -1,12 +1,10 @@
-"""Domain models for the pivot to a recurring-schedule platform.
+"""Domain models for the recurring-schedule platform.
 
-New vocabulary:
-- Room       (replaces Workspace/Page)
+Core vocabulary:
+- Room       (top-level container for a group)
 - Series     (a recurring schedule)
 - Occurrence (a single instance of a Series)
 - CheckIn    (participant attendance/confirmation)
-- NotificationRule  (per-room delivery preferences)
-- DeliveryLog       (immutable record of a sent notification)
 """
 
 from __future__ import annotations
@@ -30,8 +28,6 @@ SeriesStatus = Literal["active", "paused", "archived"]
 OccurrenceStatus = Literal["scheduled", "cancelled", "completed", "rescheduled"]
 CheckInStatus = Literal["pending", "confirmed", "declined", "missed"]
 MemberRole = Literal["organizer", "participant", "teacher", "assistant", "student"]
-NotificationChannel = Literal["email", "in_app", "telegram", "calendar"]
-DeliveryStatus = Literal["pending", "sent", "failed", "skipped"]
 BotMode = Literal["read_only", "read_write"]
 
 
@@ -423,111 +419,6 @@ class CheckIn:
             note=data.get("note"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
-        )
-
-
-# ---------------------------------------------------------------------------
-# NotificationRule
-# ---------------------------------------------------------------------------
-
-@dataclass
-class NotificationRule:
-    """Per-room rule controlling when and how notifications are sent.
-
-    Maps to the Firestore ``notification_rules`` collection.
-    """
-
-    rule_id: str
-    room_id: str
-    series_id: str | None  # None means room-level default
-    channel: NotificationChannel
-    # Minutes before the occurrence to send the reminder (e.g. 60 = 1 hour before)
-    remind_before_minutes: int
-    enabled: bool = True
-    # Optional: restrict delivery to specific member roles
-    target_roles: list[MemberRole] = field(default_factory=list)
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-    def to_dict(self) -> dict:
-        now = _utcnow()
-        return {
-            "rule_id": self.rule_id,
-            "room_id": self.room_id,
-            "series_id": self.series_id,
-            "channel": self.channel,
-            "remind_before_minutes": self.remind_before_minutes,
-            "enabled": self.enabled,
-            "target_roles": self.target_roles,
-            "created_at": self.created_at or now,
-            "updated_at": self.updated_at or now,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> NotificationRule:
-        return cls(
-            rule_id=data["rule_id"],
-            room_id=data.get("room_id") or data.get("workspace_id", ""),
-            series_id=data.get("series_id"),
-            channel=data["channel"],
-            remind_before_minutes=int(data["remind_before_minutes"]),
-            enabled=bool(data.get("enabled", True)),
-            target_roles=list(data.get("target_roles", [])),
-            created_at=data.get("created_at"),
-            updated_at=data.get("updated_at"),
-        )
-
-
-# ---------------------------------------------------------------------------
-# DeliveryLog
-# ---------------------------------------------------------------------------
-
-@dataclass
-class DeliveryLog:
-    """Immutable audit record for each notification delivery attempt.
-
-    Maps to the Firestore ``delivery_logs`` collection.
-    """
-
-    log_id: str
-    rule_id: str
-    occurrence_id: str
-    room_id: str
-    recipient_uid: str
-    channel: NotificationChannel
-    status: DeliveryStatus
-    sent_at: datetime | None = None
-    error: str | None = None
-    created_at: datetime | None = None
-
-    def to_dict(self) -> dict:
-        now = _utcnow()
-        return {
-            "log_id": self.log_id,
-            "rule_id": self.rule_id,
-            "occurrence_id": self.occurrence_id,
-            "room_id": self.room_id,
-            "recipient_uid": self.recipient_uid,
-            "channel": self.channel,
-            "status": self.status,
-            "sent_at": self.sent_at,
-            "error": self.error,
-            "created_at": self.created_at or now,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> DeliveryLog:
-        return cls(
-            log_id=data["log_id"],
-            rule_id=data["rule_id"],
-            occurrence_id=data["occurrence_id"],
-            room_id=data.get("room_id") or data.get("workspace_id", ""),
-            recipient_uid=data["recipient_uid"],
-            channel=data["channel"],
-            status=data["status"],
-            sent_at=data.get("sent_at"),
-            error=data.get("error"),
-            created_at=data.get("created_at"),
         )
 
 

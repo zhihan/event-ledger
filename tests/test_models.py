@@ -12,8 +12,6 @@ import pytest
 
 from models import (
     CheckIn,
-    DeliveryLog,
-    NotificationRule,
     Occurrence,
     OccurrenceOverrides,
     ScheduleRule,
@@ -245,73 +243,3 @@ class TestCheckIn:
         assert restored.note == "Running 5 min late"
 
 
-# ---------------------------------------------------------------------------
-# NotificationRule
-# ---------------------------------------------------------------------------
-
-class TestNotificationRule:
-    def test_roundtrip(self):
-        rule = NotificationRule(
-            rule_id="rule-1",
-            room_id="rm-1",
-            series_id="series-1",
-            channel="email",
-            remind_before_minutes=60,
-            target_roles=["participant", "organizer"],
-        )
-        restored = NotificationRule.from_dict(rule.to_dict())
-        assert restored.rule_id == "rule-1"
-        assert restored.channel == "email"
-        assert restored.remind_before_minutes == 60
-        assert restored.target_roles == ["participant", "organizer"]
-        assert restored.enabled is True
-
-    def test_room_level_rule(self):
-        rule = NotificationRule(
-            rule_id="rule-2",
-            room_id="rm-1",
-            series_id=None,
-            channel="in_app",
-            remind_before_minutes=30,
-        )
-        restored = NotificationRule.from_dict(rule.to_dict())
-        assert restored.series_id is None
-
-
-# ---------------------------------------------------------------------------
-# DeliveryLog
-# ---------------------------------------------------------------------------
-
-class TestDeliveryLog:
-    def test_roundtrip_sent(self):
-        sent_at = datetime(2026, 4, 1, 13, 0, 0, tzinfo=timezone.utc)
-        log = DeliveryLog(
-            log_id="log-1",
-            rule_id="rule-1",
-            occurrence_id="occ-1",
-            room_id="rm-1",
-            recipient_uid="uid-bob",
-            channel="email",
-            status="sent",
-            sent_at=sent_at,
-        )
-        restored = DeliveryLog.from_dict(log.to_dict())
-        assert restored.log_id == "log-1"
-        assert restored.status == "sent"
-        assert restored.sent_at == sent_at
-        assert restored.error is None
-
-    def test_roundtrip_failed(self):
-        log = DeliveryLog(
-            log_id="log-2",
-            rule_id="rule-1",
-            occurrence_id="occ-1",
-            room_id="rm-1",
-            recipient_uid="uid-bob",
-            channel="email",
-            status="failed",
-            error="SMTP connection refused",
-        )
-        restored = DeliveryLog.from_dict(log.to_dict())
-        assert restored.status == "failed"
-        assert restored.error == "SMTP connection refused"

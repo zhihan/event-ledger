@@ -1,4 +1,4 @@
-"""Firestore-backed storage for Series, Occurrences, CheckIns, and delivery logs."""
+"""Firestore-backed storage for Series, Occurrences, and CheckIns."""
 
 from __future__ import annotations
 
@@ -7,13 +7,11 @@ from datetime import datetime, timezone
 from typing import Sequence
 
 from db import get_client as _get_client
-from models import CheckIn, DeliveryLog, NotificationRule, Occurrence, Series
+from models import CheckIn, Occurrence, Series
 
 SERIES_COLLECTION = "series"
 OCCURRENCES_COLLECTION = "occurrences"
 CHECK_INS_COLLECTION = "check_ins"
-NOTIFICATION_RULES_COLLECTION = "notification_rules"
-DELIVERY_LOGS_COLLECTION = "delivery_logs"
 
 
 def _utcnow() -> datetime:
@@ -116,13 +114,8 @@ def update_occurrence(occurrence_id: str, updates: dict) -> Occurrence:
 
 
 def delete_occurrence(occurrence_id: str) -> None:
-    """Hard-delete an Occurrence and its associated delivery logs and check-ins."""
+    """Hard-delete an Occurrence and its associated check-ins."""
     db = _get_client()
-    # Remove delivery logs tied to this occurrence
-    for doc in db.collection(DELIVERY_LOGS_COLLECTION).where(
-        "occurrence_id", "==", occurrence_id
-    ).stream():
-        doc.reference.delete()
     # Remove check-ins tied to this occurrence
     for doc in db.collection(CHECK_INS_COLLECTION).where(
         "occurrence_id", "==", occurrence_id
@@ -251,70 +244,6 @@ def get_check_in_for_user(occurrence_id: str, user_id: str) -> CheckIn | None:
     for doc in docs:
         return CheckIn.from_dict(doc.to_dict())
     return None
-
-
-# ---------------------------------------------------------------------------
-# NotificationRule CRUD
-# ---------------------------------------------------------------------------
-
-def save_notification_rule(rule: NotificationRule) -> NotificationRule:
-    """Upsert a NotificationRule."""
-    db = _get_client()
-    now = _utcnow()
-    if rule.created_at is None:
-        rule.created_at = now
-    rule.updated_at = now
-    db.collection(NOTIFICATION_RULES_COLLECTION).document(rule.rule_id).set(
-        rule.to_dict()
-    )
-    return rule
-
-
-def get_notification_rule(rule_id: str) -> NotificationRule | None:
-    """Fetch a NotificationRule by ID."""
-    db = _get_client()
-    doc = db.collection(NOTIFICATION_RULES_COLLECTION).document(rule_id).get()
-    if not doc.exists:
-        return None
-    return NotificationRule.from_dict(doc.to_dict())
-
-
-def list_notification_rules_for_room(room_id: str) -> list[NotificationRule]:
-    """Return all enabled NotificationRules for a room."""
-    db = _get_client()
-    docs = (
-        db.collection(NOTIFICATION_RULES_COLLECTION)
-        .where("room_id", "==", room_id)
-        .stream()
-    )
-    return [NotificationRule.from_dict(doc.to_dict()) for doc in docs]
-
-
-# ---------------------------------------------------------------------------
-# DeliveryLog (append-only)
-# ---------------------------------------------------------------------------
-
-def append_delivery_log(log: DeliveryLog) -> DeliveryLog:
-    """Write an immutable DeliveryLog entry."""
-    db = _get_client()
-    now = _utcnow()
-    if log.created_at is None:
-        log.created_at = now
-    db.collection(DELIVERY_LOGS_COLLECTION).document(log.log_id).set(log.to_dict())
-    return log
-
-
-def list_delivery_logs_for_occurrence(occurrence_id: str) -> list[DeliveryLog]:
-    """Return all delivery log entries for a specific Occurrence."""
-    db = _get_client()
-    docs = (
-        db.collection(DELIVERY_LOGS_COLLECTION)
-        .where("occurrence_id", "==", occurrence_id)
-        .stream()
-    )
-    results = [DeliveryLog.from_dict(doc.to_dict()) for doc in docs]
-    results.sort(key=lambda d: d.created_at or datetime.min.replace(tzinfo=timezone.utc))
-    return results
 
 
 def list_check_ins_for_user_in_room(user_id: str, room_id: str) -> list[CheckIn]:

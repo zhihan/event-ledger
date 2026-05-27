@@ -38,8 +38,6 @@ Small Group is a recurring-schedule platform built on Firebase and Firestore. Th
   Series, occurrence, check-in, notification rule, and delivery log storage.
 - `src/study_storage.py`
   Cohort, badge, and streak snapshot storage.
-- `src/delivery_storage.py`
-  Delivery log queries for the notification scheduler.
 
 ## Development
 

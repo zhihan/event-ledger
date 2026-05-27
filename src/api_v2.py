@@ -1125,69 +1125,6 @@ def delete_check_in(
 
 
 # ---------------------------------------------------------------------------
-# Notification rule endpoints
-# ---------------------------------------------------------------------------
-
-class CreateNotificationRuleRequest(BaseModel):
-    channel: str  # email | in_app | telegram | calendar
-    remind_before_minutes: int
-    series_id: Optional[str] = None
-    target_roles: list[str] = []
-    enabled: bool = True
-
-
-@router.get('/rooms/{room_id}/notification-rules')
-def list_notification_rules(
-    room_id: str,
-    token: dict = Depends(_require_token),
-) -> dict:
-    rm = _get_room_or_404(room_id)
-    _require_member(rm, token['uid'])
-    import series_storage as _ss
-    rules = _ss.list_notification_rules_for_room(room_id)
-    return {'room_id': room_id, 'rules': [r.to_dict() for r in rules]}
-
-
-@router.post('/rooms/{room_id}/notification-rules', status_code=201)
-def create_notification_rule(
-    room_id: str,
-    body: CreateNotificationRuleRequest,
-    token: dict = Depends(_require_token),
-) -> dict:
-    rm = _get_room_or_404(room_id)
-    _require_organizer(rm, token['uid'])
-    from models import NotificationRule
-    import series_storage as _ss
-    rule = NotificationRule(
-        rule_id=str(uuid.uuid4()),
-        room_id=room_id,
-        series_id=body.series_id,
-        channel=body.channel,
-        remind_before_minutes=body.remind_before_minutes,
-        enabled=body.enabled,
-        target_roles=body.target_roles,
-    )
-    _ss.save_notification_rule(rule)
-    return rule.to_dict()
-
-
-@router.delete('/notification-rules/{rule_id}', status_code=204)
-def delete_notification_rule(
-    rule_id: str,
-    token: dict = Depends(_require_token),
-) -> None:
-    import series_storage as _ss
-    from db import get_client
-    rule = _ss.get_notification_rule(rule_id)
-    if rule is None:
-        raise HTTPException(status_code=404, detail='NotificationRule not found')
-    rm = _get_room_or_404(rule.room_id)
-    _require_organizer(rm, token['uid'])
-    db = get_client()
-    db.collection(_ss.NOTIFICATION_RULES_COLLECTION).document(rule_id).delete()
-
-
-# ---------------------------------------------------------------------------
 # ICS export endpoints
 # ---------------------------------------------------------------------------
 
