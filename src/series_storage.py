@@ -57,8 +57,15 @@ def update_series(series_id: str, updates: dict) -> Series:
 
 
 def delete_series(series_id: str) -> None:
-    """Hard-delete a Series document."""
+    """Hard-delete a Series document and all associated occurrences."""
     db = _get_client()
+    occurrence_docs = (
+        db.collection(OCCURRENCES_COLLECTION)
+        .where("series_id", "==", series_id)
+        .stream()
+    )
+    for doc in occurrence_docs:
+        delete_occurrence(doc.id)
     db.collection(SERIES_COLLECTION).document(series_id).delete()
 
 
