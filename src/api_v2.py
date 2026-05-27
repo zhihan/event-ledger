@@ -168,6 +168,7 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
     for uid, role in member_roles.items():
         display_name = None
         email = None
+        lookup_error = firebase_auth is None
         if firebase_auth is not None:
             try:
                 user = firebase_auth.get_user(uid)
@@ -175,11 +176,13 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
                 email = user.email
             except Exception:
                 logger.warning("Failed to look up Firebase user %s", uid, exc_info=True)
+                lookup_error = True
         details.append({
             "uid": uid,
             "role": role,
             "display_name": display_name,
             "email": email,
+            "lookup_error": lookup_error,
         })
     return details
 
@@ -191,11 +194,19 @@ def _merge_member_details(room: Room) -> list[dict]:
     for uid, role in room.member_roles.items():
         stored = room.member_profiles.get(uid, {})
         runtime = runtime_details.get(uid, {})
+        display_name = stored.get("display_name") or runtime.get("display_name")
+        email = stored.get("email") or runtime.get("email")
+        # Only flag lookup_error when stored data was incomplete and the
+        # runtime lookup failed — if stored data covers both fields the
+        # failure is irrelevant to the caller.
+        stored_complete = bool(stored.get("display_name") and stored.get("email"))
+        lookup_error = not stored_complete and runtime.get("lookup_error", False)
         merged.append({
             "uid": uid,
             "role": role,
-            "display_name": stored.get("display_name") or runtime.get("display_name"),
-            "email": stored.get("email") or runtime.get("email"),
+            "display_name": display_name,
+            "email": email,
+            "lookup_error": lookup_error,
         })
     return merged
 
