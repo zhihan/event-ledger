@@ -216,6 +216,8 @@ def _merge_member_details(room: Room) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 class ScheduleRuleIn(BaseModel):
+    """Request schema for a recurrence rule. Validates and converts to ScheduleRule via to_model()."""
+
     frequency: Literal["daily", "weekly", "weekdays", "custom", "once"]
     weekdays: list[int | str] = []
     interval: int = 1
@@ -230,6 +232,7 @@ class ScheduleRuleIn(BaseModel):
     @classmethod
     def validate_weekdays(cls, v):
         """Normalize weekday values: accept ints 1-7 or day-name strings."""
+        # Automatically invoked by pydantic.
         result: list[int] = []
         for day in v:
             if isinstance(day, int):

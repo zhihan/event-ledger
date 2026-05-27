@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from assistant_actions import PendingAction
 from models import (
     CheckIn,
     Occurrence,
@@ -626,3 +627,645 @@ class TestCheckInReport:
              patch("series_storage.list_check_ins_for_series", return_value=[]):
             resp = teacher_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# ScheduleRuleIn validation
+# ---------------------------------------------------------------------------
+
+class TestScheduleRuleInValidation:
+    def test_weekdays_accepts_string_day_names(self):
+        from api_v2 import ScheduleRuleIn
+        r = ScheduleRuleIn(frequency="weekly", weekdays=["MON", "WED", "FRI"])
+        assert r.weekdays == [1, 3, 5]
+
+    def test_weekdays_accepts_string_integers(self):
+        from api_v2 import ScheduleRuleIn
+        r = ScheduleRuleIn(frequency="weekly", weekdays=["2", "4"])
+        assert r.weekdays == [2, 4]
+
+    def test_weekdays_deduplicates_and_sorts(self):
+        from api_v2 import ScheduleRuleIn
+        r = ScheduleRuleIn(frequency="weekly", weekdays=[3, 1, 3])
+        assert r.weekdays == [1, 3]
+
+    def test_weekdays_rejects_out_of_range_int(self):
+        from api_v2 import ScheduleRuleIn
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            ScheduleRuleIn(frequency="weekly", weekdays=[8])
+
+    def test_weekdays_rejects_invalid_string(self):
+        from api_v2 import ScheduleRuleIn
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            ScheduleRuleIn(frequency="weekly", weekdays=["BLAH"])
+
+    def test_to_model_with_aware_until(self):
+        from api_v2 import ScheduleRuleIn
+        from datetime import timezone
+        r = ScheduleRuleIn(frequency="weekly", until="2026-12-31T00:00:00+00:00")
+        model = r.to_model()
+        assert model.until is not None
+        assert model.until.tzinfo is not None
+
+    def test_to_model_with_naive_until_gets_utc(self):
+        from api_v2 import ScheduleRuleIn
+        from datetime import timezone
+        r = ScheduleRuleIn(frequency="weekly", until="2026-12-31T00:00:00")
+        model = r.to_model()
+        assert model.until.tzinfo == timezone.utc
+
+    def test_invalid_frequency_rejected(self):
+        from api_v2 import ScheduleRuleIn
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            ScheduleRuleIn(frequency="monthly")
+
+
+# ---------------------------------------------------------------------------
+# CreateSeriesRequest / UpdateSeriesRequest validators
+# ---------------------------------------------------------------------------
+
+class TestCreateSeriesValidation:
+    def test_rejects_deprecated_rotation_location_type(self):
+        import pydantic
+        from api_v2 import CreateSeriesRequest, ScheduleRuleIn
+        with pytest.raises(pydantic.ValidationError, match="rotation"):
+            CreateSeriesRequest(
+                kind="meeting", title="X",
+                schedule_rule=ScheduleRuleIn(frequency="weekly"),
+                location_type="rotation",
+            )
+
+    def test_host_rotation_required_when_mode_set(self):
+        import pydantic
+        from api_v2 import CreateSeriesRequest, ScheduleRuleIn
+        with pytest.raises(pydantic.ValidationError, match="host_rotation"):
+            CreateSeriesRequest(
+                kind="meeting", title="X",
+                schedule_rule=ScheduleRuleIn(frequency="weekly"),
+                rotation_mode="host_only",
+                host_rotation=[],
+            )
+
+    def test_host_addresses_strips_empty_keys(self, organizer_client):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.create_series", side_effect=lambda s: s):
+            resp = organizer_client.post(
+                "/v2/rooms/rm-1/series",
+                json={
+                    "kind": "meeting", "title": "X",
+                    "schedule_rule": {"frequency": "weekly"},
+                    "host_addresses": {"uid-a": "123 Main St", "": "ignored"},
+                },
+                headers=AUTH,
+            )
+        assert resp.status_code == 201
+        assert "" not in resp.json().get("host_addresses", {})
+
+
+class TestUpdateSeriesValidation:
+    def test_rejects_deprecated_rotation_location_type(self):
+        import pydantic
+        from api_v2 import UpdateSeriesRequest
+        with pytest.raises(pydantic.ValidationError, match="rotation"):
+            UpdateSeriesRequest(location_type="rotation")
+
+    def test_no_fields_returns_400(self, organizer_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = organizer_client.patch(
+                "/v2/series/s-1",
+                json={},
+                headers=AUTH,
+            )
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# List rooms
+# ---------------------------------------------------------------------------
+
+class TestListRooms:
+    def test_returns_rooms_with_series_count(self, organizer_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("room_storage.list_rooms_for_user", return_value=[rm]), \
+             patch("series_storage.list_series_for_room", return_value=[series]):
+            resp = organizer_client.get("/v2/rooms", headers=AUTH)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["rooms"]) == 1
+        assert data["rooms"][0]["series_count"] == 1
+
+    def test_returns_empty_list(self, organizer_client):
+        with patch("room_storage.list_rooms_for_user", return_value=[]):
+            resp = organizer_client.get("/v2/rooms", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["rooms"] == []
+
+
+# ---------------------------------------------------------------------------
+# Invite endpoints
+# ---------------------------------------------------------------------------
+
+class TestCreateInvite:
+    def test_organizer_can_create_invite(self, organizer_client):
+        rm = _make_room()
+        invite = {
+            "invite_id": "inv-1",
+            "room_id": "rm-1",
+            "role": "participant",
+            "created_by": ORGANIZER_UID,
+            "expires_at": _utcnow(),
+        }
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("room_storage.create_room_invite", return_value=invite):
+            resp = organizer_client.post(
+                "/v2/rooms/rm-1/invites",
+                json={"role": "participant"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 201
+        assert resp.json()["invite_id"] == "inv-1"
+
+    def test_participant_cannot_create_invite(self, participant_client):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.post(
+                "/v2/rooms/rm-1/invites",
+                json={"role": "participant"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Remove member errors
+# ---------------------------------------------------------------------------
+
+class TestRemoveMemberErrors:
+    def test_remove_member_propagates_value_error_as_400(self, organizer_client):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("room_storage.remove_member", side_effect=ValueError("cannot remove last organizer")):
+            resp = organizer_client.delete(
+                f"/v2/rooms/rm-1/members/{ORGANIZER_UID}",
+                headers=AUTH,
+            )
+        assert resp.status_code == 400
+        assert "organizer" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Delete series
+# ---------------------------------------------------------------------------
+
+class TestDeleteSeries:
+    def test_organizer_can_delete_series(self, organizer_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.delete_series"):
+            resp = organizer_client.delete("/v2/series/s-1", headers=AUTH)
+        assert resp.status_code == 204
+
+    def test_participant_cannot_delete_series(self, participant_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.delete("/v2/series/s-1", headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Create occurrence
+# ---------------------------------------------------------------------------
+
+class TestCreateOccurrence:
+    def test_organizer_can_create_occurrence(self, organizer_client):
+        rm = _make_room()
+        series = _make_series()
+        occ = _make_occurrence()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.create_single_occurrence", return_value=occ):
+            resp = organizer_client.post(
+                "/v2/series/s-1/occurrences",
+                json={"scheduled_for": "2026-04-06T13:00:00+00:00"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 201
+        assert resp.json()["occurrence_id"] == "occ-1"
+
+    def test_participant_cannot_create_occurrence(self, participant_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.post(
+                "/v2/series/s-1/occurrences",
+                json={"scheduled_for": "2026-04-06T13:00:00+00:00"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# List series occurrences
+# ---------------------------------------------------------------------------
+
+class TestListSeriesOccurrences:
+    def test_member_can_list_series_occurrences(self, participant_client):
+        rm = _make_room()
+        series = _make_series()
+        occs = [_make_occurrence()]
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=occs):
+            resp = participant_client.get("/v2/series/s-1/occurrences", headers=AUTH)
+        assert resp.status_code == 200
+        assert len(resp.json()["occurrences"]) == 1
+
+    def test_outsider_cannot_list_series_occurrences(self, outsider_client):
+        rm = _make_room()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = outsider_client.get("/v2/series/s-1/occurrences", headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Occurrence navigation (prev/next) and 404
+# ---------------------------------------------------------------------------
+
+class TestGetOccurrenceNavigation:
+    def test_get_occurrence_404(self, participant_client):
+        with patch("series_storage.get_occurrence", return_value=None):
+            resp = participant_client.get("/v2/occurrences/no-such", headers=AUTH)
+        assert resp.status_code == 404
+
+    def test_prev_and_next_links_populated(self, participant_client):
+        rm = _make_room()
+        occ1 = _make_occurrence(occurrence_id="occ-1", scheduled_for="2026-04-06T13:00:00+00:00")
+        occ2 = _make_occurrence(occurrence_id="occ-2", scheduled_for="2026-04-13T13:00:00+00:00")
+        occ3 = _make_occurrence(occurrence_id="occ-3", scheduled_for="2026-04-20T13:00:00+00:00")
+        with patch("series_storage.get_occurrence", return_value=occ2), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[occ1, occ2, occ3]):
+            resp = participant_client.get("/v2/occurrences/occ-2", headers=AUTH)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["prev_occurrence_id"] == "occ-1"
+        assert data["next_occurrence_id"] == "occ-3"
+
+    def test_first_occurrence_has_no_prev(self, participant_client):
+        rm = _make_room()
+        occ1 = _make_occurrence(occurrence_id="occ-1")
+        occ2 = _make_occurrence(occurrence_id="occ-2")
+        with patch("series_storage.get_occurrence", return_value=occ1), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[occ1, occ2]):
+            resp = participant_client.get("/v2/occurrences/occ-1", headers=AUTH)
+        assert resp.json()["prev_occurrence_id"] is None
+        assert resp.json()["next_occurrence_id"] == "occ-2"
+
+
+# ---------------------------------------------------------------------------
+# Update occurrence advanced branches
+# ---------------------------------------------------------------------------
+
+class TestUpdateOccurrenceAdvanced:
+    def test_get_occurrence_404(self, organizer_client):
+        with patch("series_storage.get_occurrence", return_value=None):
+            resp = organizer_client.patch(
+                "/v2/occurrences/no-such",
+                json={"status": "cancelled"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 404
+
+    def test_complete_occurrence(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        completed = _make_occurrence(status="completed")
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.complete_occurrence", return_value=completed):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"status": "completed"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "completed"
+
+    def test_reschedule_occurrence(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        rescheduled = _make_occurrence(scheduled_for="2026-04-13T13:00:00+00:00")
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.reschedule_occurrence", return_value=rescheduled):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"scheduled_for": "2026-04-13T13:00:00+00:00"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+
+    def test_edit_occurrence_overrides(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        edited = _make_occurrence(overrides=OccurrenceOverrides(location="Room 202"))
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("api_v2.edit_occurrence", return_value=edited):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"overrides": {"location": "Room 202"}},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+
+    def test_update_location(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        updated = _make_occurrence(location="Room 303")
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.update_occurrence", return_value=updated):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"location": "Room 303"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+
+    def test_no_valid_field_returns_400(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={},
+                headers=AUTH,
+            )
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Delete occurrence
+# ---------------------------------------------------------------------------
+
+class TestDeleteOccurrence:
+    def test_organizer_can_delete_occurrence(self, organizer_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.delete_occurrence"):
+            resp = organizer_client.delete("/v2/occurrences/occ-1", headers=AUTH)
+        assert resp.status_code == 204
+
+    def test_delete_occurrence_404(self, organizer_client):
+        with patch("series_storage.get_occurrence", return_value=None):
+            resp = organizer_client.delete("/v2/occurrences/no-such", headers=AUTH)
+        assert resp.status_code == 404
+
+    def test_participant_cannot_delete_occurrence(self, participant_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = participant_client.delete("/v2/occurrences/occ-1", headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Update check-in
+# ---------------------------------------------------------------------------
+
+def _make_check_in(**kwargs) -> CheckIn:
+    defaults = dict(
+        check_in_id="ci-1",
+        occurrence_id="occ-1",
+        series_id="s-1",
+        room_id="rm-1",
+        user_id=PARTICIPANT_UID,
+        status="confirmed",
+    )
+    defaults.update(kwargs)
+    return CheckIn(**defaults)
+
+
+class TestUpdateCheckIn:
+    def test_owner_can_update_check_in(self, participant_client):
+        rm = _make_room()
+        ci = _make_check_in()
+        with patch("series_storage.get_check_in", return_value=ci), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.save_check_in"):
+            resp = participant_client.patch(
+                "/v2/check-ins/ci-1",
+                json={"status": "declined"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+
+    def test_organizer_can_update_others_check_in(self, organizer_client):
+        rm = _make_room()
+        ci = _make_check_in(user_id=PARTICIPANT_UID)
+        with patch("series_storage.get_check_in", return_value=ci), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.save_check_in"):
+            resp = organizer_client.patch(
+                "/v2/check-ins/ci-1",
+                json={"status": "confirmed"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+
+    def test_update_check_in_404(self, participant_client):
+        with patch("series_storage.get_check_in", return_value=None):
+            resp = participant_client.patch(
+                "/v2/check-ins/no-such",
+                json={"status": "confirmed"},
+                headers=AUTH,
+            )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Delete check-in
+# ---------------------------------------------------------------------------
+
+class TestDeleteCheckIn:
+    def test_owner_can_delete_check_in(self, participant_client):
+        rm = _make_room()
+        ci = _make_check_in()
+        with patch("series_storage.get_check_in", return_value=ci), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.delete_check_in"):
+            resp = participant_client.delete("/v2/check-ins/ci-1", headers=AUTH)
+        assert resp.status_code == 204
+
+    def test_organizer_can_delete_others_check_in(self, organizer_client):
+        rm = _make_room()
+        ci = _make_check_in(user_id=PARTICIPANT_UID)
+        with patch("series_storage.get_check_in", return_value=ci), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.delete_check_in"):
+            resp = organizer_client.delete("/v2/check-ins/ci-1", headers=AUTH)
+        assert resp.status_code == 204
+
+    def test_delete_check_in_404(self, participant_client):
+        with patch("series_storage.get_check_in", return_value=None):
+            resp = participant_client.delete("/v2/check-ins/no-such", headers=AUTH)
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# ICS export endpoints
+# ---------------------------------------------------------------------------
+
+class TestICSExportEndpoints:
+    def test_occurrence_ics_returns_calendar(self, participant_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        series = _make_series()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.get_series", return_value=series):
+            resp = participant_client.get("/v2/occurrences/occ-1/ics", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/calendar")
+        assert b"BEGIN:VCALENDAR" in resp.content
+
+    def test_occurrence_ics_404(self, participant_client):
+        with patch("series_storage.get_occurrence", return_value=None):
+            resp = participant_client.get("/v2/occurrences/no-such/ics", headers=AUTH)
+        assert resp.status_code == 404
+
+    def test_series_ics_returns_calendar(self, participant_client):
+        rm = _make_room()
+        series = _make_series()
+        occ = _make_occurrence()
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[occ]):
+            resp = participant_client.get("/v2/series/s-1/ics", headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/calendar")
+        assert b"BEGIN:VCALENDAR" in resp.content
+
+    def test_outsider_cannot_get_occurrence_ics(self, outsider_client):
+        rm = _make_room()
+        occ = _make_occurrence()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = outsider_client.get("/v2/occurrences/occ-1/ics", headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Public endpoints
+# ---------------------------------------------------------------------------
+
+class TestPublicEndpoints:
+    def test_public_occurrence_summary(self, organizer_client):
+        occ = _make_occurrence()
+        series = _make_series()
+        with patch("series_storage.get_occurrence", return_value=occ), \
+             patch("series_storage.get_series", return_value=series):
+            resp = organizer_client.get(f"/v2/public/occurrences/occ-1/summary")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["occurrence_id"] == "occ-1"
+        assert data["series_title"] == "Weekly Standup"
+
+    def test_public_occurrence_summary_404(self, organizer_client):
+        with patch("series_storage.get_occurrence", return_value=None):
+            resp = organizer_client.get("/v2/public/occurrences/no-such/summary")
+        assert resp.status_code == 404
+
+    def test_public_invite_info(self, organizer_client):
+        rm = _make_room()
+        invite = {"invite_id": "inv-1", "room_id": "rm-1", "role": "participant"}
+        with patch("room_storage.find_room_invite", return_value=invite), \
+             patch("room_storage.get_room", return_value=rm):
+            resp = organizer_client.get("/v2/public/invites/inv-1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["room_id"] == "rm-1"
+        assert data["room_title"] == "Standups"
+
+    def test_public_invite_info_404(self, organizer_client):
+        with patch("room_storage.find_room_invite", return_value=None):
+            resp = organizer_client.get("/v2/public/invites/no-such")
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Cancel action
+# ---------------------------------------------------------------------------
+
+def _make_pending_action(**kwargs) -> PendingAction:
+    defaults = dict(
+        action_id="act-1",
+        room_id="rm-1",
+        requested_by_uid=ORGANIZER_UID,
+        action_type="skip_occurrence",
+        payload={},
+        preview_summary="Skip occurrence occ-1",
+        status="pending",
+    )
+    defaults.update(kwargs)
+    return PendingAction(**defaults)
+
+
+class TestCancelAction:
+    def test_owner_can_cancel_action(self, organizer_client):
+        action = _make_pending_action()
+        with patch("api_v2.get_pending_action", return_value=action), \
+             patch("api_v2.update_pending_action_status"):
+            resp = organizer_client.post(
+                "/v2/assistant/actions/act-1/cancel",
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "cancelled"
+
+    def test_cancel_action_404(self, organizer_client):
+        with patch("api_v2.get_pending_action", return_value=None):
+            resp = organizer_client.post(
+                "/v2/assistant/actions/no-such/cancel",
+                headers=AUTH,
+            )
+        assert resp.status_code == 404
+
+    def test_cancel_action_wrong_owner_403(self, participant_client):
+        action = _make_pending_action(requested_by_uid=ORGANIZER_UID)
+        with patch("api_v2.get_pending_action", return_value=action):
+            resp = participant_client.post(
+                "/v2/assistant/actions/act-1/cancel",
+                headers=AUTH,
+            )
+        assert resp.status_code == 403
+
+    def test_cancel_already_executed_action_409(self, organizer_client):
+        action = _make_pending_action(status="executed")
+        with patch("api_v2.get_pending_action", return_value=action):
+            resp = organizer_client.post(
+                "/v2/assistant/actions/act-1/cancel",
+                headers=AUTH,
+            )
+        assert resp.status_code == 409
