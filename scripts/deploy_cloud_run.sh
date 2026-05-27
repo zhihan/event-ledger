@@ -11,7 +11,7 @@ gcloud run deploy "${SERVICE}" \
   --project "${PROJECT}" \
   --region "${REGION}" \
   --source . \
-  --set-env-vars "EVENT_LEDGER_USER_ID=cambridge-lexington,GOOGLE_CLOUD_PROJECT=${PROJECT},LIVING_MEMORY_FIRESTORE_DATABASE=(default)"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT},LIVING_MEMORY_FIRESTORE_DATABASE=living-memories-db"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE}" \
   --project "${PROJECT}" \

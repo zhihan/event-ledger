@@ -1,7 +1,8 @@
-"""API v2 — Rooms, Series, Occurrences, and CheckIns.
+"""API v2 — all business-logic routes for Small Group.
 
-Mounted at /v2 on the main FastAPI app.  All routes enforce role-based
-permissions using the same Firebase Auth token verification as the v1 API.
+Mounted by api.py (the app entry point), which handles infrastructure
+concerns: CORS, logging, the /api prefix middleware, and exception handlers.
+There is no longer a v1 router; this file is the sole router.
 
 Route overview:
   POST   /v2/rooms
