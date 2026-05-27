@@ -632,29 +632,6 @@ which surface to test on. Unless noted otherwise, test both.
 
 ---
 
-## 11 Notification Rules
-
-### 11.1 Create a notification rule (API)
-
-1. `POST /v2/rooms/{room_id}/notification-rules` with a rule body (e.g., remind 1 hour before).
-
-**Expected:** Rule is saved. `GET /v2/rooms/{room_id}/notification-rules` returns it.
-
-### 11.2 Delete a notification rule (API)
-
-1. `DELETE /v2/notification-rules/{rule_id}`.
-
-**Expected:** Rule is removed. No longer returned in the list.
-
-### 11.3 Notification delivery
-
-1. Create a notification rule for a room with upcoming occurrences.
-2. Wait for the scheduled delivery time.
-
-**Expected:** Notification is delivered through the configured channel. Delivery log is recorded.
-
----
-
 ## 12 AI Assistant — In-App (Web, Organizer Only)
 
 ### 12.1 Send a message to the assistant
