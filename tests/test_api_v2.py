@@ -358,6 +358,48 @@ class TestSeriesEndpoints:
             resp = organizer_client.get("/v2/series/no-such", headers=AUTH)
         assert resp.status_code == 404
 
+    def test_regenerate_schedule_uses_room_timezone(self, organizer_client):
+        rm = _make_room(timezone="America/New_York")
+        original = _make_series(
+            schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),
+            default_time="09:00",
+        )
+        updated = _make_series(
+            schedule_rule=ScheduleRule(frequency="weekly", weekdays=[3]),
+            default_time="09:00",
+        )
+        existing = [
+            _make_occurrence(
+                occurrence_id="occ-monday",
+                scheduled_for="2026-06-01T13:00:00+00:00",
+            ),
+        ]
+        new_occ = _make_occurrence(
+            occurrence_id="occ-wednesday",
+            scheduled_for="2026-06-03T13:00:00+00:00",
+        )
+
+        with (
+            patch("series_storage.get_series", return_value=original),
+            patch("room_storage.get_room", return_value=rm),
+            patch("series_storage.update_series", return_value=updated),
+            patch("series_storage.list_occurrences_for_series", return_value=existing),
+            patch("series_storage.delete_occurrence") as mock_delete,
+            patch("occurrence_service.generate_and_save", return_value=[new_occ]),
+        ):
+            resp = organizer_client.patch(
+                "/v2/series/s-1",
+                json={
+                    "schedule_rule": {"frequency": "weekly", "weekdays": [3]},
+                    "schedule_mode": "regenerate",
+                },
+                headers=AUTH,
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["schedule_result"] == {"deleted": 1, "created": 1}
+        mock_delete.assert_called_once_with("occ-monday")
+
 
 # ---------------------------------------------------------------------------
 # Occurrence endpoints

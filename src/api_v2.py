@@ -41,6 +41,7 @@ import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import ClassVar, Literal, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, field_validator
@@ -781,7 +782,7 @@ def update_series(
             new_times = gen_occ_times(
                 rule=updated.schedule_rule,
                 default_time=updated.default_time,
-                timezone=rm.timezone or "UTC",
+                timezone=ZoneInfo(rm.timezone or "UTC"),
                 start_date=start_date,
                 end_date=end_date,
             )
