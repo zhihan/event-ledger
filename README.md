@@ -1,6 +1,6 @@
 # Small Group
 
-Small Group is a Firebase- and Firestore-backed recurring-schedule platform with rooms, series, occurrences, check-ins, notifications, and an organizer assistant.
+Small Group is a Firebase- and Firestore-backed recurring-schedule platform with rooms, series, occurrences, check-ins, Telegram bot integration, and an organizer assistant.
 
 The current web app is deployed at `https://small-group.ai`.
 
@@ -9,7 +9,7 @@ The current web app is deployed at `https://small-group.ai`.
 ### Backend
 
 - `src/api.py` is the main FastAPI entry point (health check, middleware, mounts the v2 router).
-- `src/api_v2.py` exposes the room, series, occurrence, check-in, notification, ICS, Telegram webhook, and assistant APIs.
+- `src/api_v2.py` exposes the room, series, occurrence, check-in, ICS export, Telegram webhook, and assistant APIs.
 - `src/db.py` provides the shared Firestore client factory.
 - Firestore is the primary datastore.
 - Firebase Auth provides user authentication for authenticated routes.
@@ -25,9 +25,7 @@ The current web app is deployed at `https://small-group.ai`.
 - `Series`
 - `Occurrence`
 - `CheckIn`
-- `NotificationRule`
-- `DeliveryLog`
-- `study_assignment` series for practice-oriented check-ins
+- `TelegramBotConfig` / `TelegramUserLink`
 
 ## Main User Flows
 
@@ -37,7 +35,7 @@ The current web app is deployed at `https://small-group.ai`.
 2. Create one or more recurring series in that room.
 3. Generate occurrences for a date window.
 4. Edit, reschedule, complete, or cancel individual occurrences.
-5. Record participant check-ins and configure notification rules.
+5. Record participant check-ins.
 
 ### Organizer assistant flow
 
@@ -75,9 +73,6 @@ Run a single test:
 | `GEMINI_API_KEY` | Required for AI-backed flows | Gemini API key |
 | `GOOGLE_CLOUD_PROJECT` | Usually required outside tests | GCP project ID |
 | `LIVING_MEMORY_FIRESTORE_DATABASE` | Optional | Firestore database name |
-| `TELEGRAM_BOT_TOKEN` | Optional | Legacy Telegram adapter only; room bots are configured via the API |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | Optional | Email notification delivery |
-| `FROM_EMAIL` | Optional | Sender address for email notifications |
 | `APP_BASE_URL` | Optional | Base URL used in links and ICS output |
 | `WEBHOOK_BASE_URL` | Optional | Public HTTPS base URL for Telegram webhooks; overrides `APP_BASE_URL` for bot setup |
 
@@ -122,7 +117,7 @@ Authenticated routes require a Firebase ID token in `Authorization: Bearer <toke
 - `/v2/occurrences/{occurrence_id}`
 - `/v2/occurrences/{occurrence_id}/check-ins`
 - `/v2/occurrences/{occurrence_id}/my-check-in`
-- `/v2/rooms/{room_id}/notification-rules`
+- `/v2/rooms/{room_id}/telegram-bot`
 - `/v2/rooms/{room_id}/assistant`
 - `/v2/assistant/actions/{action_id}/confirm`
 - `/v2/assistant/actions/{action_id}/cancel`
