@@ -40,7 +40,7 @@ import os
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import ClassVar, Optional
+from typing import ClassVar, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, field_validator
@@ -216,7 +216,7 @@ def _merge_member_details(room: Room) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 class ScheduleRuleIn(BaseModel):
-    frequency: str
+    frequency: Literal["daily", "weekly", "weekdays", "custom", "once"]
     weekdays: list[int | str] = []
     interval: int = 1
     until: Optional[str] = None

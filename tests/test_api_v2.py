@@ -392,7 +392,8 @@ class TestOccurrenceEndpoints:
         rm = _make_room()
         occ = _make_occurrence()
         with patch("series_storage.get_occurrence", return_value=occ), \
-             patch("room_storage.get_room", return_value=rm):
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.list_occurrences_for_series", return_value=[occ]):
             resp = participant_client.get("/v2/occurrences/occ-1", headers=AUTH)
         assert resp.status_code == 200
 

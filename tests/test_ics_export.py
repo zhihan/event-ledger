@@ -39,7 +39,7 @@ class TestOccurrenceToIcs:
     def test_uid_stable(self):
         from ics_export import occurrence_to_ics, calendar_to_bytes
         raw = calendar_to_bytes(occurrence_to_ics(_occ(occurrence_id='fixed-occ-id'), _series()))
-        assert b'fixed-occ-id@event-ledger.app' in raw
+        assert b'fixed-occ-id@small-group.ai' in raw
 
     def test_location_included(self):
         from ics_export import occurrence_to_ics, calendar_to_bytes
