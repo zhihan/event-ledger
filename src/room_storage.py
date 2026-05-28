@@ -70,7 +70,11 @@ def update_room(room_id: str, updates: dict) -> Room:
 
 
 def delete_room(room_id: str) -> None:
-    """Hard-delete a Room document. Does not cascade to sub-collections."""
+    """Hard-delete a Room document and its child series."""
+    import series_storage
+
+    for series in series_storage.list_series_for_room(room_id):
+        series_storage.delete_series(series.series_id)
     db = _get_client()
     db.collection(ROOMS_COLLECTION).document(room_id).delete()
 

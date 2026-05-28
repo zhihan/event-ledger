@@ -187,6 +187,32 @@ class TestUpdateRoom:
 
 
 # ---------------------------------------------------------------------------
+# delete_room
+# ---------------------------------------------------------------------------
+
+class TestDeleteRoom:
+    def test_deletes_child_series_before_room(self):
+        mock_db = MagicMock()
+        mock_room_ref = MagicMock()
+        mock_db.collection.return_value.document.return_value = mock_room_ref
+        series_1 = MagicMock()
+        series_1.series_id = "s-1"
+        series_2 = MagicMock()
+        series_2.series_id = "s-2"
+
+        with (
+            patch("room_storage._get_client", return_value=mock_db),
+            patch("series_storage.list_series_for_room", return_value=[series_1, series_2]) as mock_list_series,
+            patch("series_storage.delete_series") as mock_delete_series,
+        ):
+            delete_room("rm-1")
+
+        mock_list_series.assert_called_once_with("rm-1")
+        mock_delete_series.assert_has_calls([call("s-1"), call("s-2")])
+        mock_room_ref.delete.assert_called_once_with()
+
+
+# ---------------------------------------------------------------------------
 # add_member / remove_member / get_member_role
 # ---------------------------------------------------------------------------
 
