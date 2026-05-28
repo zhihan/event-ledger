@@ -15,8 +15,11 @@ class AcceptInviteScreen extends StatefulWidget {
 
 class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
   bool _loading = false;
+  bool _loadingInvite = true;
+  bool _alreadyAccepted = false;
   String? _error;
   String? _roomTitle;
+  String? _roomId;
 
   @override
   void initState() {
@@ -27,15 +30,34 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
   Future<void> _loadInviteInfo() async {
     try {
       final api = context.read<ApiService>();
+      final auth = context.read<AuthService>();
       final info = await api.getPublicInviteInfo(widget.inviteId);
-      if (mounted) setState(() => _roomTitle = info['room_title'] as String?);
+      final roomId = info['room_id'] as String?;
+      if (mounted) {
+        setState(() {
+          _roomTitle = info['room_title'] as String?;
+          _roomId = roomId;
+        });
+      }
+
+      if (roomId != null && auth.isSignedIn) {
+        try {
+          await api.getRoom(roomId);
+          if (mounted) setState(() => _alreadyAccepted = true);
+        } catch (_) {
+          // Not a member yet, or membership lookup is unavailable. Keep normal invite flow.
+        }
+      }
     } catch (_) {
       // non-critical, fall back to generic text
+    } finally {
+      if (mounted) setState(() => _loadingInvite = false);
     }
   }
 
   Future<void> _accept() async {
     final auth = context.read<AuthService>();
+    final api = context.read<ApiService>();
     if (!auth.isSignedIn) {
       // Sign in first
       try {
@@ -52,8 +74,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
       _error = null;
     });
     try {
-      final result =
-          await context.read<ApiService>().acceptInvite(widget.inviteId);
+      final result = await api.acceptInvite(widget.inviteId);
       if (mounted) {
         final roomId = result['room_id'] as String;
         context.go('/rooms/$roomId');
@@ -78,23 +99,39 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
             children: [
               const Icon(Icons.mail_outline, size: 48),
               const SizedBox(height: 16),
-              Text(
-                _roomTitle != null
-                    ? 'You have been invited to join $_roomTitle.'
-                    : 'You have been invited to join a room.',
-              ),
+              if (_alreadyAccepted && _roomId != null) ...[
+                const Text('You already accepted'),
+                const SizedBox(height: 8),
+                Text(
+                  _roomTitle != null
+                      ? 'You already joined $_roomTitle.'
+                      : 'You already joined this room.',
+                ),
+              ] else
+                Text(
+                  _roomTitle != null
+                      ? 'You have been invited to join $_roomTitle.'
+                      : 'You have been invited to join a room.',
+                ),
               const SizedBox(height: 24),
-              if (_loading)
+              if (_loading || _loadingInvite)
                 const CircularProgressIndicator()
+              else if (_alreadyAccepted && _roomId != null)
+                FilledButton(
+                  onPressed: () => context.go('/rooms/$_roomId'),
+                  child: const Text('Open Room'),
+                )
               else
                 FilledButton(
-                    onPressed: _accept,
-                    child: const Text('Accept Invite')),
+                  onPressed: _accept,
+                  child: const Text('Accept Invite'),
+                ),
               if (_error != null) ...[
                 const SizedBox(height: 16),
-                Text(_error!,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.error)),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
             ],
           ),

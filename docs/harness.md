@@ -160,8 +160,10 @@ which surface to test on. Unless noted otherwise, test both.
 1. Open the invite link in a browser or the app (while signed out or as a different user).
 2. Sign in if prompted.
 3. Tap **Accept Invite**.
+4. Open the same invite as another non-member and accept it.
+5. Open the same invite again as a user who already joined through that invite.
 
-**Expected:** User is added to the room and navigated to the room view. The new member appears in the member list.
+**Expected:** Each non-member can reuse the shareable invite until it expires, is added to the room, and is navigated to the room view. The new member appears in the member list. A user who already joined sees **You already accepted** with an option to open the room.
 
 ### 3.3 Remove a member (organizer only)
 

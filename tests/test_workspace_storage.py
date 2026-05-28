@@ -317,19 +317,54 @@ class TestRoomInvites:
         with pytest.raises(ValueError, match="Invalid role"):
             create_room_invite("rm-1", "uid-alice", role="superadmin")
 
-    def test_accept_already_accepted_raises(self):
+    def test_accept_invite_can_be_used_by_multiple_users(self):
         invite_data = {
             "invite_id": "inv-1",
             "room_id": "rm-1",
             "created_by": "uid-alice",
             "created_at": _utcnow(),
             "expires_at": _utcnow() + timedelta(days=7),
-            "accepted_by": "uid-charlie",  # already accepted
+            "accepted_by": "uid-charlie",
             "role": "participant",
         }
-        with patch("room_storage.find_room_invite", return_value=invite_data):
-            with pytest.raises(ValueError, match="already been accepted"):
-                accept_room_invite("inv-1", "uid-bob")
+        mock_db = MagicMock()
+        room_invite_ref = MagicMock()
+        lookup_ref = MagicMock()
+
+        def collection(name):
+            collection_ref = MagicMock()
+            if name == room_storage.ROOMS_COLLECTION:
+                room_ref = MagicMock()
+                room_ref.collection.return_value.document.return_value = room_invite_ref
+                collection_ref.document.return_value = room_ref
+            elif name == room_storage.ROOM_INVITE_LOOKUP_COLLECTION:
+                collection_ref.document.return_value = lookup_ref
+            return collection_ref
+
+        mock_db.collection.side_effect = collection
+        fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
+        fake_firestore_v1.ArrayUnion = lambda vals: ("__array_union__", vals)
+
+        with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
+            with patch("room_storage.find_room_invite", return_value=invite_data):
+                with patch("room_storage.add_member") as mock_add_member:
+                    with patch("room_storage._get_client", return_value=mock_db):
+                        invite = accept_room_invite("inv-1", "uid-bob")
+
+        mock_add_member.assert_called_once_with("rm-1", "uid-bob", "participant")
+        room_invite_ref.set.assert_called_once()
+        lookup_ref.set.assert_called_once()
+        room_invite_payload = room_invite_ref.set.call_args.args[0]
+        lookup_payload = lookup_ref.set.call_args.args[0]
+        assert room_invite_ref.set.call_args.kwargs == {"merge": True}
+        assert lookup_ref.set.call_args.kwargs == {"merge": True}
+        assert room_invite_payload["accepted_by"] == "uid-bob"
+        assert lookup_payload["accepted_by"] == "uid-bob"
+        assert room_invite_payload["accepted_by_uids"] == (
+            "__array_union__",
+            ["uid-charlie", "uid-bob"],
+        )
+        assert invite["accepted_by"] == "uid-bob"
 
     def test_accept_expired_raises(self):
         invite_data = {

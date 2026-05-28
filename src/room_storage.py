@@ -259,12 +259,10 @@ def find_room_invite(invite_id: str) -> dict | None:
 
 
 def accept_room_invite(invite_id: str, accepting_uid: str) -> dict:
-    """Accept a room invite: add user and mark invite consumed."""
+    """Accept a reusable room invite and record the accepting user."""
     invite = find_room_invite(invite_id)
     if invite is None:
         raise ValueError("Invite not found")
-    if invite.get("accepted_by") is not None:
-        raise ValueError("Invite has already been accepted")
     now = _utcnow()
     expires_at = invite.get("expires_at")
     if expires_at:
@@ -275,14 +273,26 @@ def accept_room_invite(invite_id: str, accepting_uid: str) -> dict:
     room_id = invite.get("room_id") or invite.get("workspace_id")
     role: MemberRole = invite.get("role", "participant")
     add_member(room_id, accepting_uid, role)
+    from google.cloud.firestore_v1 import ArrayUnion
+
     db = _get_client()
+    accepted_by_uids = [accepting_uid]
+    previous_accepted_by = invite.get("accepted_by")
+    if previous_accepted_by and previous_accepted_by != accepting_uid:
+        accepted_by_uids.insert(0, previous_accepted_by)
+    acceptance_updates = {
+        "accepted_by": accepting_uid,
+        "accepted_at": now,
+        "accepted_by_uids": ArrayUnion(accepted_by_uids),
+    }
     (db.collection(ROOMS_COLLECTION)
      .document(room_id)
      .collection(ROOM_INVITES_SUBCOLLECTION)
      .document(invite_id)
-     .update({"accepted_by": accepting_uid}))
+     .set(acceptance_updates, merge=True))
     (db.collection(ROOM_INVITE_LOOKUP_COLLECTION)
      .document(invite_id)
-     .set({"accepted_by": accepting_uid}, merge=True))
+     .set(acceptance_updates, merge=True))
     invite["accepted_by"] = accepting_uid
+    invite["accepted_at"] = now
     return invite
