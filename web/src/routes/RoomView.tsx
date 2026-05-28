@@ -68,7 +68,7 @@ export function RoomView() {
   const [formDuration, setFormDuration] = useState("60");
   const [formLocation, setFormLocation] = useState("");
   const [formLocationType, setFormLocationType] = useState<"none" | "fixed" | "per_occurrence">("none");
-  const [formCheckInDays, setFormCheckInDays] = useState<number[]>([]);
+  const [formEnableDone, setFormEnableDone] = useState(false);
   const [formLink, setFormLink] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -145,18 +145,8 @@ export function RoomView() {
   function toggleDay(day: number) {
     setFormDays((prev) => {
       const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
-      // Remove from check-in days if no longer a scheduled day
-      if (!next.includes(day)) {
-        setFormCheckInDays((ci) => ci.filter((d) => d !== day));
-      }
       return next;
     });
-  }
-
-  function toggleCheckInDay(day: number) {
-    setFormCheckInDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
-    );
   }
 
   async function handleCreateSeries(e: React.FormEvent) {
@@ -182,7 +172,7 @@ export function RoomView() {
         default_location: formLocation.trim() || undefined,
         default_online_link: formLink.trim() || undefined,
         location_type: formLocationType,
-        check_in_weekdays: formCheckInDays.length > 0 ? formCheckInDays : undefined,
+        enable_done: formEnableDone,
       });
       setShowForm(false);
       setFormTitle("");
@@ -193,7 +183,7 @@ export function RoomView() {
       setFormDuration("60");
       setFormLocation("");
       setFormLocationType("none");
-      setFormCheckInDays([]);
+      setFormEnableDone(false);
       setFormLink("");
       // Navigate to series detail
       navigate(`/room/${roomId}/series/${created.series_id}`);
@@ -514,29 +504,6 @@ export function RoomView() {
                 </div>
               </div>
             )}
-            {formDays.length > 0 && (
-              <div className="form-field">
-                <label>Self-practice days (enable check-in)</label>
-                <div className="days-toggle">
-                  {DAYS.map((day, i) => {
-                    const dv = DAY_VALUES[i];
-                    if (!formDays.includes(dv)) return null;
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`btn btn-day ${formCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
-                        onClick={() => toggleCheckInDay(dv)}
-                        disabled={formSubmitting}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="form-hint">Occurrences on these days will show a check-in button</span>
-              </div>
-            )}
             <div className="form-row">
               <div className="form-field form-field-half">
                 <label htmlFor="series-time">Start Time</label>
@@ -606,6 +573,22 @@ export function RoomView() {
                 />
               </div>
             )}
+            <div className="form-field">
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={formEnableDone}
+                  onChange={(e) => setFormEnableDone(e.target.checked)}
+                  disabled={formSubmitting}
+                />
+                <span>Show "Done" button</span>
+              </label>
+              {formEnableDone && (
+                <span className="form-hint">
+                  All generated occurrences in this series will show a Done button.
+                </span>
+              )}
+            </div>
             <div className="form-field">
               <label htmlFor="series-link">Online Link</label>
               <input

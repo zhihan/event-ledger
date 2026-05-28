@@ -18,11 +18,16 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
   String _frequency = 'weekly';
   final Set<int> _weekdays = {1}; // Monday default
   String _locationType = 'none';
-  final List<int> _checkInWeekdays = [];
+  bool _enableDone = false;
 
   static const _weekdayLabels = {
-    1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu',
-    5: 'Fri', 6: 'Sat', 7: 'Sun',
+    1: 'Mon',
+    2: 'Tue',
+    3: 'Wed',
+    4: 'Thu',
+    5: 'Fri',
+    6: 'Sat',
+    7: 'Sun',
   };
 
   void _submit() {
@@ -44,7 +49,7 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
       'location_type': _locationType,
       if (_descriptionController.text.isNotEmpty)
         'description': _descriptionController.text,
-      if (_checkInWeekdays.isNotEmpty) 'check_in_weekdays': _checkInWeekdays,
+      'enable_done': _enableDone,
     };
     Navigator.pop(context, body);
   }
@@ -108,14 +113,15 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _timeController,
-                decoration:
-                    const InputDecoration(labelText: 'Time (HH:MM)', hintText: '09:00'),
+                decoration: const InputDecoration(
+                  labelText: 'Time (HH:MM)',
+                  hintText: '09:00',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _durationController,
-                decoration:
-                    const InputDecoration(labelText: 'Duration (min)'),
+                decoration: const InputDecoration(labelText: 'Duration (min)'),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
@@ -125,7 +131,10 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
                 items: const [
                   DropdownMenuItem(value: 'none', child: Text('None')),
                   DropdownMenuItem(value: 'fixed', child: Text('Fixed')),
-                  DropdownMenuItem(value: 'per_occurrence', child: Text('Per Occurrence')),
+                  DropdownMenuItem(
+                    value: 'per_occurrence',
+                    child: Text('Per Occurrence'),
+                  ),
                 ],
                 onChanged: (v) => setState(() => _locationType = v!),
               ),
@@ -139,8 +148,16 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _linkController,
-                decoration:
-                    const InputDecoration(labelText: 'Online Link'),
+                decoration: const InputDecoration(labelText: 'Online Link'),
+              ),
+              SwitchListTile(
+                title: const Text('Show "Done" button'),
+                subtitle: const Text(
+                  'All generated occurrences in this series will show a Done button.',
+                ),
+                value: _enableDone,
+                onChanged: (value) => setState(() => _enableDone = value),
+                contentPadding: EdgeInsets.zero,
               ),
             ],
           ),
@@ -148,7 +165,9 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Create')),
       ],
     );

@@ -579,6 +579,26 @@ class TestEnableDone:
         assert resp.status_code == 201
         assert resp.json()["enable_done"] is True
 
+    def test_create_series_ignores_legacy_check_in_weekdays(self, organizer_client):
+        rm = _make_room()
+        with patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.create_series", side_effect=lambda s: s) as mock_create:
+            resp = organizer_client.post(
+                "/v2/rooms/rm-1/series",
+                json={
+                    "kind": "meeting",
+                    "title": "Study Group",
+                    "schedule_rule": {"frequency": "weekly", "weekdays": [1]},
+                    "enable_done": True,
+                    "check_in_weekdays": [1],
+                },
+                headers=AUTH,
+            )
+        assert resp.status_code == 201
+        created_series = mock_create.call_args[0][0]
+        assert created_series.enable_done is True
+        assert created_series.check_in_weekdays is None
+
     def test_update_series_enable_done(self, organizer_client):
         rm = _make_room()
         series = _make_series(enable_done=False)
@@ -594,6 +614,22 @@ class TestEnableDone:
             )
         assert resp.status_code == 200
         assert resp.json()["enable_done"] is True
+
+    def test_update_series_ignores_legacy_check_in_weekdays(self, organizer_client):
+        rm = _make_room()
+        series = _make_series(enable_done=False)
+        updated_series = _make_series(enable_done=True)
+        with patch("series_storage.get_series", return_value=series), \
+             patch("room_storage.get_room", return_value=rm), \
+             patch("series_storage.update_series", return_value=updated_series) as mock_update, \
+             patch("occurrence_service.apply_check_in_days"):
+            resp = organizer_client.patch(
+                "/v2/series/s-1",
+                json={"enable_done": True, "check_in_weekdays": [1]},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        mock_update.assert_called_once_with("s-1", {"enable_done": True})
 
     def test_patch_occurrence_enable_check_in(self, organizer_client):
         rm = _make_room()

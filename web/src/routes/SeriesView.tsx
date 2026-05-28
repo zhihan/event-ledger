@@ -75,7 +75,6 @@ export function SeriesView() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editFreq, setEditFreq] = useState("weekly");
   const [editDays, setEditDays] = useState<number[]>([1]);
-  const [editCheckInDays, setEditCheckInDays] = useState<number[]>([]);
   const [scheduleConfirmMode, setScheduleConfirmMode] = useState<null | "pending">(null);
 
   const [editExtendDate, setEditExtendDate] = useState("");
@@ -173,7 +172,6 @@ export function SeriesView() {
     setEditHostAddresses(series.host_addresses ?? {});
     setEditFreq(series.schedule_rule?.frequency ?? "weekly");
     setEditDays((series.schedule_rule?.weekdays ?? [1]).map(Number).filter((n) => n >= 1 && n <= 7));
-    setEditCheckInDays(series.check_in_weekdays ?? []);
     setScheduleConfirmMode(null);
     setEditing(true);
     setEditError(null);
@@ -182,10 +180,6 @@ export function SeriesView() {
   function toggleEditDay(d: number) {
     setEditDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
   }
-  function toggleEditCheckInDay(d: number) {
-    setEditCheckInDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
-  }
-
   function hasScheduleChanged(): boolean {
     if (!series) return false;
     const origFreq = series.schedule_rule?.frequency ?? "weekly";
@@ -255,7 +249,6 @@ export function SeriesView() {
         host_addresses: editRotationMode === "host_and_location"
           ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k]) => k.trim()))
           : undefined,
-        check_in_weekdays: editCheckInDays.length > 0 ? editCheckInDays : undefined,
         ...(scheduleRule ? { schedule_rule: scheduleRule, schedule_mode: mode } : {}),
       };
       console.log("PATCH series payload:", JSON.stringify(updates, null, 2));
@@ -711,40 +704,15 @@ export function SeriesView() {
               <input
                 type="checkbox"
                 checked={editEnableDone}
-                onChange={(e) => {
-                  setEditEnableDone(e.target.checked);
-                  if (!e.target.checked) setEditCheckInDays([]);
-                }}
+                onChange={(e) => setEditEnableDone(e.target.checked)}
                 disabled={editSubmitting}
               />
               <span>Show "Done" button</span>
             </label>
-            {editEnableDone && editDays.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <label style={{ fontSize: "0.9rem", color: "#666", marginBottom: "0.25rem", display: "block" }}>on:</label>
-                <div className="days-toggle">
-                  {DAYS.map((day, i) => {
-                    const dv = DAY_VALUES[i];
-                    if (!editDays.includes(dv)) return null;
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
-                        onClick={() => toggleEditCheckInDay(dv)}
-                        disabled={editSubmitting}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="form-hint">
-                  {editCheckInDays.length === 0
-                    ? "All occurrences — or edit individual occurrences to choose"
-                    : "Only occurrences on selected days"}
-                </span>
-              </div>
+            {editEnableDone && (
+              <span className="form-hint">
+                All generated occurrences in this series will show a Done button.
+              </span>
             )}
           </div>
           <div className="form-field">

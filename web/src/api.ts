@@ -250,7 +250,7 @@ export async function createSeries(
     default_online_link?: string;
     location_type?: "none" | "fixed" | "per_occurrence" | "rotation";
     location_rotation?: string[];
-    check_in_weekdays?: number[];
+    enable_done?: boolean;
   },
 ): Promise<SeriesSummary> {
   const resp = await apiFetch(`/v2/rooms/${roomId}/series`, {
@@ -292,7 +292,6 @@ export async function patchSeries(
     title: string;
     description: string;
     default_time: string;
-    check_in_weekdays: number[];
     enable_done: boolean;
     default_duration_minutes: number;
     default_location: string;

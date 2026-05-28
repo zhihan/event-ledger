@@ -241,10 +241,9 @@ which surface to test on. Unless noted otherwise, test both.
 
 1. Edit a series.
 2. Toggle **Show "Done" button** on.
-3. Optionally restrict to specific weekdays via the day filter.
-4. Save.
+3. Save.
 
-**Expected:** The "Done" button appears on occurrences that fall on the selected days.
+**Expected:** The "Done" button appears on generated occurrences in the series.
 
 ### 4.6 Generate schedule
 
